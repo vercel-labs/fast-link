@@ -17,6 +17,11 @@ import { readPublishablePackages } from './publishable-packages.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
 const fixtures = [];
+const fixtureVersions = {
+  earlier: '1.2.2',
+  current: '1.2.3',
+  later: '1.2.4',
+};
 
 afterEach(() => {
   for (const fixture of fixtures.splice(0)) {
@@ -89,16 +94,16 @@ describe('release detection', () => {
     const packages = [
       {
         directory: 'packages/core',
-        manifest: { name: '@fast-link/core', version: '0.0.1' },
+        manifest: { name: '@fast-link/core', version: fixtureVersions.current },
       },
       {
         directory: 'packages/next',
-        manifest: { name: '@fast-link/next', version: '0.0.1' },
+        manifest: { name: '@fast-link/next', version: fixtureVersions.current },
       },
     ];
 
     const pending = detectPackageReleases(packages, (name) =>
-      name === '@fast-link/core' ? ['0.0.1'] : null,
+      name === '@fast-link/core' ? [fixtureVersions.current] : null,
     );
 
     expect(pending.map(({ directory }) => directory)).toEqual([
@@ -115,11 +120,11 @@ describe('package release intent', () => {
     ]);
     writeJson(join(root, 'packages/core/package.json'), {
       ...packageManifest,
-      version: '0.0.1',
+      version: fixtureVersions.earlier,
     });
 
     expect(checkPackageVersions({ base, root })).toEqual([
-      'Package release requested for @fast-link/core: new package at 0.0.1.',
+      `Package release requested for @fast-link/core: new package at ${fixtureVersions.earlier}.`,
     ]);
   });
 
@@ -127,11 +132,11 @@ describe('package release intent', () => {
     const { root, base } = createRepository();
     writeJson(join(root, 'packages/core/package.json'), {
       ...packageManifest,
-      version: '0.0.1',
+      version: fixtureVersions.earlier,
     });
 
     expect(() => checkPackageVersions({ base, root })).toThrow(
-      'version must increase: 0.1.0 -> 0.0.1',
+      `version must increase: ${fixtureVersions.current} -> ${fixtureVersions.earlier}`,
     );
   });
 
@@ -155,11 +160,11 @@ describe('package release intent', () => {
     );
     writeJson(join(root, 'packages/core/package.json'), {
       ...packageManifest,
-      version: '0.1.1',
+      version: fixtureVersions.later,
     });
 
     expect(checkPackageVersions({ base, root })).toEqual([
-      'Package release requested for @fast-link/core: 0.1.0 -> 0.1.1.',
+      `Package release requested for @fast-link/core: ${fixtureVersions.current} -> ${fixtureVersions.later}.`,
     ]);
   });
 
@@ -242,25 +247,25 @@ describe('packed package verification', () => {
   it('accepts the rechecked name and version', () => {
     expect(
       verifyPackedPackage(
-        { name: '@fast-link/core', version: '0.1.0' },
-        { name: '@fast-link/core', version: '0.1.0' },
+        { name: '@fast-link/core', version: fixtureVersions.current },
+        { name: '@fast-link/core', version: fixtureVersions.current },
       ),
-    ).toBe('@fast-link/core@0.1.0');
+    ).toBe(`@fast-link/core@${fixtureVersions.current}`);
   });
 
   it('rejects a manifest changed by packing hooks', () => {
     expect(() =>
       verifyPackedPackage(
-        { name: '@fast-link/core', version: '9.0.0' },
-        { name: '@fast-link/core', version: '0.1.0' },
+        { name: '@fast-link/core', version: fixtureVersions.later },
+        { name: '@fast-link/core', version: fixtureVersions.current },
       ),
-    ).toThrow('expected @fast-link/core@0.1.0');
+    ).toThrow(`expected @fast-link/core@${fixtureVersions.current}`);
   });
 });
 
 const packageManifest = {
   name: '@fast-link/core',
-  version: '0.1.0',
+  version: fixtureVersions.current,
   type: 'module',
   files: ['dist', 'CHANGELOG.md', 'LICENSE', 'README.md'],
   exports: { '.': './dist/index.js' },
