@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { checkPackageVersions } from './check-package-version.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
@@ -25,7 +26,9 @@ afterEach(() => {
 
 describe('publishable packages', () => {
   it('publishes nothing while the allowlist is empty', () => {
-    expect(readPublishablePackages()).toEqual([]);
+    const { root } = createRepository({ publishablePackages: [] });
+
+    expect(readPublishablePackages(root)).toEqual([]);
   });
 });
 
@@ -42,11 +45,16 @@ describe('release workflow', () => {
   });
 
   it('reports no publish candidates while the allowlist is empty', () => {
+    const { root } = createRepository({ publishablePackages: [] });
     const output = execFileSync(
       process.execPath,
-      ['scripts/detect-package-releases.mjs'],
+      [
+        fileURLToPath(
+          new URL('./detect-package-releases.mjs', import.meta.url),
+        ),
+      ],
       {
-        cwd: new URL('..', import.meta.url),
+        cwd: root,
         encoding: 'utf8',
       },
     );
@@ -56,11 +64,17 @@ describe('release workflow', () => {
   });
 
   it('rejects an explicit package outside the allowlist', () => {
+    const { root } = createRepository({ publishablePackages: [] });
     const result = spawnSync(
       process.execPath,
-      ['scripts/detect-package-releases.mjs', 'packages/core'],
+      [
+        fileURLToPath(
+          new URL('./detect-package-releases.mjs', import.meta.url),
+        ),
+        'packages/core',
+      ],
       {
-        cwd: new URL('..', import.meta.url),
+        cwd: root,
         encoding: 'utf8',
       },
     );
@@ -94,6 +108,33 @@ describe('release detection', () => {
 });
 
 describe('package release intent', () => {
+  it('accepts an initial version when an existing package enters the allowlist', () => {
+    const { root, base } = createRepository({ publishablePackages: [] });
+    writeJson(join(root, 'scripts/publishable-packages.json'), [
+      'packages/core',
+    ]);
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      version: '0.0.1',
+    });
+
+    expect(checkPackageVersions({ base, root })).toEqual([
+      'Package release requested for @fast-link/core: new package at 0.0.1.',
+    ]);
+  });
+
+  it('rejects a decreasing version for an already publishable package', () => {
+    const { root, base } = createRepository();
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      version: '0.0.1',
+    });
+
+    expect(() => checkPackageVersions({ base, root })).toThrow(
+      'version must increase: 0.1.0 -> 0.0.1',
+    );
+  });
+
   it('rejects source changes without a version bump', () => {
     const { root, base } = createRepository();
     writeFileSync(
@@ -226,10 +267,13 @@ const packageManifest = {
   scripts: { build: 'tsdown' },
 };
 
-function createRepository() {
+function createRepository({ publishablePackages = ['packages/core'] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fast-link-release-'));
   fixtures.push(root);
-  writeJson(join(root, 'scripts/publishable-packages.json'), ['packages/core']);
+  writeJson(
+    join(root, 'scripts/publishable-packages.json'),
+    publishablePackages,
+  );
   writeJson(join(root, 'packages/core/package.json'), packageManifest);
   writeFile(
     join(root, 'packages/core/src/index.ts'),

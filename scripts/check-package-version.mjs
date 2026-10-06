@@ -64,26 +64,17 @@ export function checkPackageVersions({ base, root = process.cwd() }) {
   for (const { directory, manifest: current } of readPublishablePackages(
     root,
   )) {
-    const manifestPath = `${directory}/package.json`;
-    let baseDirectory = directory;
-    let baseSource = readBaseFile(root, base, manifestPath);
-    if (!baseSource) {
-      const movedPackage = basePackages.find(
-        ({ manifest }) => manifest.name === current.name,
-      );
-      if (movedPackage) {
-        baseDirectory = movedPackage.directory;
-        baseSource = JSON.stringify(movedPackage.manifest);
-      }
-    }
-    if (!baseSource) {
+    const basePackage =
+      basePackages.find((entry) => entry.directory === directory) ??
+      basePackages.find(({ manifest }) => manifest.name === current.name);
+    if (!basePackage) {
       messages.push(
         `Package release requested for ${current.name}: new package at ${current.version}.`,
       );
       continue;
     }
 
-    const previous = JSON.parse(baseSource);
+    const { directory: baseDirectory, manifest: previous } = basePackage;
     const packageContentChanged = changedFiles.some(
       (path) =>
         isPackageContentInput(path, directory, current.files) ||
