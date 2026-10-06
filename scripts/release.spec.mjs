@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { checkPackageVersions } from './check-package-version.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
@@ -16,6 +17,11 @@ import { readPublishablePackages } from './publishable-packages.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
 const fixtures = [];
+const fixtureVersions = {
+  earlier: '1.2.2',
+  current: '1.2.3',
+  later: '1.2.4',
+};
 
 afterEach(() => {
   for (const fixture of fixtures.splice(0)) {
@@ -25,7 +31,9 @@ afterEach(() => {
 
 describe('publishable packages', () => {
   it('publishes nothing while the allowlist is empty', () => {
-    expect(readPublishablePackages()).toEqual([]);
+    const { root } = createRepository({ publishablePackages: [] });
+
+    expect(readPublishablePackages(root)).toEqual([]);
   });
 });
 
@@ -42,11 +50,16 @@ describe('release workflow', () => {
   });
 
   it('reports no publish candidates while the allowlist is empty', () => {
+    const { root } = createRepository({ publishablePackages: [] });
     const output = execFileSync(
       process.execPath,
-      ['scripts/detect-package-releases.mjs'],
+      [
+        fileURLToPath(
+          new URL('./detect-package-releases.mjs', import.meta.url),
+        ),
+      ],
       {
-        cwd: new URL('..', import.meta.url),
+        cwd: root,
         encoding: 'utf8',
       },
     );
@@ -56,11 +69,17 @@ describe('release workflow', () => {
   });
 
   it('rejects an explicit package outside the allowlist', () => {
+    const { root } = createRepository({ publishablePackages: [] });
     const result = spawnSync(
       process.execPath,
-      ['scripts/detect-package-releases.mjs', 'packages/core'],
+      [
+        fileURLToPath(
+          new URL('./detect-package-releases.mjs', import.meta.url),
+        ),
+        'packages/core',
+      ],
       {
-        cwd: new URL('..', import.meta.url),
+        cwd: root,
         encoding: 'utf8',
       },
     );
@@ -75,16 +94,16 @@ describe('release detection', () => {
     const packages = [
       {
         directory: 'packages/core',
-        manifest: { name: '@fast-link/core', version: '0.0.1' },
+        manifest: { name: '@fast-link/core', version: fixtureVersions.current },
       },
       {
         directory: 'packages/next',
-        manifest: { name: '@fast-link/next', version: '0.0.1' },
+        manifest: { name: '@fast-link/next', version: fixtureVersions.current },
       },
     ];
 
     const pending = detectPackageReleases(packages, (name) =>
-      name === '@fast-link/core' ? ['0.0.1'] : null,
+      name === '@fast-link/core' ? [fixtureVersions.current] : null,
     );
 
     expect(pending.map(({ directory }) => directory)).toEqual([
@@ -94,6 +113,33 @@ describe('release detection', () => {
 });
 
 describe('package release intent', () => {
+  it('accepts an initial version when an existing package enters the allowlist', () => {
+    const { root, base } = createRepository({ publishablePackages: [] });
+    writeJson(join(root, 'scripts/publishable-packages.json'), [
+      'packages/core',
+    ]);
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      version: fixtureVersions.earlier,
+    });
+
+    expect(checkPackageVersions({ base, root })).toEqual([
+      `Package release requested for @fast-link/core: new package at ${fixtureVersions.earlier}.`,
+    ]);
+  });
+
+  it('rejects a decreasing version for an already publishable package', () => {
+    const { root, base } = createRepository();
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      version: fixtureVersions.earlier,
+    });
+
+    expect(() => checkPackageVersions({ base, root })).toThrow(
+      `version must increase: ${fixtureVersions.current} -> ${fixtureVersions.earlier}`,
+    );
+  });
+
   it('rejects source changes without a version bump', () => {
     const { root, base } = createRepository();
     writeFileSync(
@@ -114,11 +160,11 @@ describe('package release intent', () => {
     );
     writeJson(join(root, 'packages/core/package.json'), {
       ...packageManifest,
-      version: '0.1.1',
+      version: fixtureVersions.later,
     });
 
     expect(checkPackageVersions({ base, root })).toEqual([
-      'Package release requested for @fast-link/core: 0.1.0 -> 0.1.1.',
+      `Package release requested for @fast-link/core: ${fixtureVersions.current} -> ${fixtureVersions.later}.`,
     ]);
   });
 
@@ -201,35 +247,38 @@ describe('packed package verification', () => {
   it('accepts the rechecked name and version', () => {
     expect(
       verifyPackedPackage(
-        { name: '@fast-link/core', version: '0.1.0' },
-        { name: '@fast-link/core', version: '0.1.0' },
+        { name: '@fast-link/core', version: fixtureVersions.current },
+        { name: '@fast-link/core', version: fixtureVersions.current },
       ),
-    ).toBe('@fast-link/core@0.1.0');
+    ).toBe(`@fast-link/core@${fixtureVersions.current}`);
   });
 
   it('rejects a manifest changed by packing hooks', () => {
     expect(() =>
       verifyPackedPackage(
-        { name: '@fast-link/core', version: '9.0.0' },
-        { name: '@fast-link/core', version: '0.1.0' },
+        { name: '@fast-link/core', version: fixtureVersions.later },
+        { name: '@fast-link/core', version: fixtureVersions.current },
       ),
-    ).toThrow('expected @fast-link/core@0.1.0');
+    ).toThrow(`expected @fast-link/core@${fixtureVersions.current}`);
   });
 });
 
 const packageManifest = {
   name: '@fast-link/core',
-  version: '0.1.0',
+  version: fixtureVersions.current,
   type: 'module',
   files: ['dist', 'CHANGELOG.md', 'LICENSE', 'README.md'],
   exports: { '.': './dist/index.js' },
   scripts: { build: 'tsdown' },
 };
 
-function createRepository() {
+function createRepository({ publishablePackages = ['packages/core'] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fast-link-release-'));
   fixtures.push(root);
-  writeJson(join(root, 'scripts/publishable-packages.json'), ['packages/core']);
+  writeJson(
+    join(root, 'scripts/publishable-packages.json'),
+    publishablePackages,
+  );
   writeJson(join(root, 'packages/core/package.json'), packageManifest);
   writeFile(
     join(root, 'packages/core/src/index.ts'),
