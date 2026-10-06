@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
+  "remoteCache": {
+    "enabled": false
+  },
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["build", "^build", "^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^build", "^test"]
+    },
+    "test:browser": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "size": {
+      "dependsOn": ["^build"]
+    }
+  }
+}

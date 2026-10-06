@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      packages: ${{ steps.releases.outputs.packages }}
+      has_packages: ${{ steps.releases.outputs.has_packages }}
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Detect unpublished versions
+        id: releases
+        run: node scripts/detect-package-releases.mjs >> "$GITHUB_OUTPUT"
+
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format
+      - run: pnpm lint
+      - run: pnpm test:root
+      - run: pnpm exec turbo run build typecheck test size
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @fast-link/core exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm test:browser
+      - run: pnpm exec turbo run build --filter='./fixtures/*'
+      - run: pnpm test:fixtures
+
+  publish:
+    needs: [detect, validate, browser]
+    if: ${{ github.ref == 'refs/heads/main' && needs.detect.outputs.has_packages == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      max-parallel: 1
+      matrix:
+        package: ${{ fromJSON(needs.detect.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Recheck unpublished version
+        id: recheck
+        env:
+          PACKAGE_DIR: ${{ matrix.package }}
+        run: node scripts/detect-package-releases.mjs "$PACKAGE_DIR" >> "$GITHUB_OUTPUT"
+
+      - if: steps.recheck.outputs.has_packages == 'true'
+        uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
+
+      - name: Install dependencies
+        if: steps.recheck.outputs.has_packages == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install provenance-capable npm
+        if: steps.recheck.outputs.has_packages == 'true'
+        run: |
+          set -eo pipefail
+          verify_sigstore() {
+            node -e "require.resolve('sigstore', { paths: ['$(npm root -g)/npm/node_modules/libnpmpublish/lib'] })"
+          }
+          npm install -g npm@11 --force --registry=https://registry.npmjs.org
+          if ! verify_sigstore; then
+            npm install -g npm@11 --force --registry=https://registry.npmjs.org
+            verify_sigstore
+          fi
+
+      - name: Build package
+        if: steps.recheck.outputs.has_packages == 'true'
+        env:
+          PACKAGE_DIR: ${{ matrix.package }}
+        run: pnpm exec turbo run build --filter="./$PACKAGE_DIR"
+
+      - name: Pack package
+        if: steps.recheck.outputs.has_packages == 'true'
+        env:
+          PACKAGE_DIR: ${{ matrix.package }}
+        run: pnpm --dir "$PACKAGE_DIR" pack --out "$RUNNER_TEMP/package.tgz"
+
+      - name: Verify packed package
+        if: steps.recheck.outputs.has_packages == 'true'
+        env:
+          EXPECTED_PACKAGE_NAME: ${{ steps.recheck.outputs.package_name }}
+          EXPECTED_PACKAGE_VERSION: ${{ steps.recheck.outputs.package_version }}
+        run: tar -xOf "$RUNNER_TEMP/package.tgz" package/package.json | node scripts/verify-packed-package.mjs
+
+      - name: Publish to npm
+        if: steps.recheck.outputs.has_packages == 'true'
+        run: npm publish "$RUNNER_TEMP/package.tgz" --access public --provenance --registry=https://registry.npmjs.org --@fast-link:registry=https://registry.npmjs.org

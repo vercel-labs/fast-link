@@ -1,0 +1,6 @@
+# Default maintainer ownership for all files.
+* @rvnewolf
+
+# Protect the release workflow's identity for npm Trusted Publishing.
+/.github/workflows/release.yml @rvnewolf
+/.github/CODEOWNERS @rvnewolf

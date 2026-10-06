@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Check package release intent
+        run: node scripts/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check generated Next.js fixtures
+        run: pnpm fixtures:check
+
+      - name: Format
+        run: pnpm format
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test release tooling
+        run: pnpm test:root
+
+      - name: Build, typecheck, test, and check size
+        run: pnpm exec turbo run build typecheck test size
+
+      - name: Pack and inspect packages
+        run: |
+          for package_dir in packages/core packages/next; do
+            archive="$RUNNER_TEMP/$(basename "$package_dir").tgz"
+            package_name=$(node -p "require('./$package_dir/package.json').name")
+            package_version=$(node -p "require('./$package_dir/package.json').version")
+            pnpm --dir "$package_dir" pack --out "$archive"
+            tar -xOf "$archive" package/package.json \
+              | EXPECTED_PACKAGE_NAME="$package_name" EXPECTED_PACKAGE_VERSION="$package_version" node scripts/verify-packed-package.mjs
+            tar -tf "$archive"
+          done
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install browsers
+        run: pnpm --filter @fast-link/core exec playwright install --with-deps chromium firefox webkit
+
+      - name: Run browser tests
+        run: pnpm test:browser
+
+      - name: Build Next.js fixtures
+        run: pnpm exec turbo run build --filter='./fixtures/*'
+
+      - name: Run App Router fixtures
+        run: pnpm test:fixtures
