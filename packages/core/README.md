@@ -10,8 +10,8 @@ instead.
 
 ## Requirements
 
-- Node.js 24
-- A browser DOM
+Requires a browser DOM. See [`package.json`](./package.json) for the supported
+Node.js version.
 
 ## Install the package
 

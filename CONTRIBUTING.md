@@ -5,8 +5,7 @@ behavior, React lifecycle, and Next.js App Router integration.
 
 ## Requirements
 
-- Node.js 24
-- pnpm 10.32.1
+Use the Node.js and pnpm versions specified in [`package.json`](./package.json).
 
 ## Set up the repository
 
@@ -17,8 +16,8 @@ pnpm install
 pnpm validate
 ```
 
-`pnpm validate` checks generated fixtures, formatting, linting, release tooling,
-builds, types, unit and browser behavior, Next.js fixtures, and package sizes.
+`pnpm validate` checks formatting, linting, release tooling, builds, types, unit
+and browser behavior, the Next.js fixture, and package sizes.
 
 ## Understand the package boundaries
 
@@ -37,8 +36,7 @@ accepted architecture decisions.
 
 ## Test Next.js integrations
 
-Run the built Next.js 15 and 16 App Router fixtures in Chromium, Firefox, and
-WebKit:
+Run the built Next.js App Router fixture in Chromium, Firefox, and WebKit:
 
 ```sh
 pnpm test:fixtures

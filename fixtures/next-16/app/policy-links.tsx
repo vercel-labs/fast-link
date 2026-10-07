@@ -1,6 +1,3 @@
-// Generated from fixtures/next-shared/app/policy-links.tsx.
-// Run `pnpm fixtures:generate` after editing the source.
-
 'use client';
 
 import {

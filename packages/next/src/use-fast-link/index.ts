@@ -21,12 +21,16 @@ type LinkProps = ComponentPropsWithoutRef<typeof Link>;
 export type UseFastLinkOptions<T extends HTMLElement = HTMLElement> = Partial<
   Pick<
     LinkProps,
-    'href' | 'as' | 'legacyBehavior' | 'replace' | 'scroll' | 'onNavigate'
+    | 'href'
+    | 'as'
+    | 'legacyBehavior'
+    | 'replace'
+    | 'scroll'
+    | 'onNavigate'
+    | 'transitionTypes'
   >
 > &
   NavigationOptions & {
-    /** Passed to the App Router on supported Next versions. */
-    transitionTypes?: string[];
     /** Composed with the returned ref and cleaned up on replacement or unmount. */
     forwardedRef?: ForwardedRef<T>;
   };

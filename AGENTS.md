@@ -11,6 +11,8 @@ decisions.
 - `packages/next` owns App Router Link and region navigation. It depends on
   core and the React package, and must not duplicate core eligibility or
   import private Next.js modules.
+- Keep the production fixture on a pinned Next.js version within
+  `packages/next`'s peer range.
 
 ## Runtime contracts
 

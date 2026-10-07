@@ -1,5 +1,20 @@
-import type { AnchorHTMLAttributes } from 'react';
+import type Link from 'next/link';
+import type { AnchorHTMLAttributes, ComponentPropsWithoutRef } from 'react';
 import type { Mock } from 'vitest';
+
+type LinkProps = ComponentPropsWithoutRef<typeof Link>;
+type TestLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> &
+  Pick<
+    LinkProps,
+    | 'href'
+    | 'as'
+    | 'replace'
+    | 'scroll'
+    | 'prefetch'
+    | 'onNavigate'
+    | 'legacyBehavior'
+    | 'transitionTypes'
+  >;
 
 type Router = { push: Mock; replace: Mock };
 
@@ -18,27 +33,7 @@ vi.mock('next/link', async () => {
   const { createElement, forwardRef } =
     await vi.importActual<typeof import('react')>('react');
   return {
-    default: forwardRef<
-      HTMLAnchorElement,
-      Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
-        href:
-          | string
-          | {
-              pathname?: string;
-              query?: Record<string, string>;
-              hash?: string;
-              protocol?: string;
-              host?: string;
-            };
-        as?: string;
-        replace?: boolean;
-        scroll?: boolean;
-        prefetch?: boolean | null;
-        onNavigate?: (event: { preventDefault(): void }) => void;
-        legacyBehavior?: boolean;
-        transitionTypes?: string[];
-      }
-    >(function TestLink(
+    default: forwardRef<HTMLAnchorElement, TestLinkProps>(function TestLink(
       {
         href,
         as,
@@ -53,11 +48,7 @@ vi.mock('next/link', async () => {
       },
       ref,
     ) {
-      const destination =
-        as ??
-        (typeof href === 'string'
-          ? href
-          : `${href.protocol ?? ''}${href.host ?? ''}${href.pathname ?? ''}${href.query ? `?${new URLSearchParams(href.query)}` : ''}${href.hash ? `#${href.hash.replace(/^#/, '')}` : ''}`);
+      const destination = toMockHref(as ?? href);
       const renderedHref = destination.startsWith('/')
         ? `/docs${destination}`
         : destination;
@@ -75,6 +66,15 @@ vi.mock('next/link', async () => {
     }),
   };
 });
+
+function toMockHref(href: LinkProps['href']): string {
+  if (typeof href === 'string') return href;
+  const query = href.query
+    ? `?${new URLSearchParams(href.query as Record<string, string>)}`
+    : '';
+  const hash = href.hash ? `#${href.hash.replace(/^#/, '')}` : '';
+  return `${href.protocol ?? ''}${href.host ?? ''}${href.pathname ?? ''}${query}${hash}`;
+}
 
 beforeEach(() => {
   routing.current = router;

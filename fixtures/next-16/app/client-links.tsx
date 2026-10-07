@@ -1,6 +1,3 @@
-// Generated from fixtures/next-shared/app/client-links.tsx.
-// Run `pnpm fixtures:generate` after editing the source.
-
 'use client';
 
 import { FastLink, FastLinkRegion } from '@fast-link/next';
@@ -26,10 +23,15 @@ export function ClientLinks(): JSX.Element {
       >
         Cancel
       </FastLink>
-      <FastLink href="/fast" data-testid="native" enabled={false}>
+      <FastLink
+        href="/fast"
+        data-testid="native"
+        enabled={false}
+        prefetch="auto"
+      >
         Native
       </FastLink>
-      <FastLink href="/fast" as="/fast" data-testid="as">
+      <FastLink href="/slow" as="/fast" data-testid="as">
         As
       </FastLink>
       <FastLink href="/fast" legacyBehavior>

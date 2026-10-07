@@ -28,8 +28,8 @@ provide.
 
 ## Get started with the Next.js App Router
 
-Fast Link requires Node.js 24. `@fast-link/next` supports Next.js
-`^15.5.24 || ^16.3.6` and React 18 or later.
+See [`@fast-link/next`'s package manifest](./packages/next/package.json) for
+supported Node.js, Next.js, and React versions.
 
 ```sh
 npm install @fast-link/next

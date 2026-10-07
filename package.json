@@ -4,8 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "turbo run build",
-    "fixtures:check": "node scripts/generate-next-fixtures.mjs --check",
-    "fixtures:generate": "node scripts/generate-next-fixtures.mjs",
     "format": "oxfmt --check",
     "format:fix": "oxfmt .",
     "lint": "oxlint .",
@@ -17,7 +15,7 @@
     "test:fixtures": "node scripts/test-next-fixtures.mjs",
     "test:root": "vitest run --globals scripts/*.spec.mjs",
     "typecheck": "turbo run typecheck",
-    "validate": "pnpm fixtures:check && pnpm format && pnpm lint && pnpm test:root && pnpm build && pnpm typecheck && pnpm test && pnpm test:browser && pnpm test:fixtures && pnpm size"
+    "validate": "pnpm format && pnpm lint && pnpm test:root && pnpm build && pnpm typecheck && pnpm test && pnpm test:browser && pnpm test:fixtures && pnpm size"
   },
   "devDependencies": {
     "lefthook": "2.1.5",

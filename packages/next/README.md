@@ -6,9 +6,8 @@ regions and individual links, plus a hook for custom renderers.
 
 ## Requirements
 
-- Node.js 24
-- Next.js `^15.5.24 || ^16.3.6`
-- React 18 or later
+See [`package.json`](./package.json) for supported Node.js, Next.js, and React
+versions.
 
 ## Install the package
 
@@ -121,8 +120,8 @@ export function AccountLink() {
 ```
 
 `FastLink` supports object `href`, `replace`, `scroll`, `onNavigate`, and
-`transitionTypes` on Next.js 16. Its anchor controller takes priority over a
-containing `FastLinkRegion`, including when the link is disabled.
+`transitionTypes`. Its anchor controller takes priority over a containing
+`FastLinkRegion`, including when the link is disabled.
 
 ## Understand navigation and click behavior
 
@@ -173,9 +172,9 @@ and navigation is still attempted if it throws.
 `FastLinkProps` includes every prop accepted by `next/link` plus the shared
 options above. `href` remains required.
 
-Fast navigation preserves `replace`, `scroll`, and supported `transitionTypes`
-options. `transitionTypes` requires Next.js 16. `onNavigate` can cancel Fast
-Link before policy evaluation, observation, or navigation.
+Fast navigation preserves `replace`, `scroll`, and `transitionTypes` options.
+`onNavigate` can cancel Fast Link before policy evaluation, observation, or
+navigation.
 
 ### `FastLinkRegion`
 
@@ -195,10 +194,9 @@ Nested regions retain outer-first capture ordering. A managed `FastLink` or
 `useFastLink(options)` returns a callback ref for an application-owned anchor or
 optional-href element. It accepts:
 
-- `href`, `as`, `legacyBehavior`, `replace`, `scroll`, and `onNavigate` from
-  `next/link`
+- `href`, `as`, `legacyBehavior`, `replace`, `scroll`, `onNavigate`, and
+  `transitionTypes` from `next/link`
 - The shared `enabled`, `navigationPolicy`, and `onFastNavigate` options
-- `transitionTypes` on supported Next.js versions
 - `forwardedRef` for composing the caller's ref
 
 A missing `href`, a supplied `as`, `legacyBehavior={true}`, or a non-anchor root
