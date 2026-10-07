@@ -7,261 +7,253 @@ import { fileURLToPath } from 'node:url';
 
 import { chromium, firefox, webkit } from 'playwright';
 
-for (const version of ['next-15', 'next-16']) {
-  const port = await freePort();
-  const origin = `http://127.0.0.1:${port}`;
-  const child = spawn(
-    process.execPath,
-    [
-      fileURLToPath(
-        new URL(
-          `../fixtures/${version}/node_modules/next/dist/bin/next`,
-          import.meta.url,
-        ),
+const version = 'next-16';
+const port = await freePort();
+const fixtureOrigin = `http://127.0.0.1:${port}`;
+const serverProcess = spawn(
+  process.execPath,
+  [
+    fileURLToPath(
+      new URL(
+        `../fixtures/${version}/node_modules/next/dist/bin/next`,
+        import.meta.url,
       ),
-      'start',
-      '--hostname',
-      '127.0.0.1',
-      '--port',
-      String(port),
-    ],
-    {
-      cwd: fileURLToPath(new URL(`../fixtures/${version}/`, import.meta.url)),
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  );
-  let output = '';
-  child.stdout.on('data', (data) => {
-    output += data.toString();
-  });
-  child.stderr.on('data', (data) => {
-    output += data.toString();
-  });
+    ),
+    'start',
+    '--hostname',
+    '127.0.0.1',
+    '--port',
+    String(port),
+  ],
+  {
+    cwd: fileURLToPath(new URL(`../fixtures/${version}/`, import.meta.url)),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  },
+);
+let output = '';
+serverProcess.stdout.on('data', (data) => {
+  output += data.toString();
+});
+serverProcess.stderr.on('data', (data) => {
+  output += data.toString();
+});
 
-  try {
-    await waitForServer(`${origin}/docs`, child);
-    for (const [name, browserType] of Object.entries({
-      chromium,
-      firefox,
-      webkit,
-    })) {
-      const browser = await browserType.launch();
-      try {
-        const page = await browser.newPage();
-        await page.goto(`${origin}/docs`);
-        await pressBeforeRelease(
-          page,
+try {
+  await waitForServer(`${fixtureOrigin}/docs`, serverProcess);
+  for (const [name, browserType] of Object.entries({
+    chromium,
+    firefox,
+    webkit,
+  })) {
+    const browser = await browserType.launch();
+    try {
+      const page = await browser.newPage();
+      await page.goto(`${fixtureOrigin}/docs`);
+      await pressBeforeRelease(
+        page,
+        'fast',
+        /\/docs\/fast\?from=home#destination$/,
+      );
+      await page.goto(`${fixtureOrigin}/docs`);
+      await pressBeforeRelease(page, 'object', /\/docs\/object\?ref=a\+b$/);
+      await page.goto(`${fixtureOrigin}/docs`);
+      await page.getByTestId('cancel').click();
+      if (new URL(page.url()).pathname !== '/docs')
+        throw new Error('Canceled link navigated');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
+          'navigate,click',
+      );
+      await page.getByTestId('native').focus();
+      await page.keyboard.press('Enter');
+      await page.waitForURL(/\/docs\/fast$/);
+      await page.goto(`${fixtureOrigin}/docs`);
+      await pressAfterRelease(page, 'as', /\/docs\/fast$/);
+      await page.goto(`${fixtureOrigin}/docs`);
+      await pressAfterRelease(page, 'legacy', /\/docs\/fast$/);
+      await page.goto(`${fixtureOrigin}/docs`);
+      const slow = await page.getByTestId('slow').boundingBox();
+      if (!slow) throw new Error('Missing slow link');
+      await page.mouse.move(slow.x + slow.width / 2, slow.y + slow.height / 2);
+      await page.mouse.down();
+      await delay(150);
+      if ((await page.getByTestId('pending').textContent()) !== 'idle') {
+        throw new Error('useLinkStatus reported the fast path as pending');
+      }
+      await page.mouse.up();
+      await page.waitForURL(/\/docs\/slow$/);
+      await page.goto(`${fixtureOrigin}/docs`);
+      const churn = await page.getByTestId('churn').boundingBox();
+      if (!churn) throw new Error('Missing churn link');
+      await page.mouse.move(
+        churn.x + churn.width / 2,
+        churn.y + churn.height / 2,
+      );
+      await page.mouse.down();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
           'fast',
-          /\/docs\/fast\?from=home#destination$/,
+      );
+      if (
+        Number(await page.getByTestId('churn').getAttribute('data-ref-calls')) <
+        2
+      )
+        throw new Error('Updated callback ref was not called');
+      await page.mouse.up();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
+          'fast,prevented',
+      );
+      await page.waitForURL(/\/docs\/slow$/);
+      await checkBrowserNavigation(page, {
+        origin: fixtureOrigin,
+        testId: 'options',
+        destination: /\/docs\/fast\?from=options$/,
+        starts: 'pointerdown',
+        history: 'replace',
+        scroll: 'preserve',
+      });
+      await page.goto(`${fixtureOrigin}/docs`);
+      const beforeRegionHistory = await page.evaluate(() => history.length);
+      await pressBeforeRelease(
+        page,
+        'region-fast',
+        /\/docs\/fast\?from=region#destination$/,
+      );
+      await delay(150);
+      const afterRegionHistory = await page.evaluate(() => history.length);
+      if (afterRegionHistory !== beforeRegionHistory + 1)
+        throw new Error('Region link started more than one route');
+      await page.goto(`${fixtureOrigin}/docs`);
+      await page.getByTestId('region-native').focus();
+      await page.keyboard.press('Enter');
+      await page.waitForURL(/\/docs\/fast\?from=keyboard$/);
+      await page.goto(`${fixtureOrigin}/docs`);
+      await page.getByTestId('region-cancel').click();
+      if (new URL(page.url()).pathname !== '/docs')
+        throw new Error(
+          'Opted-out region link ignored onNavigate cancellation',
         );
-        await page.goto(`${origin}/docs`);
-        await pressBeforeRelease(page, 'object', /\/docs\/object\?ref=a\+b$/);
-        await page.goto(`${origin}/docs`);
-        await page.getByTestId('cancel').click();
-        if (new URL(page.url()).pathname !== '/docs')
-          throw new Error('Canceled link navigated');
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'navigate,click',
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
+          'region-click,region-cancel,region-parent',
+      );
+      await page.goto(`${fixtureOrigin}/docs`);
+      await page.getByTestId('region-guard').click();
+      if (new URL(page.url()).pathname !== '/docs')
+        throw new Error('Opted-out region link ignored its click guard');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
+          'region-guard,region-parent',
+      );
+      await page.goto(`${fixtureOrigin}/docs`);
+      await page.getByTestId('region-churn').scrollIntoViewIfNeeded();
+      const regionChurn = await page.getByTestId('region-churn').boundingBox();
+      if (!regionChurn) throw new Error('Missing region churn link');
+      await page.mouse.move(
+        regionChurn.x + regionChurn.width / 2,
+        regionChurn.y + regionChurn.height / 2,
+      );
+      await page.mouse.down();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
+          'region-fast',
+      );
+      if ((await page.getByTestId('region-pending').textContent()) !== 'idle')
+        throw new Error(
+          'Region useLinkStatus reported fast navigation as pending',
         );
-        await page.getByTestId('native').focus();
-        await page.keyboard.press('Enter');
-        await page.waitForURL(/\/docs\/fast$/);
-        await page.goto(`${origin}/docs`);
-        await pressAfterRelease(page, 'as', /\/docs\/fast$/);
-        await page.goto(`${origin}/docs`);
-        await pressAfterRelease(page, 'legacy', /\/docs\/fast$/);
-        await page.goto(`${origin}/docs`);
-        const slow = await page.getByTestId('slow').boundingBox();
-        if (!slow) throw new Error('Missing slow link');
-        await page.mouse.move(
-          slow.x + slow.width / 2,
-          slow.y + slow.height / 2,
-        );
-        await page.mouse.down();
+      await page.mouse.up();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="events"]')?.textContent ===
+          'region-fast,region-prevented,region-parent',
+      );
+      await page.waitForURL(/\/docs\/slow$/);
+      await checkBrowserNavigation(page, {
+        origin: fixtureOrigin,
+        testId: 'region-options',
+        destination: /\/docs\/fast\?from=region-options$/,
+        starts: 'click',
+        history: 'replace',
+        scroll: 'preserve',
+      });
+      await checkPolicyNavigation(page, fixtureOrigin);
+      const touchContext = await browser.newContext({ hasTouch: true });
+      try {
+        const touchPage = await touchContext.newPage();
+        await touchPage.goto(`${fixtureOrigin}/docs`);
+        await touchPage.getByTestId('region-native').evaluate((element) => {
+          element.dispatchEvent(
+            new PointerEvent('pointerdown', {
+              bubbles: true,
+              button: 0,
+              pointerType: 'touch',
+            }),
+          );
+        });
         await delay(150);
-        if ((await page.getByTestId('pending').textContent()) !== 'idle') {
-          throw new Error('useLinkStatus reported the fast path as pending');
-        }
-        await page.mouse.up();
-        await page.waitForURL(/\/docs\/slow$/);
-        await page.goto(`${origin}/docs`);
-        const churn = await page.getByTestId('churn').boundingBox();
-        if (!churn) throw new Error('Missing churn link');
-        await page.mouse.move(
-          churn.x + churn.width / 2,
-          churn.y + churn.height / 2,
+        if (new URL(touchPage.url()).pathname !== '/docs')
+          throw new Error('Region navigated on touch pointerdown');
+        const touchLink = await touchPage
+          .getByTestId('region-native')
+          .boundingBox();
+        if (!touchLink) throw new Error('Missing region touch link');
+        await touchPage.touchscreen.tap(
+          touchLink.x + touchLink.width / 2,
+          touchLink.y + touchLink.height / 2,
         );
-        await page.mouse.down();
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'fast',
+        await touchPage.waitForURL(/\/docs\/fast\?from=keyboard$/);
+        await touchPage.goto(`${fixtureOrigin}/docs`);
+        await touchPage.evaluate(() =>
+          sessionStorage.setItem('policy-actions', '0'),
+        );
+        const policyTouch = touchPage.getByTestId('policy-region-owned');
+        await policyTouch.scrollIntoViewIfNeeded();
+        await policyTouch.evaluate((element) =>
+          element.dispatchEvent(
+            new PointerEvent('pointerdown', {
+              bubbles: true,
+              button: 0,
+              pointerType: 'touch',
+            }),
+          ),
         );
         if (
-          Number(
-            await page.getByTestId('churn').getAttribute('data-ref-calls'),
-          ) < 2
+          (await touchPage.evaluate(() =>
+            sessionStorage.getItem('policy-actions'),
+          )) !== '0'
         )
-          throw new Error('Updated callback ref was not called');
-        await page.mouse.up();
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'fast,prevented',
-        );
-        await page.waitForURL(/\/docs\/slow$/);
-        await checkBrowserNavigation(page, {
-          origin,
-          testId: 'options',
-          destination: /\/docs\/fast\?from=options$/,
-          starts: 'pointerdown',
-          history: 'replace',
-          scroll: 'preserve',
-        });
-        await page.goto(`${origin}/docs`);
-        const beforeRegionHistory = await page.evaluate(() => history.length);
-        await pressBeforeRelease(
-          page,
-          'region-fast',
-          /\/docs\/fast\?from=region#destination$/,
-        );
-        await delay(150);
-        const afterRegionHistory = await page.evaluate(() => history.length);
-        if (afterRegionHistory !== beforeRegionHistory + 1)
-          throw new Error('Region link started more than one route');
-        await page.goto(`${origin}/docs`);
-        await page.getByTestId('region-native').focus();
-        await page.keyboard.press('Enter');
-        await page.waitForURL(/\/docs\/fast\?from=keyboard$/);
-        await page.goto(`${origin}/docs`);
-        await page.getByTestId('region-cancel').click();
-        if (new URL(page.url()).pathname !== '/docs')
-          throw new Error(
-            'Opted-out region link ignored onNavigate cancellation',
-          );
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'region-click,region-cancel,region-parent',
-        );
-        await page.goto(`${origin}/docs`);
-        await page.getByTestId('region-guard').click();
-        if (new URL(page.url()).pathname !== '/docs')
-          throw new Error('Opted-out region link ignored its click guard');
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'region-guard,region-parent',
-        );
-        await page.goto(`${origin}/docs`);
-        await page.getByTestId('region-churn').scrollIntoViewIfNeeded();
-        const regionChurn = await page
-          .getByTestId('region-churn')
-          .boundingBox();
-        if (!regionChurn) throw new Error('Missing region churn link');
-        await page.mouse.move(
-          regionChurn.x + regionChurn.width / 2,
-          regionChurn.y + regionChurn.height / 2,
-        );
-        await page.mouse.down();
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'region-fast',
-        );
-        if ((await page.getByTestId('region-pending').textContent()) !== 'idle')
-          throw new Error(
-            'Region useLinkStatus reported fast navigation as pending',
-          );
-        await page.mouse.up();
-        await page.waitForFunction(
-          () =>
-            document.querySelector('[data-testid="events"]')?.textContent ===
-            'region-fast,region-prevented,region-parent',
-        );
-        await page.waitForURL(/\/docs\/slow$/);
-        await checkBrowserNavigation(page, {
-          origin,
-          testId: 'region-options',
-          destination: /\/docs\/fast\?from=region-options$/,
-          starts: 'click',
-          history: 'replace',
-          scroll: 'preserve',
-        });
-        await checkPolicyNavigation(page, origin);
-        const touchContext = await browser.newContext({ hasTouch: true });
-        try {
-          const touchPage = await touchContext.newPage();
-          await touchPage.goto(`${origin}/docs`);
-          await touchPage.getByTestId('region-native').evaluate((element) => {
-            element.dispatchEvent(
-              new PointerEvent('pointerdown', {
-                bubbles: true,
-                button: 0,
-                pointerType: 'touch',
-              }),
-            );
-          });
-          await delay(150);
-          if (new URL(touchPage.url()).pathname !== '/docs')
-            throw new Error('Region navigated on touch pointerdown');
-          const touchLink = await touchPage
-            .getByTestId('region-native')
-            .boundingBox();
-          if (!touchLink) throw new Error('Missing region touch link');
-          await touchPage.touchscreen.tap(
-            touchLink.x + touchLink.width / 2,
-            touchLink.y + touchLink.height / 2,
-          );
-          await touchPage.waitForURL(/\/docs\/fast\?from=keyboard$/);
-          await touchPage.goto(`${origin}/docs`);
-          await touchPage.evaluate(() =>
-            sessionStorage.setItem('policy-actions', '0'),
-          );
-          const policyTouch = touchPage.getByTestId('policy-region-owned');
-          await policyTouch.scrollIntoViewIfNeeded();
-          await policyTouch.evaluate((element) =>
-            element.dispatchEvent(
-              new PointerEvent('pointerdown', {
-                bubbles: true,
-                button: 0,
-                pointerType: 'touch',
-              }),
-            ),
-          );
-          if (
-            (await touchPage.evaluate(() =>
-              sessionStorage.getItem('policy-actions'),
-            )) !== '0'
-          )
-            throw new Error('Policy intercepted touch pointerdown');
-          await policyTouch.tap();
-          await touchPage.waitForURL(/\/docs\/fast\?owner=owned$/);
-          if (
-            (await touchPage.evaluate(() =>
-              sessionStorage.getItem('policy-actions'),
-            )) !== '0'
-          )
-            throw new Error('Policy intercepted touch activation');
-        } finally {
-          await touchContext.close();
-        }
-        console.log(
-          `${version} ${name}: FastLink and FastLinkRegion pointerdown, basePath, native activation, opt-outs, follow-up click, replace, scroll, policy, custom renderer, document navigation passed`,
-        );
+          throw new Error('Policy intercepted touch pointerdown');
+        await policyTouch.tap();
+        await touchPage.waitForURL(/\/docs\/fast\?owner=owned$/);
+        if (
+          (await touchPage.evaluate(() =>
+            sessionStorage.getItem('policy-actions'),
+          )) !== '0'
+        )
+          throw new Error('Policy intercepted touch activation');
       } finally {
-        await browser.close();
+        await touchContext.close();
       }
+      console.log(
+        `${version} ${name}: FastLink and FastLinkRegion pointerdown, basePath, native activation, opt-outs, follow-up click, replace, scroll, policy, custom renderer, document navigation passed`,
+      );
+    } finally {
+      await browser.close();
     }
-  } catch (error) {
-    throw new Error(`${version} fixture failed:\n${output}`, { cause: error });
-  } finally {
-    child.kill('SIGTERM');
   }
+} catch (error) {
+  throw new Error(`${version} fixture failed:\n${output}`, { cause: error });
+} finally {
+  serverProcess.kill('SIGTERM');
 }
-
 async function pressBeforeRelease(page, testId, destination) {
   const box = await page.getByTestId(testId).boundingBox();
   if (!box) throw new Error(`Missing ${testId} link`);

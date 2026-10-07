@@ -10,8 +10,7 @@ instead.
 
 ## Requirements
 
-- Node.js 24
-- React 18 or later
+See [`package.json`](./package.json) for supported Node.js and React versions.
 
 ## Install the package
 
