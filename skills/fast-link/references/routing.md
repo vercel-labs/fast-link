@@ -40,10 +40,10 @@ extra decision fields are invalid.
 
 ## Share the application policy deliberately
 
-Bind the policy in reusable Client Component wrappers for both `FastLink` and
-`FastLinkRegion` when both should use it. A managed link owns its press and does
-not inherit the surrounding region's policy. Ordinary links use the region
-policy. Nested regions use outer-first capture ordering.
+For Next.js, use the [application-owned link and region wrappers](next.md#application-owned-links-and-regions)
+to bind a shared policy. A managed link owns its press and does not inherit the
+surrounding region's policy. Ordinary links use the region policy. Nested
+regions use outer-first capture ordering.
 
 Use `onFastNavigate(intent, decision)` to observe the frozen decision before
 navigation. It cannot change the action, cancel it, or supply a replacement

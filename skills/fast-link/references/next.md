@@ -78,25 +78,99 @@ With `as`, the managed link stays on the normal Link path. With
 `data-no-fast-link` to that anchor if a containing region would otherwise
 handle it.
 
-## Application-owned renderers
+## Application-owned links and regions
 
-Use the Next.js hook when the application owns rendering, refs, prefetching,
-click handlers, or pending state:
+Prefer wrappers around `FastLink` and `FastLinkRegion` for application-wide
+defaults and custom navigation policies. Bind the policy inside Client
+Components so Server Components can use the wrappers with serializable props
+and children.
+
+This example assumes the application provides a client-safe
+`ownsRoute(url: URL): boolean` resolver. Adapt the call to the actual resolver's
+contract and routing configuration; foreign or unknown ownership returns false.
+
+```tsx
+'use client';
+
+import {
+  FastLink,
+  FastLinkRegion,
+  type FastLinkProps,
+  type FastLinkRegionProps,
+  type FastNavigationPolicy,
+} from '@fast-link/next';
+import { forwardRef } from 'react';
+
+import { ownsRoute } from './route-ownership';
+
+const navigationPolicy: FastNavigationPolicy = (intent, proposed) =>
+  ownsRoute(intent.url)
+    ? { kind: 'router' }
+    : {
+        kind: 'document',
+        method: proposed.method === 'replace' ? 'replace' : 'assign',
+      };
+
+export const AppLink = forwardRef<
+  HTMLAnchorElement,
+  Omit<FastLinkProps, 'navigationPolicy'>
+>(function AppLink(props, ref) {
+  return <FastLink {...props} ref={ref} navigationPolicy={navigationPolicy} />;
+});
+
+export function AppLinkRegion(
+  props: Omit<FastLinkRegionProps, 'navigationPolicy'>,
+) {
+  return <FastLinkRegion {...props} navigationPolicy={navigationPolicy} />;
+}
+```
+
+`AppLink` preserves Link props and the caller's ref. `AppLinkRegion` forwards
+region options, including the application's `basePath` when supplied. Both bind
+the same policy because a managed link does not inherit its containing region's
+policy. Read [Routing decisions](routing.md) for policy results and failure
+behavior.
+
+## Custom renderers
+
+Use `useFastLink` as the last option when neither a region nor a `FastLink`
+wrapper fits. For example, an existing design-system renderer may need per-link
+navigation options that a region cannot honor, while providing no way to render
+through `FastLink`. A polymorphic renderer may also need to attach to its own
+anchor or non-anchor root. Verify the actual rendering and ref contracts first.
+
+Custom styles, refs, prefetch settings, handlers, and application-owned pending
+UI alone do not require the hook; use the component props and wrappers when
+they meet those needs. The hook does not restore Next Link's internal pending
+state or make click-time guards safe for early navigation.
+
+The example below assumes an existing `AppLinkRenderer` that accepts Next Link
+props, forwards its ref to an anchor, and must retain its rendering behavior:
 
 ```tsx
 'use client';
 
 import { useFastLink, type UseFastLinkOptions } from '@fast-link/next';
-import Link from 'next/link';
 import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 
-type AppLinkProps = ComponentPropsWithoutRef<typeof Link> &
-  Pick<UseFastLinkOptions, 'enabled'>;
+import { AppLinkRenderer } from './app-link-renderer';
 
-export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
-  function AppLink({ enabled, ...props }, forwardedRef) {
-    const attach = useFastLink({ ...props, enabled, forwardedRef });
-    return <Link {...props} ref={attach} />;
+type CustomLinkProps = ComponentPropsWithoutRef<typeof AppLinkRenderer> &
+  Pick<UseFastLinkOptions, 'enabled' | 'navigationPolicy' | 'onFastNavigate'>;
+
+export const CustomLink = forwardRef<HTMLAnchorElement, CustomLinkProps>(
+  function CustomLink(
+    { enabled, navigationPolicy, onFastNavigate, ...props },
+    forwardedRef,
+  ) {
+    const attach = useFastLink({
+      ...props,
+      enabled,
+      navigationPolicy,
+      onFastNavigate,
+      forwardedRef,
+    });
+    return <AppLinkRenderer {...props} ref={attach} />;
   },
 );
 ```
@@ -109,17 +183,12 @@ for non-anchor roots while keeping their behavior native.
 Committed option changes preserve a pending follow-up click. Root replacement
 and unmount destroy the controller and clean up composed refs.
 
-## Pending state and application boundaries
+## Pending state
 
 Fast Link uses public router calls, which do not set Next Link's internal
 `useLinkStatus().pending`. Use route-level loading UI or application-owned
 pending state updated by `onFastNavigate`; define how that state completes or
 resets in the application.
-
-Read [Routing decisions](routing.md) when the current router does not own every
-same-origin destination. Managed links use their own policy, not a containing
-region's policy. Bind an application policy to both link and region wrappers
-when both need it.
 
 The [package README](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
 contains the full public API. Check it against the installed version before

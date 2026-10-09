@@ -39,14 +39,20 @@ earlier without agreement that the timing change fits the interaction.
 
 ## Choose the interface
 
-| Consumer need                                               | Interface                               | Read                                                                                |
-| ----------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| Next.js App Router links sharing one navigation policy      | `FastLinkRegion` from `@fast-link/next` | [Next.js integration](references/next.md)                                           |
-| A Next.js link with its own routing options or cancellation | `FastLink` from `@fast-link/next`       | [Next.js integration](references/next.md)                                           |
-| An application-owned Next.js link renderer                  | `useFastLink` from `@fast-link/next`    | [Next.js integration](references/next.md)                                           |
-| Plain DOM navigation or a non-React adapter                 | `createFastLink` from `@fast-link/core` | [Core and React adapters](references/adapters.md)                                   |
-| React lifecycle for an application-owned navigation adapter | `useFastLink` from `@fast-link/react`   | [Core and React adapters](references/adapters.md)                                   |
-| Same-origin destinations handled by different applications  | Application-supplied `navigationPolicy` | [Routing decisions](references/routing.md), plus the relevant integration reference |
+For Next.js, prefer `FastLinkRegion` and `FastLink`. Wrap these components when
+the application needs reusable links or a shared policy. Use `useFastLink` only
+when those approaches cannot preserve an existing renderer's contract; identify
+that constraint before choosing the hook.
+
+| Consumer need                                                           | Interface                                       | Read                                                                                          |
+| ----------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Next.js App Router links sharing one navigation policy                  | `FastLinkRegion` from `@fast-link/next`         | [Next.js integration](references/next.md)                                                     |
+| A Next.js link with its own routing options or cancellation             | `FastLink` from `@fast-link/next`               | [Next.js integration](references/next.md)                                                     |
+| Application-owned Next.js links and regions with a shared policy        | Wrappers around `FastLink` and `FastLinkRegion` | [Application-owned links and regions](references/next.md#application-owned-links-and-regions) |
+| An existing Next.js renderer the supplied components cannot accommodate | `useFastLink` from `@fast-link/next`            | [Custom renderers](references/next.md#custom-renderers)                                       |
+| Plain DOM navigation or a non-React adapter                             | `createFastLink` from `@fast-link/core`         | [Core and React adapters](references/adapters.md)                                             |
+| React lifecycle for an application-owned navigation adapter             | `useFastLink` from `@fast-link/react`           | [Core and React adapters](references/adapters.md)                                             |
+| Same-origin destinations handled by different applications              | Application-supplied `navigationPolicy`         | [Routing decisions](references/routing.md), plus the relevant integration reference           |
 
 Choose the narrowest region whose links share a policy. The React package
 supplies lifecycle, not a Next.js router. The Next.js package supports the App
