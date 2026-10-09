@@ -11,8 +11,8 @@ immediately reversible navigation where pressing the link is enough to commit.
 
 ## Inspect the consumer
 
-Read the project's manifest, lockfile, link components, routing configuration,
-and relevant handlers before choosing an integration. Check the selected
+Inspect the relevant package manifests, lockfile entries, link components,
+routing configuration, and handlers before choosing an integration. Check the selected
 package's public exports, peer dependencies, and runtime requirements. The
 installed version takes precedence over examples in this skill. If the package
 is absent, resolve a compatible version before adding it for implementation

@@ -130,6 +130,10 @@ This example assumes the application provides a client-safe
 `ownsRoute(url: URL): boolean` resolver. Adapt the call to the actual resolver's
 contract and routing configuration; foreign or unknown ownership returns false.
 
+This example binds the policy for early mouse navigation. Preserve the
+application's existing routing for native activation, including keyboard and
+touch; the policy does not replace that behavior.
+
 ```tsx
 'use client';
 
@@ -170,8 +174,7 @@ The example shows both exports; implement only those the application needs.
 `AppLink` preserves Link props and the caller's ref. `AppLinkRegion` forwards
 region options, including the application's `basePath` when supplied. Bind the
 policy to each integration that needs it: a managed link does not inherit its
-containing region's policy. A policy controls accepted early navigation;
-native activation still needs the application's routing behavior.
+containing region's policy.
 
 When native activation needs a document fallback, keep or add that handling in
 the component adapter's `onClick`. Run the caller's handler first and honor
