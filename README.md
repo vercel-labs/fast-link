@@ -95,6 +95,18 @@ Use `@fast-link/react` to bind a core controller to a React-owned element. See
 the [`@fast-link/core` README](./packages/core/README.md) for the DOM and
 navigation contracts.
 
+## Agent skill
+
+The optional [Fast Link skill](skills/fast-link/SKILL.md) helps coding agents
+choose an integration, preserve existing link behavior, and verify navigation:
+
+```sh
+npx skills add vercel-labs/fast-link --skill fast-link
+```
+
+Installing an npm package does not activate the skill. The skill supports
+Next.js App Router integrations and custom core or React adapters.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, validation, and package
