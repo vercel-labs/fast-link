@@ -26,9 +26,12 @@ A Server Component can pass the subtree as children. The region renders a
 `display: contents` div; retain a semantic element such as `nav` inside it.
 Keep the wrapper in a position where a div is valid HTML.
 
+`FastLinkRegion` leaves prefetching to its child links. Each Next Link keeps
+its native prefetch behavior and its own `prefetch` setting.
+
 Ordinary links use the region's router policy and push history. The region
 cannot read React Link props from the rendered anchor. For a link with
-`replace`, `scroll`, `onNavigate`, `transitionTypes`, or another per-link
+`replace`, `scroll`, `onNavigate`, `transitionTypes`, or another per-link navigation
 requirement, choose a managed `FastLink` or add `data-no-fast-link` to retain
 normal Link handling. A descendant pointerdown handler runs too late to
 reliably cancel the region's capture listener.
@@ -54,8 +57,9 @@ export function AccountLink() {
 }
 ```
 
-`FastLink` renders Next Link and retains prefetching. Its early path supports
-object `href`, `replace`, `scroll`, `transitionTypes`, and synchronous
+`FastLink` renders Next Link and inherits its native prefetch behavior,
+including the `prefetch` setting. Its early path supports object `href`,
+`replace`, `scroll`, `transitionTypes`, and synchronous
 `onNavigate` cancellation. Calling the event's `preventDefault()` in
 `onNavigate` cancels before policy evaluation, observation, and navigation.
 Define callback props in a Client Component.
