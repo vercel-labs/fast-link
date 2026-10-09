@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Fast Link'
+  short_description: 'Integrate and review early mouse navigation'
+  default_prompt: 'Use $fast-link to integrate or review Fast Link in this application.'
