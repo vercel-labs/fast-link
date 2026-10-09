@@ -25,7 +25,7 @@
     "@fast-link/react": "workspace:^"
   },
   "peerDependencies": {
-    "next": "^16.3.6",
+    "next": ">=16",
     "react": ">=18"
   },
   "devDependencies": {
