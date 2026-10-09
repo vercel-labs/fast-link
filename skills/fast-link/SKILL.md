@@ -18,10 +18,20 @@ installed version takes precedence over examples in this skill. If the package
 is absent, resolve a compatible version before adding it for implementation
 work; advice and reviews do not require dependency changes.
 
-Identify the navigation region, existing guards, per-link options, base path,
-and which destinations the application's router handles. Follow application
-wrappers to their rendered anchors and handlers. Establish these facts from
-code; ask only for decisions the project does not resolve.
+Trace the target links through aliases, export barrels, and shared packages to
+their rendered anchors and handlers. Find existing Fast Link components,
+regions, hooks, and policies, then verify which belong to the target application.
+Reuse an applicable integration before adding another or importing the library
+at a consumer. Inspect affected consumers before extending a shared integration.
+
+Establish the navigation region, guards, per-link options, base path, and router
+ownership from code. Keep this inspection bounded to the requested scope and
+its dependencies; ask only for information or decisions the project cannot resolve.
+
+For a Next.js target, read [Next.js integration](references/next.md) before
+selecting imports or changing an integration, including adoption, migration,
+troubleshooting, and review. This applies when links arrive through application
+aliases or shared libraries as well as direct Next Link imports.
 
 ## Decide where early navigation fits
 
@@ -37,26 +47,16 @@ managed `FastLink` when the existing behavior can run synchronously on press
 and its Next.js options should be preserved. Do not move a release-time guard
 earlier without agreement that the timing change fits the interaction.
 
-## Choose the interface
+## Select the interface
 
-For Next.js, prefer `FastLinkRegion` and `FastLink`. Wrap these components when
-the application needs reusable links or a shared policy. Use `useFastLink` only
-when those approaches cannot preserve an existing renderer's contract; identify
-that constraint before choosing the hook.
+Use the Next.js reference's selection steps for a Next.js target. For plain DOM
+or other React consumers, read [Core and React adapters](references/adapters.md)
+before choosing `createFastLink` or React's `useFastLink`. The React package
+supplies lifecycle, not a framework router.
 
-| Consumer need                                                           | Interface                                       | Read                                                                                          |
-| ----------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Next.js App Router links sharing one navigation policy                  | `FastLinkRegion` from `@fast-link/next`         | [Next.js integration](references/next.md)                                                     |
-| A Next.js link with its own routing options or cancellation             | `FastLink` from `@fast-link/next`               | [Next.js integration](references/next.md)                                                     |
-| Application-owned Next.js links and regions with a shared policy        | Wrappers around `FastLink` and `FastLinkRegion` | [Application-owned links and regions](references/next.md#application-owned-links-and-regions) |
-| An existing Next.js renderer the supplied components cannot accommodate | `useFastLink` from `@fast-link/next`            | [Custom renderers](references/next.md#custom-renderers)                                       |
-| Plain DOM navigation or a non-React adapter                             | `createFastLink` from `@fast-link/core`         | [Core and React adapters](references/adapters.md)                                             |
-| React lifecycle for an application-owned navigation adapter             | `useFastLink` from `@fast-link/react`           | [Core and React adapters](references/adapters.md)                                             |
-| Same-origin destinations handled by different applications              | Application-supplied `navigationPolicy`         | [Routing decisions](references/routing.md), plus the relevant integration reference           |
-
-Choose the narrowest region whose links share a policy. The React package
-supplies lifecycle, not a Next.js router. The Next.js package supports the App
-Router; inspect other router integrations before proposing a custom adapter.
+When routing requirements call for choosing between router and document
+navigation, also read [Routing decisions](references/routing.md). Introduce a
+policy only for a demonstrated application requirement.
 
 ## Preserve input and event behavior
 
@@ -83,6 +83,10 @@ or duplicating eligibility checks.
 Preserve existing rendering, semantics, refs, routing options, and unrelated
 handlers. For a review, report defects with their location and behavioral
 impact; change code only within the requested scope.
+
+Before implementation, identify the import path, Fast Link primitive, routing
+authority, and required opt-outs. Explain that choice
+with source evidence; keep uncertain links native until their contract is known.
 
 Run the consumer's relevant checks. For changed integrations, verify:
 

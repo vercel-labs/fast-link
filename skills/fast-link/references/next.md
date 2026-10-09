@@ -1,8 +1,48 @@
 # Next.js App Router integration
 
-Read this when using `@fast-link/next`. Verify the installed package's peer
-range against the application's Next.js and React versions. Import public
-exports from `@fast-link/next`; Fast Link does not need private Next.js modules.
+Read this for Fast Link work in a Next.js application, before selecting an
+integration or imports. Verify the target uses App Router and that its Next.js
+and React versions satisfy the installed package's peer range. Pages Router
+is outside `@fast-link/next`'s support; retain its existing navigation while
+establishing a supported integration.
+
+Import public exports from `@fast-link/next`; Fast Link does not need private
+Next.js modules.
+
+## Select the integration first
+
+Apply the skill's early-navigation safety gate to each option below. An adapter
+does not make a release-time guard safe to move to pointerdown.
+
+1. **Reuse an applicable Fast Link integration.** Follow the target's aliases,
+   barrels, shared packages, and usages. Verify its routing and rendering
+   contracts match this application, then use that application entry point.
+   If an option is missing, inspect extending the existing integration within
+   scope before creating a parallel wrapper or bypassing it.
+2. **If none exists, inspect the current link boundary and routing.** For direct
+   `next/link` usage with straightforward routing and no additional application
+   behavior, use public `@fast-link/next` components directly. A direct import
+   alone does not prove simplicity: check routing configuration and handlers.
+3. **Preserve custom link boundaries.** For an application or shared-library
+   Link, retain its consumer contract and integrate at that boundary. Inspect
+   supported composition or adapt the owned implementation with Fast Link
+   components. A styling-only Link can remain unchanged inside a region after
+   verifying its rendering, handlers, per-link options, and routing are compatible.
+   A custom import alone requires neither a policy nor a hook.
+4. **Bind required application behavior.** When route ownership or other required
+   navigation behavior exists, reuse its resolver and verified inputs in the
+   application integration, even if current consumers import `next/link` directly.
+   Read [Routing decisions](routing.md) for policy contracts. Keep uncertain
+   links native when source or documented contracts cannot establish safe behavior.
+
+Within the selected integration, prefer a region for ordinary links sharing its
+navigation behavior, or managed `FastLink` for per-link options and synchronous
+cancellation. Choose the narrowest compatible region. Use supported component
+composition before the [custom-renderer hook](#custom-renderers), which requires
+a demonstrated renderer constraint. Keep one anchor per link.
+
+The direct imports below illustrate simple routing or implementation inside an
+application adapter. Consumers reuse the application entry point when one applies.
 
 ## Regions for ordinary links
 
@@ -80,10 +120,11 @@ handle it.
 
 ## Application-owned links and regions
 
-Prefer wrappers around `FastLink` and `FastLinkRegion` for application-wide
-defaults and custom navigation policies. Bind the policy inside Client
-Components so Server Components can use the wrappers with serializable props
-and children.
+Use this pattern when verified application behavior or route ownership requires
+an adapter. Extend an existing link boundary when present. Simple Next Link
+consumers can use the direct imports above without introducing wrappers or
+policies. Bind a needed policy inside a Client Component so Server Components
+can use the adapter with serializable props and children.
 
 This example assumes the application provides a client-safe
 `ownsRoute(url: URL): boolean` resolver. Adapt the call to the actual resolver's
@@ -125,19 +166,32 @@ export function AppLinkRegion(
 }
 ```
 
+The example shows both exports; implement only those the application needs.
 `AppLink` preserves Link props and the caller's ref. `AppLinkRegion` forwards
-region options, including the application's `basePath` when supplied. Both bind
-the same policy because a managed link does not inherit its containing region's
-policy. Read [Routing decisions](routing.md) for policy results and failure
-behavior.
+region options, including the application's `basePath` when supplied. Bind the
+policy to each integration that needs it: a managed link does not inherit its
+containing region's policy. A policy controls accepted early navigation;
+native activation still needs the application's routing behavior.
+
+When native activation needs a document fallback, keep or add that handling in
+the component adapter's `onClick`. Run the caller's handler first and honor
+`event.defaultPrevented` before routing, so an accepted early press does not
+navigate again on release. Preserve the application's rules for keyboard,
+modified clicks, downloads, and targets. Verify those native paths separately.
+
+Use `navigationPolicy` to select early router or document navigation, rather
+than canceling in `onNavigate` and navigating as a side effect. `onNavigate`
+runs on both early and native Link navigation. A native fallback alone does
+not require a custom renderer or `useFastLink`.
 
 ## Custom renderers
 
 Use `useFastLink` as the last option when neither a region nor a `FastLink`
 wrapper fits. For example, an existing design-system renderer may need per-link
 navigation options that a region cannot honor, while providing no way to render
-through `FastLink`. A polymorphic renderer may also need to attach to its own
-anchor or non-anchor root. Verify the actual rendering and ref contracts first.
+through `FastLink`. Polymorphic output alone does not require the hook when its
+anchor branch can render `FastLink`; the hook fits when the existing renderer
+must own that root. Verify the actual rendering and ref contracts first.
 
 Custom styles, refs, prefetch settings, handlers, and application-owned pending
 UI alone do not require the hook; use the component props and wrappers when

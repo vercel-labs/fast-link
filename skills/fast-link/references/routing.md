@@ -40,8 +40,9 @@ extra decision fields are invalid.
 
 ## Share the application policy deliberately
 
-For Next.js, use the [application-owned link and region wrappers](next.md#application-owned-links-and-regions)
-to bind a shared policy. A managed link owns its press and does not inherit the
+For Next.js, bind the policy in the selected application integration; see the
+[link and region example](next.md#application-owned-links-and-regions).
+A managed link owns its press and does not inherit the
 surrounding region's policy. Ordinary links use the region policy. Nested
 regions use outer-first capture ordering.
 

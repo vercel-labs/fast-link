@@ -1,8 +1,8 @@
 # Core and React adapters
 
 Read this for plain DOM integration or an application-owned navigation adapter.
-Next.js App Router applications should use `@fast-link/next` and the
-[Next.js reference](next.md).
+For Next.js targets, first follow the [Next.js selection steps](next.md) to
+identify the application entry point and supported integration.
 
 ## Plain DOM
 
