@@ -19,18 +19,16 @@ import type {
 
 type LinkProps = ComponentPropsWithoutRef<typeof Link>;
 
-/** Next Link routing props, ref, and capture handler for a custom renderer. */
+/**
+ * Next Link routing props, ref, and capture handler for a custom renderer.
+ * Version-specific routing props follow the installed Next Link types.
+ */
 export type UseFastLinkOptions<T extends HTMLElement = HTMLElement> = Partial<
   Pick<
     LinkProps,
-    | 'href'
-    | 'as'
-    | 'legacyBehavior'
-    | 'replace'
-    | 'scroll'
-    | 'onNavigate'
-    | 'transitionTypes'
-  >
+    'href' | 'as' | 'legacyBehavior' | 'replace' | 'scroll' | 'onNavigate'
+  > &
+    Pick<LinkProps, Extract<'transitionTypes', keyof LinkProps>>
 > &
   NavigationOptions & {
     /** Composed with the returned ref and cleaned up on replacement or unmount. */

@@ -179,6 +179,8 @@ and navigation is still attempted if it throws.
 options above. `href` remains required.
 
 Fast navigation preserves `replace`, `scroll`, and `transitionTypes` options.
+`transitionTypes` follows the installed `next/link` types; it is omitted from
+hook options on Next versions that do not declare it.
 `onNavigate` can cancel Fast Link before policy evaluation, observation, or
 navigation.
 
