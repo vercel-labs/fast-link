@@ -1,6 +1,7 @@
 import type { FastLinkIntent } from '@fast-link/core';
 import { fireEvent, render } from '@testing-library/react';
-import { StrictMode, type JSX } from 'react';
+import { StrictMode, type JSX, type MouseEventHandler } from 'react';
+import { createPortal } from 'react-dom';
 import { renderToString } from 'react-dom/server';
 
 import { useFastLink } from './index';
@@ -24,7 +25,7 @@ it('binds a containing element and suppresses its follow-up click', () => {
       navigate: ({ href }: FastLinkIntent) => navigations.push(href),
     });
     return (
-      <div ref={attach} onClick={() => clicks.push('region')}>
+      <div {...attach} onClick={() => clicks.push('region')}>
         <a href="/first" onClick={() => clicks.push('link')}>
           First
         </a>
@@ -54,7 +55,7 @@ it('uses committed options and keeps a pending click across rerenders', () => {
   }): JSX.Element {
     const attach = useFastLink<HTMLDivElement>({ enabled, navigate });
     return (
-      <div ref={attach}>
+      <div {...attach}>
         <a href="/first">First</a>
       </div>
     );
@@ -102,7 +103,7 @@ it('updates caller refs without replacing the controller', () => {
       forwardedRef: callerRef,
     });
     return (
-      <div ref={attach}>
+      <div {...attach}>
         <a href="/first">First</a>
       </div>
     );
@@ -132,11 +133,11 @@ it('replaces and removes its root, including in Strict Mode', () => {
   function Region({ section }: { section: boolean }): JSX.Element {
     const attach = useFastLink<HTMLElement>({ navigate });
     return section ? (
-      <section ref={attach}>
+      <section {...attach}>
         <a href="/second">Second</a>
       </section>
     ) : (
-      <div ref={attach}>
+      <div {...attach}>
         <a href="/first">First</a>
       </div>
     );
@@ -174,7 +175,7 @@ it('renders on the server without attaching a controller', () => {
       },
     });
     return (
-      <div ref={attach}>
+      <div {...attach}>
         <a href="/first">First</a>
       </div>
     );
@@ -200,7 +201,7 @@ it('lets an application adapter choose its own navigation policy', () => {
       },
     });
     return (
-      <div ref={attach} onClick={() => clicks.push('region')}>
+      <div {...attach} onClick={() => clicks.push('region')}>
         <a
           data-application="current"
           href="/inside"
@@ -230,4 +231,81 @@ it('lets an application adapter choose its own navigation policy', () => {
   expect(clientRoutes).toEqual(['/inside']);
   expect(documentRoutes).toEqual(['https://example.com/outside']);
   expect(clicks).toEqual(['link', 'region', 'region']);
+});
+
+it('keeps bindings stable and composes the committed caller capture handler after suppression', () => {
+  const observed: string[] = [];
+  const navigate = vi.fn();
+  const bindings: ReturnType<typeof useFastLink<HTMLDivElement>>[] = [];
+  function Region({ handler }: { handler: MouseEventHandler<HTMLDivElement> }) {
+    const binding = useFastLink<HTMLDivElement>({
+      navigate,
+      onClickCapture: handler,
+    });
+    bindings.push(binding);
+    return (
+      <div {...binding}>
+        <a href="/first">First</a>
+      </div>
+    );
+  }
+  const { getByRole, rerender } = render(
+    <Region
+      handler={(event) => observed.push(`first:${event.defaultPrevented}`)}
+    />,
+  );
+  const anchor = getByRole('link');
+  pointerDown(anchor);
+  rerender(
+    <Region
+      handler={(event) => observed.push(`second:${event.defaultPrevented}`)}
+    />,
+  );
+  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+  expect(observed).toEqual(['second:true']);
+  expect(bindings[1]).toBe(bindings[0]);
+  expect(navigate).toHaveBeenCalledTimes(1);
+});
+
+it('leaves an out-of-root portal click native without consuming a pending click', () => {
+  const portal = document.body.appendChild(document.createElement('div'));
+  const observed: string[] = [];
+  function Region() {
+    const binding = useFastLink<HTMLDivElement>({ navigate: () => undefined });
+    return (
+      <div {...binding}>
+        <a
+          href="/first"
+          onClickCapture={(event) =>
+            observed.push(`inside:${event.defaultPrevented}`)
+          }
+        >
+          Inside
+        </a>
+        {createPortal(
+          <a
+            href="/outside"
+            onClickCapture={(event) => {
+              observed.push(`outside:${event.defaultPrevented}`);
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
+            Outside
+          </a>,
+          portal,
+        )}
+      </div>
+    );
+  }
+  const { getByText, unmount } = render(<Region />);
+  try {
+    pointerDown(getByText('Inside'));
+    fireEvent.click(getByText('Outside'), { detail: 1 });
+    fireEvent.click(getByText('Inside'), { detail: 1 });
+    expect(observed).toEqual(['outside:false', 'inside:true']);
+  } finally {
+    unmount();
+    portal.remove();
+  }
 });

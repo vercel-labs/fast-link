@@ -108,6 +108,18 @@ try {
           'fast,prevented',
       );
       await page.waitForURL(/\/docs\/slow$/);
+      await checkCaptureSuppression(
+        page,
+        fixtureOrigin,
+        'capture-stop',
+        /\/docs\/slow\?from=capture$/,
+      );
+      await checkCaptureSuppression(
+        page,
+        fixtureOrigin,
+        'closed-capture-host',
+        /\/docs\/slow\?from=closed-capture$/,
+      );
       await checkBrowserNavigation(page, {
         origin: fixtureOrigin,
         testId: 'options',
@@ -263,6 +275,46 @@ async function pressBeforeRelease(page, testId, destination) {
     await page.waitForURL(destination);
   } finally {
     await page.mouse.up();
+  }
+}
+
+async function checkCaptureSuppression(page, origin, testId, destination) {
+  await page.goto(`${origin}/docs`);
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-testid="closed-capture-host"]')
+        ?.getAttribute('data-ready') === 'true',
+  );
+  const target = page.getByTestId(testId);
+  await target.scrollIntoViewIfNeeded();
+  const box = await target.boundingBox();
+  if (!box) throw new Error(`Missing ${testId}`);
+  let documentRequests = 0;
+  const onRequest = (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame())
+      documentRequests++;
+  };
+  page.on('request', onRequest);
+  try {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-testid="events"]')?.textContent ===
+        'capture-fast',
+    );
+    await page.mouse.up();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-testid="events"]')?.textContent ===
+        'capture-fast,capture-prevented',
+    );
+    await page.waitForURL(destination);
+    if (documentRequests !== 0)
+      throw new Error(`${testId}: follow-up click activated the document`);
+  } finally {
+    page.off('request', onRequest);
   }
 }
 

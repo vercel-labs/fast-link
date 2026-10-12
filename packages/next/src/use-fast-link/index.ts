@@ -6,8 +6,10 @@ import type Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useCallback,
+  useMemo,
   type ComponentPropsWithoutRef,
   type ForwardedRef,
+  type MouseEventHandler,
 } from 'react';
 
 import type {
@@ -17,7 +19,7 @@ import type {
 
 type LinkProps = ComponentPropsWithoutRef<typeof Link>;
 
-/** Next Link routing props and an optional ref for a custom renderer. */
+/** Next Link routing props, ref, and capture handler for a custom renderer. */
 export type UseFastLinkOptions<T extends HTMLElement = HTMLElement> = Partial<
   Pick<
     LinkProps,
@@ -33,16 +35,19 @@ export type UseFastLinkOptions<T extends HTMLElement = HTMLElement> = Partial<
   NavigationOptions & {
     /** Composed with the returned ref and cleaned up on replacement or unmount. */
     forwardedRef?: ForwardedRef<T>;
+    /** Runs after suppression, including when the click is default-prevented. */
+    onClickCapture?: MouseEventHandler<T>;
   };
 
 /**
- * Returns a callback ref for early App Router navigation in a custom link.
+ * Returns ref and click-capture bindings for early navigation in a custom link.
  * Pass the renderer's Next Link routing props and attach the ref to its anchor
- * or fallback element.
+ * or fallback element. Spread both bindings after its other props.
  *
  * - Leaves navigation to the renderer when `href` is missing, the root is not
  *   an anchor, `as` is supplied, or `legacyBehavior` is true.
  * - The renderer owns prefetching, click handlers, and pending state.
+ * - The hook composes the caller's `onClickCapture` after core suppression.
  * - Option updates preserve any pending follow-up click.
  * - Root replacement and unmount destroy the controller and clean up refs.
  */
@@ -51,8 +56,9 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
   navigationPolicy,
   onFastNavigate,
   forwardedRef,
+  onClickCapture,
   ...link
-}: UseFastLinkOptions<T>): (element: T | null) => void {
+}: UseFastLinkOptions<T>): ReturnType<typeof useReactFastLink<T>> {
   const router = useRouter();
   const attachAnchor = useReactFastLink<T>({
     enabled:
@@ -61,6 +67,7 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
       link.as === undefined &&
       !link.legacyBehavior,
     forwardedRef,
+    onClickCapture,
     navigate: (intent) => {
       if (link.href === undefined) return;
       let canceled = false;
@@ -101,17 +108,21 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
   });
   // Keep non-anchor roots native while composing their refs.
   const attachNative = useReactFastLink<T>({ enabled: false, forwardedRef });
-  return useCallback(
+  const attach = useCallback(
     (element: T | null) => {
       if (element?.tagName === 'A') {
-        attachNative(null);
-        attachAnchor(element);
+        attachNative.ref(null);
+        attachAnchor.ref(element);
       } else {
-        attachAnchor(null);
-        attachNative(element);
+        attachAnchor.ref(null);
+        attachNative.ref(element);
       }
     },
-    [attachAnchor, attachNative],
+    [attachAnchor.ref, attachNative.ref],
+  );
+  return useMemo(
+    () => ({ ref: attach, onClickCapture: attachAnchor.onClickCapture }),
+    [attach, attachAnchor.onClickCapture],
   );
 }
 

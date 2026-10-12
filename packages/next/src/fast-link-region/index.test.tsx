@@ -1,8 +1,32 @@
 import { fireEvent, render } from '@testing-library/react';
 import Link from 'next/link';
 
+import { FastLink } from '../fast-link';
 import { pointerDown, router, routing } from '../testing';
 import { FastLinkRegion } from './index';
+
+it('suppresses a managed follow-up click before a stopping wrapper', () => {
+  const observed: boolean[] = [];
+  const { getByRole } = render(
+    <FastLinkRegion>
+      <div
+        onClickCapture={(event) => {
+          observed.push(event.defaultPrevented);
+          event.stopPropagation();
+        }}
+      >
+        <FastLink href="/pricing">Pricing</FastLink>
+      </div>
+    </FastLinkRegion>,
+  );
+  const anchor = getByRole('link');
+  pointerDown(anchor);
+  const allowed = fireEvent.click(anchor, { detail: 1 });
+
+  expect(observed).toEqual([true]);
+  expect(allowed).toBe(false);
+  expect(router.push).toHaveBeenCalledTimes(1);
+});
 
 describe('FastLinkRegion', () => {
   it('routes an ordinary Next Link before release with one base path', () => {

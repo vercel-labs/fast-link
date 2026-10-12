@@ -73,8 +73,9 @@ Ordinary links use the region's router policy and push history. The region
 cannot read React Link props from the rendered anchor. For a link with
 `replace`, `scroll`, `onNavigate`, `transitionTypes`, or another per-link navigation
 requirement, choose a managed `FastLink` or add `data-no-fast-link` to retain
-normal Link handling. A descendant pointerdown handler runs too late to
-reliably cancel the region's capture listener.
+normal Link handling. A descendant React `onPointerDownCapture` can stop or
+prevent the press before the region's native listener runs. Descendant bubble
+handlers run after early navigation and cannot cancel it.
 
 Pass the application's actual `basePath` to `FastLinkRegion` when configured.
 For example, with `/docs`, Next Link renders `/docs/overview`; the region removes
@@ -104,10 +105,11 @@ including the `prefetch` setting. Its early path supports object `href`,
 `onNavigate` cancels before policy evaluation, observation, and navigation.
 Define callback props in a Client Component.
 
-An `onClick` guard cannot cancel navigation that already started on pointerdown.
-Keep links requiring release-time validation opted out. `onFastNavigate` is an
-observer, not a cancellation hook: its return value is ignored and navigation
-is still attempted if it throws.
+An `onPointerDown` bubble guard or `onClick` guard cannot cancel navigation that
+already started on pointerdown. For a managed link, use synchronous `onNavigate`
+cancellation when validation belongs on press. Keep links requiring release-time
+validation opted out. `onFastNavigate` is an observer: its return value is ignored
+and navigation is still attempted if it throws.
 
 A managed anchor takes priority over containing regions, even with
 `enabled={false}`. Disabling a containing region does not disable separately
@@ -227,13 +229,15 @@ export const CustomLink = forwardRef<HTMLAnchorElement, CustomLinkProps>(
       onFastNavigate,
       forwardedRef,
     });
-    return <AppLinkRenderer {...props} ref={attach} />;
+    return <AppLinkRenderer {...props} {...attach} />;
   },
 );
 ```
 
-Pass the renderer's actual routing props into the hook, and compose the caller's
-ref through `forwardedRef`. The hook attaches early navigation only to an
+Pass the renderer's actual routing and capture props into the hook, and compose
+the caller's ref through `forwardedRef`. Verify that the renderer forwards both
+`ref` and `onClickCapture` to the same DOM element. Spread the bindings last to
+retain handler composition. The hook attaches early navigation only to an
 anchor with a supplied `href`, no `as`, and no `legacyBehavior`. It composes refs
 for non-anchor roots while keeping their behavior native.
 

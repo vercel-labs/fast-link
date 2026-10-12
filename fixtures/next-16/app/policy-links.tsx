@@ -50,11 +50,11 @@ const AppLink = forwardRef<HTMLAnchorElement | HTMLSpanElement, AppLinkProps>(
       },
     });
     return href ? (
-      <Link {...props} href={href} ref={attach} data-pending={pending}>
+      <Link {...props} href={href} {...attach} data-pending={pending}>
         {children}
       </Link>
     ) : (
-      <span ref={attach}>{children}</span>
+      <span {...attach}>{children}</span>
     );
   },
 );

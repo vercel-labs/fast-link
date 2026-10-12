@@ -5,6 +5,7 @@ import { isSemanticVersion } from './semantic-version.mjs';
 
 const NPM_PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/;
 
+/** Reads the allowlist in dependency-first order; rejects dependency cycles. */
 export function readPublishablePackages(root = process.cwd()) {
   const declared = JSON.parse(
     readFileSync(resolve(root, 'scripts/publishable-packages.json'), 'utf8'),
@@ -58,5 +59,32 @@ export function readPublishablePackages(root = process.cwd()) {
     return { directory, manifest };
   });
 
-  return packages;
+  return orderPackages(packages);
+}
+
+function orderPackages(packages) {
+  const byName = new Map(packages.map((entry) => [entry.manifest.name, entry]));
+  const visiting = new Set();
+  const visited = new Set();
+  const ordered = [];
+
+  function visit(entry) {
+    const { name, dependencies = {} } = entry.manifest;
+    if (visited.has(name)) return;
+    if (visiting.has(name)) {
+      throw new Error(`Cyclic publish dependencies: ${name}`);
+    }
+
+    visiting.add(name);
+    for (const dependency of Object.keys(dependencies)) {
+      const declared = byName.get(dependency);
+      if (declared) visit(declared);
+    }
+    visiting.delete(name);
+    visited.add(name);
+    ordered.push(entry);
+  }
+
+  for (const entry of packages) visit(entry);
+  return ordered;
 }

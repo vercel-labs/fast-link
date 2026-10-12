@@ -31,7 +31,8 @@ export const FastLink = forwardRef<HTMLAnchorElement, FastLinkProps>(
     return (
       <Link
         {...linkProps}
-        ref={linkProps.legacyBehavior ? forwardedRef : attach}
+        {...attach}
+        ref={linkProps.legacyBehavior ? forwardedRef : attach.ref}
       />
     );
   },

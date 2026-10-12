@@ -33,11 +33,11 @@ export function HookLink({
 >): JSX.Element {
   const attach = useFastLink({ href, ...options });
   return href ? (
-    <Link href={href} ref={attach}>
+    <Link href={href} {...attach}>
       Custom
     </Link>
   ) : (
-    <span ref={attach}>Custom</span>
+    <span {...attach}>Custom</span>
   );
 }
 

@@ -163,6 +163,27 @@ describe('findAnchor', () => {
 
     expect(findAnchor(label, boundary)).toBeNull();
   });
+
+  it('finds an HTML ancestor through an SVG anchor without crossing the boundary', () => {
+    const root = document.createElement('div');
+    const anchor = root.appendChild(createAnchor({ href: '/pricing' }));
+    const svg = anchor.appendChild(
+      document.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+    );
+    svg.innerHTML = '<a><text>Pricing</text></a>';
+    const label = svg.querySelector('text');
+
+    expect(findAnchor(label, root)).toBe(anchor);
+    expect(findAnchor(label, null)).toBe(anchor);
+    expect(findAnchor(label, svg)).toBeNull();
+  });
+
+  it('keeps non-element targets and boundaries outside the element tree native', () => {
+    const anchor = createAnchor({ href: '/pricing' });
+    const label = anchor.appendChild(document.createTextNode('Pricing'));
+    expect(findAnchor(label, null)).toBeNull();
+    expect(findAnchor(anchor, document)).toBeNull();
+  });
 });
 
 it('deduplicates a non-extensible event through the local fallback', () => {

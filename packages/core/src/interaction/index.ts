@@ -80,18 +80,21 @@ export function findAnchor(
   target: EventTarget | null,
   boundary: EventTarget | null,
 ): HTMLAnchorElement | null {
-  let element = target instanceof Element ? target : null;
-  let anchor: HTMLAnchorElement | null = null;
+  if (!(target instanceof Element)) return null;
+  if (
+    boundary !== null &&
+    (!(boundary instanceof Element) || !boundary.contains(target))
+  )
+    return null;
 
-  while (element) {
-    if (anchor === null && element instanceof HTMLAnchorElement) {
-      anchor = element;
-    }
-    if (element === boundary) return anchor;
-    element = element.parentElement;
+  let anchor: Element | null =
+    target instanceof HTMLAnchorElement ? target : target.closest('a');
+  // SVG anchors are not HTML navigation intents; continue to any HTML ancestor.
+  while (anchor && !(anchor instanceof HTMLAnchorElement)) {
+    anchor = anchor.parentElement?.closest('a') ?? null;
   }
-
-  return boundary === null ? anchor : null;
+  if (!anchor || boundary === null) return anchor;
+  return boundary.contains(anchor) ? anchor : null;
 }
 
 function isHandled(event: Event): boolean {

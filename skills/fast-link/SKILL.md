@@ -74,6 +74,11 @@ policy only for a demonstrated application requirement.
   It is not an ancestor-wide switch. Use `enabled={false}` to disable a region's
   handling of its ordinary links.
 
+For custom React adapters, forward both hook bindings (`ref` and
+`onClickCapture`) to the same DOM element. Pass caller capture handlers into the
+hook and spread its bindings last to retain suppression and handler composition.
+Place regions inside the portal or shadow DOM subtree they control.
+
 Keep the browser and framework responsible for native activation. Use the
 package's controller or hook instead of adding parallel pointer/click listeners
 or duplicating eligibility checks.

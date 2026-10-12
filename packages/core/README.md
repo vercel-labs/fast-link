@@ -81,7 +81,7 @@ bundled copies of core, navigate once.
 | `findAnchor`             | Function | Find the closest anchor within a boundary              |
 | `resolveFastLink`        | Function | Validate and claim one pointer event                   |
 | `runFastNavigation`      | Function | Apply a router or document navigation decision         |
-| `FastLinkController`     | Type     | Update or destroy an attached controller               |
+| `FastLinkController`     | Type     | Update, suppress clicks, or destroy a controller       |
 | `FastLinkOptions`        | Type     | Configure controller eligibility and callbacks         |
 | `FastLinkIntent`         | Type     | Describe an accepted anchor and destination            |
 | `FastNavigationDecision` | Type     | Select router or document navigation                   |
@@ -108,10 +108,18 @@ The root can be one anchor or a region containing anchors.
 `createFastLink` copies its options. Mutating the original object has no
 effect.
 
-| Controller method | Behavior                                                              |
-| ----------------- | --------------------------------------------------------------------- |
-| `update(options)` | Replaces every option without clearing a pending follow-up click      |
-| `destroy()`       | Removes both listeners permanently; calling it more than once is safe |
+| Controller method      | Behavior                                                              |
+| ---------------------- | --------------------------------------------------------------------- |
+| `update(options)`      | Replaces every option without clearing a pending follow-up click      |
+| `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler |
+| `destroy()`            | Removes both listeners permanently; calling it more than once is safe |
+
+Framework adapters can call `suppressClick(event)` before descendant capture
+handlers run. Pass the framework event itself, with `target`, `detail`, and
+`preventDefault`, so its prevention flag is updated. A containing controller
+can suppress a managed descendant's pending click. Out-of-root and detail-zero
+clicks remain native, and calls after destroy do nothing. Use `@fast-link/react`
+to supply this capture binding in React rather than implementing it in an app.
 
 ### `FastLinkIntent`
 
