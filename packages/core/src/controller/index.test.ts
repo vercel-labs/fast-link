@@ -249,26 +249,32 @@ describe('createFastLink', () => {
     outerFastLink.destroy();
   });
 
-  it('navigates once through separately loaded package copies', async () => {
-    vi.resetModules();
-    const { createFastLink: createOtherFastLink } = await import('./index');
-    const outer = document.createElement('div');
-    const inner = outer.appendChild(document.createElement('div'));
-    const anchor = inner.appendChild(createAnchor({ href: '/pricing' }));
-    const navigations: string[] = [];
-    const outerFastLink = createFastLink(outer, {
-      navigate: () => navigations.push('outer'),
-    });
-    const innerFastLink = createOtherFastLink(inner, {
-      navigate: () => navigations.push('inner'),
-    });
+  it.each([true, false])(
+    'navigates once through separately loaded package copies, extensible=%s',
+    async (extensible) => {
+      vi.resetModules();
+      const { createFastLink: createOtherFastLink } = await import('./index');
+      const outer = document.createElement('div');
+      const inner = outer.appendChild(document.createElement('div'));
+      const anchor = inner.appendChild(createAnchor({ href: '/pricing' }));
+      const navigations: string[] = [];
+      const outerFastLink = createFastLink(outer, {
+        navigate: () => navigations.push('outer'),
+      });
+      const innerFastLink = createOtherFastLink(inner, {
+        navigate: () => navigations.push('inner'),
+      });
 
-    dispatchPointerDown(anchor);
+      const press = new MouseEvent('pointerdown', { bubbles: true, button: 0 });
+      Object.defineProperty(press, 'pointerType', { value: 'mouse' });
+      if (!extensible) Object.preventExtensions(press);
+      anchor.dispatchEvent(press);
 
-    expect(navigations).toEqual(['outer']);
-    innerFastLink.destroy();
-    outerFastLink.destroy();
-  });
+      expect(navigations).toEqual(['outer']);
+      innerFastLink.destroy();
+      outerFastLink.destroy();
+    },
+  );
 
   it.each([true, false])(
     'gives a live anchor controller priority, enabled=%s',
@@ -426,5 +432,49 @@ it('retains a newer pending owner when an older root is destroyed', () => {
     first.destroy();
     second.destroy();
     bridge.destroy();
+  }
+});
+
+it('leaves a sibling click native without consuming the accepted anchor follow-up', () => {
+  const root = document.createElement('div');
+  const anchor = root.appendChild(createAnchor({ href: '/first' }));
+  const pressed = anchor.appendChild(document.createElement('span'));
+  const released = anchor.appendChild(document.createElement('span'));
+  const sibling = root.appendChild(createAnchor({ href: '/second' }));
+  const navigate = vi.fn();
+  const controller = createFastLink(root, { navigate });
+  const observed: boolean[] = [];
+  const dispatchClick = (target: Element): void => {
+    const event = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      detail: 1,
+    });
+    // Observe suppression before preventing jsdom from scheduling navigation.
+    target.addEventListener(
+      'click',
+      (clickEvent) => clickEvent.preventDefault(),
+      {
+        once: true,
+      },
+    );
+    target.addEventListener(
+      'click',
+      (clickEvent) => {
+        observed.push(clickEvent.defaultPrevented);
+      },
+      { capture: true, once: true },
+    );
+    target.dispatchEvent(event);
+  };
+
+  try {
+    dispatchPointerDown(pressed);
+    dispatchClick(sibling);
+    dispatchClick(released);
+    expect(observed).toEqual([false, true]);
+    expect(navigate).toHaveBeenCalledTimes(1);
+  } finally {
+    controller.destroy();
   }
 });

@@ -270,3 +270,52 @@ it('leaves an out-of-root portal click native without consuming a pending click'
     portal.remove();
   }
 });
+
+it('forwards a managed follow-up past stale region state before stopping descendant capture', () => {
+  const routes: string[] = [];
+  const observed: boolean[] = [];
+  function Managed() {
+    const binding = useFastLink<HTMLAnchorElement>({
+      navigate: ({ href }) => routes.push(href),
+    });
+    return (
+      <div
+        onClickCapture={(event) => {
+          observed.push(event.defaultPrevented);
+          event.stopPropagation();
+        }}
+      >
+        <a {...binding} href="/managed">
+          Managed
+        </a>
+      </div>
+    );
+  }
+  function Region() {
+    const binding = useFastLink<HTMLDivElement>({
+      navigate: ({ href }) => routes.push(href),
+    });
+    return (
+      <div {...binding}>
+        <a href="/ordinary">Ordinary</a>
+        <Managed />
+      </div>
+    );
+  }
+  const { getByText } = render(<Region />);
+  const ordinary = getByText('Ordinary');
+  const descendant = getByText('Managed');
+  const wrapper = descendant.parentElement;
+  const root = wrapper?.parentElement;
+  if (!wrapper || !root) throw new Error('Missing managed wrapper or region');
+  pointerDown(ordinary);
+  // Press outside the region, then restore the managed anchor without remounting.
+  document.body.append(wrapper);
+  pointerDown(descendant);
+  root.append(wrapper);
+
+  expect(fireEvent.click(descendant, { detail: 1 })).toBe(false);
+  expect(observed).toEqual([true]);
+  expect(routes).toEqual(['/ordinary', '/managed']);
+  expect(fireEvent.click(ordinary, { detail: 1 })).toBe(false);
+});

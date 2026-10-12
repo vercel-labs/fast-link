@@ -15,10 +15,12 @@ managed links inside a region retain per-link options, cancellation, and policy.
   does not make the innermost region win.
 
 Core also marks accepted events with a shared symbol so separately bundled
-copies can recognize a handled press. A local `WeakSet` deduplicates events
-within a copy when the event cannot accept the symbol property. These mechanisms
-coordinate nested roots and multiple package copies without relying on listener
-attachment order for anchor priority.
+copies can recognize a handled press. A shared `WeakSet` on
+`globalThis` deduplicates events when the event cannot accept the symbol
+property. Non-extensible events require updated copies on both roots; older
+copies cannot read the shared fallback. These mechanisms coordinate nested roots
+and multiple package copies without relying on listener attachment order for
+anchor priority.
 
 Implementation: [anchor ownership](../../packages/core/src/controller/index.ts#L8)
 and [event markers](../../packages/core/src/interaction/index.ts#L100).
