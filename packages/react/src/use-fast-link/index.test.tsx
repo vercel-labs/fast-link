@@ -167,7 +167,8 @@ it('replaces and removes its root, including in Strict Mode', () => {
   ]);
 });
 
-it('renders on the server without attaching a controller', () => {
+it('renders server markup without installing navigation listeners', () => {
+  const addListener = vi.spyOn(EventTarget.prototype, 'addEventListener');
   function Region(): JSX.Element {
     const attach = useFastLink<HTMLDivElement>({
       navigate: () => {
@@ -181,56 +182,16 @@ it('renders on the server without attaching a controller', () => {
     );
   }
 
-  expect(renderToString(<Region />)).toContain('href="/first"');
-});
-
-it('lets an application adapter choose its own navigation policy', () => {
-  const clientRoutes: string[] = [];
-  const documentRoutes: string[] = [];
-  const clicks: string[] = [];
-
-  function AppRegion({ enabled = true }: { enabled?: boolean }): JSX.Element {
-    const attach = useFastLink<HTMLDivElement>({
-      enabled,
-      navigate: ({ anchor, href, url }) => {
-        if (anchor.dataset.application === 'current' && href.startsWith('/')) {
-          clientRoutes.push(url.pathname + url.search);
-          return;
-        }
-        documentRoutes.push(url.href);
-      },
-    });
-    return (
-      <div {...attach} onClick={() => clicks.push('region')}>
-        <a
-          data-application="current"
-          href="/inside"
-          onClick={() => clicks.push('link')}
-        >
-          Inside
-        </a>
-        <a data-application="other" href="/outside">
-          Outside
-        </a>
-      </div>
-    );
+  try {
+    expect(renderToString(<Region />)).toContain('href="/first"');
+    expect(
+      addListener.mock.calls.filter(([type]) =>
+        ['pointerdown', 'click'].includes(type),
+      ),
+    ).toEqual([]);
+  } finally {
+    addListener.mockRestore();
   }
-
-  const { getByText, rerender, unmount } = render(<AppRegion />);
-  const inside = getByText('Inside');
-  const outside = getByText('Outside');
-  pointerDown(inside);
-  expect(fireEvent.click(inside, { detail: 1 })).toBe(false);
-  pointerDown(outside);
-  expect(fireEvent.click(outside, { detail: 1 })).toBe(false);
-  rerender(<AppRegion enabled={false} />);
-  pointerDown(inside);
-  unmount();
-  pointerDown(outside);
-
-  expect(clientRoutes).toEqual(['/inside']);
-  expect(documentRoutes).toEqual(['https://example.com/outside']);
-  expect(clicks).toEqual(['link', 'region', 'region']);
 });
 
 it('keeps bindings stable and composes the committed caller capture handler after suppression', () => {

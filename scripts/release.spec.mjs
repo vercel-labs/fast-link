@@ -75,15 +75,26 @@ describe('ordered publishing', () => {
       execute,
     });
 
-    expect(published).toEqual(
-      packages.map(({ manifest }) => `${manifest.name}@${manifest.version}`),
-    );
+    expect(published).toEqual([
+      '@fast-link/core@1.2.3',
+      '@fast-link/react@1.2.3',
+      '@fast-link/next@1.2.3',
+    ]);
     expect(events).toEqual([
       'recheck:@fast-link/core',
+      'build:core',
+      'pack:core.tgz',
+      'verify:core.tgz',
       'publish:core.tgz',
       'recheck:@fast-link/react',
+      'build:react',
+      'pack:react.tgz',
+      'verify:react.tgz',
       'publish:react.tgz',
       'recheck:@fast-link/next',
+      'build:next',
+      'pack:next.tgz',
+      'verify:next.tgz',
       'publish:next.tgz',
     ]);
   });
@@ -134,7 +145,7 @@ describe('ordered publishing', () => {
         execute: recordingExecutor(packages, events, { changedVersion: true }),
       }),
     ).toThrow('Packed package changed');
-    expect(events).toEqual([]);
+    expect(events).toEqual(['build:core', 'pack:core.tgz', 'verify:core.tgz']);
   });
 });
 
@@ -407,6 +418,13 @@ function recordingExecutor(packages, events, { failure, changedVersion } = {}) {
         : args.includes('publish')
           ? 'publish'
           : 'verify';
+    const target =
+      stage === 'build'
+        ? args.at(-1)
+        : stage === 'pack'
+          ? args[args.indexOf('--out') + 1]
+          : args[1];
+    events.push(`${stage}:${target.split('/').at(-1)}`);
     if (stage === failure) throw new Error(`${stage} failed`);
     if (command === 'tar') {
       const archive = args[1];
@@ -419,9 +437,6 @@ function recordingExecutor(packages, events, { failure, changedVersion } = {}) {
           ? fixtureVersions.later
           : entry.manifest.version,
       });
-    }
-    if (stage === 'publish') {
-      events.push(`publish:${args[1].split('/').at(-1)}`);
     }
     return '';
   };

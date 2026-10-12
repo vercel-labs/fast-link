@@ -116,8 +116,8 @@ describe('resolveFastLink', () => {
   ])('leaves a press inside a nested %s to native behavior', (_, markup) => {
     const anchor = createAnchor({ href: '/card' });
     anchor.innerHTML = markup;
-    const target =
-      anchor.querySelector('*:last-child') ?? anchor.firstElementChild;
+    const content = anchor.querySelectorAll('span, option');
+    const target = content.item(content.length - 1) ?? anchor.firstElementChild;
 
     expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
   });

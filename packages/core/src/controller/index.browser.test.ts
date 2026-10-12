@@ -67,33 +67,50 @@ describe('createFastLink in a browser', () => {
     }
   });
 
-  it('leaves touch, keyboard, and destroyed roots alone', () => {
+  it('leaves touch, detail-zero clicks, and destroyed roots native', () => {
     const anchor = document.body.appendChild(document.createElement('a'));
     anchor.href = '/pricing';
     const navigations: string[] = [];
+    const prevented: boolean[] = [];
+    anchor.addEventListener('click', (event) => {
+      prevented.push(event.defaultPrevented);
+      event.preventDefault();
+    });
     const fastLink = createFastLink(anchor, {
       navigate: () => navigations.push('navigate'),
     });
 
-    anchor.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        button: 0,
-        pointerType: 'touch',
-      }),
-    );
-    anchor.dispatchEvent(
-      new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-    );
-    fastLink.destroy();
-    anchor.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        button: 0,
-        pointerType: 'mouse',
-      }),
-    );
+    const click = (detail: number): void => {
+      anchor.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, detail }),
+      );
+    };
+    const press = (pointerType: string): void => {
+      anchor.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          button: 0,
+          pointerType,
+        }),
+      );
+    };
 
-    expect(navigations).toEqual([]);
+    try {
+      press('touch');
+      click(1);
+      expect(navigations).toEqual([]);
+
+      press('mouse');
+      click(0);
+      click(1);
+      fastLink.destroy();
+      press('mouse');
+      click(1);
+
+      expect(navigations).toEqual(['navigate']);
+      expect(prevented).toEqual([false, false, true, false]);
+    } finally {
+      fastLink.destroy();
+    }
   });
 });
