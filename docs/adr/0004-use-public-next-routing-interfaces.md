@@ -27,7 +27,7 @@ Applications use route-level loading UI or track pending state through
 the adapter to Next implementation details.
 
 Implementation: [Link renderer](../../packages/next/src/fast-link/index.tsx#L19),
-[routing hook](../../packages/next/src/use-fast-link/index.ts#L45), and
+[routing hook](../../packages/next/src/use-fast-link/index.ts#L54), and
 [region](../../packages/next/src/fast-link-region/index.tsx#L28).
 The [Link tests](../../packages/next/src/fast-link/index.test.tsx#L8) and
 [region tests](../../packages/next/src/fast-link-region/index.test.tsx#L8) check

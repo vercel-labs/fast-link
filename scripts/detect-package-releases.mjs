@@ -10,7 +10,8 @@ export function detectPackageReleases(packages, readPublishedVersions) {
   });
 }
 
-function getPublishedVersions(name) {
+/** Reads npm versions, returning `null` when the package does not exist. */
+export function getPublishedVersions(name) {
   const result = spawnSync(
     'npm',
     [

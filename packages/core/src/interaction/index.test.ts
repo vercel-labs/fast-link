@@ -116,8 +116,8 @@ describe('resolveFastLink', () => {
   ])('leaves a press inside a nested %s to native behavior', (_, markup) => {
     const anchor = createAnchor({ href: '/card' });
     anchor.innerHTML = markup;
-    const target =
-      anchor.querySelector('*:last-child') ?? anchor.firstElementChild;
+    const content = anchor.querySelectorAll('span, option');
+    const target = content.item(content.length - 1) ?? anchor.firstElementChild;
 
     expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
   });
@@ -162,6 +162,27 @@ describe('findAnchor', () => {
     const boundary = document.createElement('div');
 
     expect(findAnchor(label, boundary)).toBeNull();
+  });
+
+  it('finds an HTML ancestor through an SVG anchor without crossing the boundary', () => {
+    const root = document.createElement('div');
+    const anchor = root.appendChild(createAnchor({ href: '/pricing' }));
+    const svg = anchor.appendChild(
+      document.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+    );
+    svg.innerHTML = '<a><text>Pricing</text></a>';
+    const label = svg.querySelector('text');
+
+    expect(findAnchor(label, root)).toBe(anchor);
+    expect(findAnchor(label, null)).toBe(anchor);
+    expect(findAnchor(label, svg)).toBeNull();
+  });
+
+  it('keeps non-element targets and boundaries outside the element tree native', () => {
+    const anchor = createAnchor({ href: '/pricing' });
+    const label = anchor.appendChild(document.createTextNode('Pricing'));
+    expect(findAnchor(label, null)).toBeNull();
+    expect(findAnchor(anchor, document)).toBeNull();
   });
 });
 

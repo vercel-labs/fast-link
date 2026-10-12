@@ -21,6 +21,6 @@ coordinate nested roots and multiple package copies without relying on listener
 attachment order for anchor priority.
 
 Implementation: [anchor ownership](../../packages/core/src/controller/index.ts#L8)
-and [event markers](../../packages/core/src/interaction/index.ts#L97).
+and [event markers](../../packages/core/src/interaction/index.ts#L100).
 The [controller tests](../../packages/core/src/controller/index.test.ts#L252)
 cover package copies, disabled anchors, and ownership cleanup.

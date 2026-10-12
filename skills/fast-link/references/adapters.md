@@ -67,11 +67,14 @@ export function NavigationRegion({
   const attach = useFastLink<HTMLDivElement>({
     navigate: ({ url }) => route(url),
   });
-  return <div ref={attach}>{children}</div>;
+  return <div {...attach}>{children}</div>;
 }
 ```
 
-The hook returns a stable callback ref and renders nothing itself. It accepts
+The hook returns stable `{ ref, onClickCapture }` bindings and renders nothing
+itself. Spread both on the same DOM element after its other props. Pass a caller
+capture handler into the hook; it runs after suppression, including for prevented
+clicks. A ref alone misses clicks stopped by descendant React capture. It accepts
 core options plus `forwardedRef`, attaches a controller to the current root,
 updates options after a React commit, and destroys the controller when the root
 changes or unmounts. It attaches no controller during server rendering.

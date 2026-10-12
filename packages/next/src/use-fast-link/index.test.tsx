@@ -13,7 +13,7 @@ it('leaves descendant links native when the hook ref is on a non-anchor', () => 
       forwardedRef,
     });
     return (
-      <span ref={attach}>
+      <span {...attach}>
         <a href="/actual">Child</a>
       </span>
     );

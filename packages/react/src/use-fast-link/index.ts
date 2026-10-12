@@ -9,8 +9,10 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   type ForwardedRef,
+  type MouseEventHandler,
 } from 'react';
 
 const useClientLayoutEffect =
@@ -51,11 +53,13 @@ function assignRef<T>({
 }
 
 /**
- * Returns a callback ref that attaches Fast Link to an anchor or containing element.
+ * Returns stable ref and click-capture bindings for an anchor or containing element.
  *
- * Pass core options and an optional `forwardedRef`.
+ * Spread both bindings on the same element after its other props.
+ * Pass core options, an optional `forwardedRef`, and a caller `onClickCapture`.
  *
  * - Composes `forwardedRef` with the returned ref.
+ * - Calls the committed `onClickCapture` after core suppression, even when prevented.
  * - Applies option updates after React commits, preserving any pending
  *   follow-up click.
  * - Destroys the controller when the root changes or unmounts.
@@ -63,17 +67,19 @@ function assignRef<T>({
  */
 export function useFastLink<T extends HTMLElement = HTMLElement>({
   forwardedRef = null,
+  onClickCapture,
   ...options
 }: FastLinkOptions & {
   forwardedRef?: ForwardedRef<T>;
-}): (element: T | null) => void {
+  onClickCapture?: MouseEventHandler<T>;
+}): { ref: (element: T | null) => void; onClickCapture: MouseEventHandler<T> } {
   const element = useRef<T | null>(null);
   const controller = useRef<FastLinkController | null>(null);
-  const committed = useRef({ options, forwardedRef });
+  const committed = useRef({ options, forwardedRef, onClickCapture });
   const assigned = useRef<AssignedRef<T>>({ ref: null, cleanup: null });
 
   useClientLayoutEffect(() => {
-    committed.current = { options, forwardedRef };
+    committed.current = { options, forwardedRef, onClickCapture };
     controller.current?.update(options);
     if (element.current && assigned.current.ref !== forwardedRef) {
       assignRef({
@@ -82,9 +88,9 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
         element: element.current,
       });
     }
-  }, [options, forwardedRef]);
+  }, [options, forwardedRef, onClickCapture]);
 
-  return useCallback((nextElement: T | null) => {
+  const attach = useCallback((nextElement: T | null) => {
     if (element.current === nextElement) return;
 
     controller.current?.destroy();
@@ -106,4 +112,14 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
       );
     }
   }, []);
+
+  const captureClick = useCallback<MouseEventHandler<T>>((event) => {
+    controller.current?.suppressClick(event);
+    committed.current.onClickCapture?.(event);
+  }, []);
+
+  return useMemo(
+    () => ({ ref: attach, onClickCapture: captureClick }),
+    [attach, captureClick],
+  );
 }

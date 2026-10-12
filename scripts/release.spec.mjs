@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { checkPackageVersions } from './check-package-version.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
+import { publishPackageReleases } from './publish-package-releases.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
@@ -34,6 +35,117 @@ describe('publishable packages', () => {
     const { root } = createRepository({ publishablePackages: [] });
 
     expect(readPublishablePackages(root)).toEqual([]);
+  });
+
+  it('orders dependencies before dependents regardless of allowlist order', () => {
+    const { packages } = createPackageGraph();
+
+    expect(packages.map(({ directory }) => directory)).toEqual([
+      'packages/core',
+      'packages/react',
+      'packages/next',
+    ]);
+  });
+
+  it('rejects a dependency cycle before publishing can start', () => {
+    const { root } = createPackageGraph();
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      dependencies: { '@fast-link/next': 'workspace:^' },
+    });
+
+    expect(() => readPublishablePackages(root)).toThrow(
+      'Cyclic publish dependencies',
+    );
+  });
+});
+
+describe('ordered publishing', () => {
+  it('rechecks each version and finishes dependencies before their dependents', () => {
+    const { packages } = createPackageGraph();
+    const events = [];
+    const execute = recordingExecutor(packages, events);
+
+    const published = publishPackageReleases(packages, {
+      archiveDirectory: tmpdir(),
+      readPublishedVersions(name) {
+        events.push(`recheck:${name}`);
+        return null;
+      },
+      execute,
+    });
+
+    expect(published).toEqual([
+      '@fast-link/core@1.2.3',
+      '@fast-link/react@1.2.3',
+      '@fast-link/next@1.2.3',
+    ]);
+    expect(events).toEqual([
+      'recheck:@fast-link/core',
+      'build:core',
+      'pack:core.tgz',
+      'verify:core.tgz',
+      'publish:core.tgz',
+      'recheck:@fast-link/react',
+      'build:react',
+      'pack:react.tgz',
+      'verify:react.tgz',
+      'publish:react.tgz',
+      'recheck:@fast-link/next',
+      'build:next',
+      'pack:next.tgz',
+      'verify:next.tgz',
+      'publish:next.tgz',
+    ]);
+  });
+
+  it('skips a version published since initial detection', () => {
+    const { packages } = createPackageGraph();
+    const events = [];
+    const published = publishPackageReleases(packages, {
+      archiveDirectory: tmpdir(),
+      readPublishedVersions: () => [fixtureVersions.current],
+      execute: recordingExecutor(packages, events),
+    });
+
+    expect(published).toEqual([]);
+    expect(events).toEqual([]);
+  });
+
+  it.each(['build', 'pack', 'publish'])(
+    'does not attempt a dependent after %s fails',
+    (failure) => {
+      const { packages } = createPackageGraph();
+      const events = [];
+      const execute = recordingExecutor(packages, events, { failure });
+
+      expect(() =>
+        publishPackageReleases(packages, {
+          archiveDirectory: tmpdir(),
+          readPublishedVersions(name) {
+            events.push(`recheck:${name}`);
+            return null;
+          },
+          execute,
+        }),
+      ).toThrow(`${failure} failed`);
+      expect(events).not.toContain('recheck:@fast-link/react');
+      expect(events).not.toContain('publish:next.tgz');
+    },
+  );
+
+  it('rejects a packed identity change before publishing any package', () => {
+    const { packages } = createPackageGraph();
+    const events = [];
+
+    expect(() =>
+      publishPackageReleases(packages, {
+        archiveDirectory: tmpdir(),
+        readPublishedVersions: () => null,
+        execute: recordingExecutor(packages, events, { changedVersion: true }),
+      }),
+    ).toThrow('Packed package changed');
+    expect(events).toEqual(['build:core', 'pack:core.tgz', 'verify:core.tgz']);
   });
 });
 
@@ -271,6 +383,64 @@ const packageManifest = {
   exports: { '.': './dist/index.js' },
   scripts: { build: 'tsdown' },
 };
+
+function createPackageGraph() {
+  const { root } = createRepository();
+  const dependencies = {
+    core: {},
+    react: { '@fast-link/core': 'workspace:^' },
+    next: {
+      '@fast-link/core': 'workspace:^',
+      '@fast-link/react': 'workspace:^',
+    },
+  };
+  for (const [name, packageDependencies] of Object.entries(dependencies)) {
+    writeJson(join(root, `packages/${name}/package.json`), {
+      ...packageManifest,
+      name: `@fast-link/${name}`,
+      dependencies: packageDependencies,
+    });
+  }
+  writeJson(join(root, 'scripts/publishable-packages.json'), [
+    'packages/next',
+    'packages/react',
+    'packages/core',
+  ]);
+  return { root, packages: readPublishablePackages(root) };
+}
+
+function recordingExecutor(packages, events, { failure, changedVersion } = {}) {
+  return (command, args) => {
+    const stage = args.includes('build')
+      ? 'build'
+      : args.includes('pack')
+        ? 'pack'
+        : args.includes('publish')
+          ? 'publish'
+          : 'verify';
+    const target =
+      stage === 'build'
+        ? args.at(-1)
+        : stage === 'pack'
+          ? args[args.indexOf('--out') + 1]
+          : args[1];
+    events.push(`${stage}:${target.split('/').at(-1)}`);
+    if (stage === failure) throw new Error(`${stage} failed`);
+    if (command === 'tar') {
+      const archive = args[1];
+      const entry = packages.find(({ directory }) =>
+        archive.endsWith(`${directory.split('/').at(-1)}.tgz`),
+      );
+      return JSON.stringify({
+        ...entry.manifest,
+        version: changedVersion
+          ? fixtureVersions.later
+          : entry.manifest.version,
+      });
+    }
+    return '';
+  };
+}
 
 function createRepository({ publishablePackages = ['packages/core'] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fast-link-release-'));

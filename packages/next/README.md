@@ -100,8 +100,10 @@ export function AccountLink() {
 
 Use this opt-out for an ordinary link with `onNavigate`, an `onClick` guard,
 `replace`, `scroll`, or other behavior that the region cannot read from the
-rendered anchor. A descendant pointerdown handler cannot reliably cancel the
-region's capture listener. Define callback props in a Client Component.
+rendered anchor. A descendant React `onPointerDownCapture` can stop or prevent
+the press before the region's native listener runs. Descendant bubble handlers
+run after early navigation and cannot cancel it. Define callback props in a
+Client Component.
 
 ## Configure one link
 
@@ -130,6 +132,10 @@ For an accepted press, `FastLink` calls `onNavigate` first. Calling
 selects a navigation decision, calls `onFastNavigate(intent, decision)`, and
 performs that decision. Without a policy, navigation uses the current App
 Router.
+
+An `onPointerDown` bubble guard runs after early navigation. Use synchronous
+`onNavigate` cancellation for managed links when validation belongs on press.
+Keep links requiring release-time validation opted out.
 
 The follow-up pointer click is default-prevented but still propagates. Link and
 ancestor click handlers run if their elements remain mounted. A route may
@@ -173,6 +179,8 @@ and navigation is still attempted if it throws.
 options above. `href` remains required.
 
 Fast navigation preserves `replace`, `scroll`, and `transitionTypes` options.
+`transitionTypes` follows the installed `next/link` types; it is omitted from
+hook options on Next versions that do not declare it.
 `onNavigate` can cancel Fast Link before policy evaluation, observation, or
 navigation.
 
@@ -191,13 +199,15 @@ Nested regions retain outer-first capture ordering. A managed `FastLink` or
 
 ### `useFastLink`
 
-`useFastLink(options)` returns a callback ref for an application-owned anchor or
-optional-href element. It accepts:
+`useFastLink(options)` returns stable `{ ref, onClickCapture }` bindings for an
+application-owned anchor or optional-href element. Spread both on the same DOM
+element after other props. It accepts:
 
 - `href`, `as`, `legacyBehavior`, `replace`, `scroll`, `onNavigate`, and
   `transitionTypes` from `next/link`
 - The shared `enabled`, `navigationPolicy`, and `onFastNavigate` options
 - `forwardedRef` for composing the caller's ref
+- `onClickCapture`, called after suppression even when the click is prevented
 
 A missing `href`, a supplied `as`, `legacyBehavior={true}`, or a non-anchor root
 leaves navigation on its normal path. Option updates preserve a pending
@@ -298,14 +308,16 @@ export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
       forwardedRef,
     });
 
-    return <Link {...props} ref={attach} />;
+    return <Link {...props} {...attach} />;
   },
 );
 ```
 
-The renderer keeps its normal Link props and forwarded ref. Add
-`onFastNavigate` to maintain application pending state when route-level loading
-UI is not enough.
+The renderer must forward both bindings to its anchor or fallback element.
+Pass its capture handler into the hook and spread the bindings last so it runs
+after suppression. The renderer keeps its normal Link props and forwarded ref.
+Add `onFastNavigate` to maintain application pending state when route-level
+loading UI is not enough.
 
 ## Exports
 

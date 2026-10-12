@@ -3,7 +3,8 @@
 import { FastLink, FastLinkRegion } from '@fast-link/next';
 import Link from 'next/link';
 import { useLinkStatus } from 'next/link';
-import { useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
+import { createPortal } from 'react-dom';
 
 export function ClientLinks(): JSX.Element {
   const [events, setEvents] = useState<string[]>([]);
@@ -58,6 +59,26 @@ export function ClientLinks(): JSX.Element {
       >
         Churn
       </FastLink>
+      <FastLinkRegion>
+        <div
+          onClickCapture={(event) => {
+            record(
+              event.defaultPrevented ? 'capture-prevented' : 'capture-allowed',
+            );
+            event.stopPropagation();
+          }}
+        >
+          <FastLink
+            href="/slow?from=capture"
+            data-testid="capture-stop"
+            prefetch={false}
+            onFastNavigate={() => record('capture-fast')}
+          >
+            Capture stop
+          </FastLink>
+        </div>
+      </FastLinkRegion>
+      <ShadowCaptureLink record={record} />
       <div style={{ height: 800 }} />
       <FastLink
         href="/fast?from=options"
@@ -124,6 +145,52 @@ export function ClientLinks(): JSX.Element {
       </FastLinkRegion>
       <div style={{ height: 800 }} />
       <output data-testid="events">{events.join(',')}</output>
+    </div>
+  );
+}
+
+function ShadowCaptureLink({
+  record,
+}: {
+  record: (event: string) => void;
+}): JSX.Element {
+  const host = useRef<HTMLDivElement>(null);
+  const [root, setRoot] = useState<ShadowRoot | null>(null);
+  useEffect(() => {
+    if (host.current) setRoot(host.current.attachShadow({ mode: 'closed' }));
+  }, []);
+  return (
+    <div
+      ref={host}
+      data-testid="closed-capture-host"
+      data-ready={root ? 'true' : 'false'}
+      style={{ width: 200, height: 40 }}
+    >
+      {root &&
+        createPortal(
+          <FastLinkRegion>
+            <div
+              onClickCapture={(event) => {
+                record(
+                  event.defaultPrevented
+                    ? 'capture-prevented'
+                    : 'capture-allowed',
+                );
+                event.stopPropagation();
+              }}
+            >
+              <FastLink
+                href="/slow?from=closed-capture"
+                prefetch={false}
+                style={{ display: 'block', width: 200, height: 40 }}
+                onFastNavigate={() => record('capture-fast')}
+              >
+                Closed shadow capture
+              </FastLink>
+            </div>
+          </FastLinkRegion>,
+          root,
+        )}
     </div>
   );
 }

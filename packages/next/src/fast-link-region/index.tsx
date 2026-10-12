@@ -52,7 +52,7 @@ export function FastLinkRegion({
     },
   });
   return (
-    <div ref={attach} style={{ display: 'contents' }}>
+    <div {...attach} style={{ display: 'contents' }}>
       {children}
     </div>
   );

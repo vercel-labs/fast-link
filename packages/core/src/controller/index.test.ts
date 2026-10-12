@@ -356,3 +356,75 @@ it('keeps plain controllers on document assign by default', () => {
   expect(assign).toHaveBeenCalledExactlyOnceWith('https://example.com/pricing');
   controller.destroy();
 });
+
+it('suppresses a managed click through a containing controller in another copy', async () => {
+  vi.resetModules();
+  const { createFastLink: otherCopy } = await import('./index');
+  const root = document.createElement('div');
+  const anchor = root.appendChild(createAnchor({ href: '/pricing' }));
+  const navigate = vi.fn();
+  const region = createFastLink(root, { navigate });
+  const link = otherCopy(anchor, { navigate });
+  const preventDefault = vi.fn();
+
+  try {
+    dispatchPointerDown(anchor);
+    region.suppressClick({ target: anchor, detail: 0, preventDefault });
+    expect(preventDefault).not.toHaveBeenCalled();
+    const click = { target: anchor, detail: 1, preventDefault };
+    region.suppressClick(click);
+    region.suppressClick(click);
+    link.suppressClick(click);
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledTimes(1);
+  } finally {
+    link.destroy();
+    region.destroy();
+  }
+});
+
+it('preserves pending suppression for out-of-root clicks and clears it on destroy', () => {
+  const root = document.createElement('div');
+  const anchor = root.appendChild(createAnchor({ href: '/pricing' }));
+  const controller = createFastLink(root, { navigate: () => undefined });
+  const preventDefault = vi.fn();
+  dispatchPointerDown(anchor);
+  controller.suppressClick({
+    target: document.body,
+    detail: 1,
+    preventDefault,
+  });
+  controller.suppressClick({ target: window, detail: 1, preventDefault });
+  expect(preventDefault).not.toHaveBeenCalled();
+
+  controller.suppressClick({ target: anchor, detail: 1, preventDefault });
+  expect(preventDefault).toHaveBeenCalledTimes(1);
+  dispatchPointerDown(anchor);
+  controller.destroy();
+  controller.suppressClick({ target: anchor, detail: 1, preventDefault });
+  expect(preventDefault).toHaveBeenCalledTimes(1);
+});
+
+it('retains a newer pending owner when an older root is destroyed', () => {
+  const firstRoot = document.createElement('div');
+  const secondRoot = document.createElement('div');
+  const anchor = firstRoot.appendChild(createAnchor({ href: '/pricing' }));
+  const first = createFastLink(firstRoot, { navigate: () => undefined });
+  const second = createFastLink(secondRoot, { navigate: () => undefined });
+  const bridge = createFastLink(secondRoot, { enabled: false });
+  const preventDefault = vi.fn();
+
+  try {
+    dispatchPointerDown(anchor);
+    secondRoot.append(anchor);
+    dispatchPointerDown(anchor);
+    first.destroy();
+    bridge.suppressClick({ target: anchor, detail: 1, preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+  } finally {
+    first.destroy();
+    second.destroy();
+    bridge.destroy();
+  }
+});
