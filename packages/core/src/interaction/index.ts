@@ -1,7 +1,9 @@
-// Share handled events across bundles. The WeakSet tracks local events when
-// the symbol property cannot be set.
+// Share handled events across bundles, including non-extensible events.
 const HANDLED_EVENT = Symbol.for('@fast-link/core/handled-event');
-const locallyHandledEvents = new WeakSet<Event>();
+const HANDLED_EVENTS = Symbol.for('@fast-link/core/handled-events');
+const handledEvents: WeakSet<Event> =
+  Reflect.get(globalThis, HANDLED_EVENTS) ?? new WeakSet<Event>();
+Reflect.set(globalThis, HANDLED_EVENTS, handledEvents);
 const NESTED_CONTROL_TAGS = new Set([
   'BUTTON',
   'INPUT',
@@ -98,14 +100,11 @@ export function findAnchor(
 }
 
 function isHandled(event: Event): boolean {
-  return (
-    locallyHandledEvents.has(event) ||
-    Reflect.get(event, HANDLED_EVENT) === true
-  );
+  return handledEvents.has(event) || Reflect.get(event, HANDLED_EVENT) === true;
 }
 
 function markHandled(event: Event): void {
-  locallyHandledEvents.add(event);
+  handledEvents.add(event);
   Reflect.set(event, HANDLED_EVENT, true);
 }
 

@@ -117,9 +117,12 @@ effect.
 Framework adapters can call `suppressClick(event)` before descendant capture
 handlers run. Pass the framework event itself, with `target`, `detail`, and
 `preventDefault`, so its prevention flag is updated. A containing controller
-can suppress a managed descendant's pending click. Out-of-root and detail-zero
-clicks remain native, and calls after destroy do nothing. Use `@fast-link/react`
-to supply this capture binding in React rather than implementing it in an app.
+can suppress a managed descendant's pending click, even when the containing
+controller has a pending click for another anchor. Only targets inside the
+accepted anchor and its controller root consume that pending click. Unrelated
+clicks and detail-zero clicks remain native, and calls after destroy do nothing.
+Use `@fast-link/react` to supply this capture binding in React rather than
+implementing it in an app.
 
 ### `FastLinkIntent`
 
@@ -169,8 +172,10 @@ For each pointerdown, a controller:
 5. Prevents the matching pointer-generated click's default action without
    stopping propagation.
 
-Keyboard and synthetic clicks have `detail: 0` and remain native, including
-after a pointer interaction whose click was lost.
+Clicks with `detail: 0`, including keyboard activation, remain native even after
+a pointer interaction whose click was lost. If the follow-up never arrives,
+a later scripted positive-detail click on the same anchor can still be
+suppressed; its event fields do not distinguish it from the missing follow-up.
 
 ## Share navigation decisions in an adapter
 

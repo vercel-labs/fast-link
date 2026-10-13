@@ -46,6 +46,8 @@ export interface FastLinkController {
   /**
    * Applies pending click suppression from an earlier framework capture handler.
    * Pass its event directly so preventDefault updates the framework event too.
+   * Matches the accepted anchor and its descendants inside the controller root.
+   * Containing controllers can forward to a managed anchor's pending owner.
    * Detail-zero and out-of-root clicks stay native; propagation is preserved.
    */
   suppressClick(event: FollowupClick): void;
@@ -84,7 +86,12 @@ export function createFastLink(
 
   const consumeClick = (event: FollowupClick): void => {
     if (!pendingAnchor || event.detail === 0) return;
-    if (!(event.target instanceof Node) || !root.contains(event.target)) return;
+    if (
+      !(event.target instanceof Node) ||
+      !root.contains(event.target) ||
+      !pendingAnchor.contains(event.target)
+    )
+      return;
     clearPendingClick();
     suppressedClicks.add(event);
     event.preventDefault();
@@ -109,10 +116,7 @@ export function createFastLink(
 
   const onClick = (event: FollowupClick): void => {
     if (destroyed || event.detail === 0) return;
-    if (pendingAnchor) {
-      consumeClick(event);
-      return;
-    }
+    if (pendingAnchor) consumeClick(event);
     if (suppressedClicks.has(event)) return;
     const anchor = findAnchor(event.target, root);
     if (anchor) pendingClickOwners.get(anchor)?.(event);

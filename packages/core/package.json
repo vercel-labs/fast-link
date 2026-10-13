@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsdown",
     "test": "vitest run --project=unit",
-    "test:browser": "vitest run --project=browser",
+    "test:browser": "vitest run --project=browser && node ../../scripts/test-core-targeting.mjs",
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
     "prepublishOnly": "pnpm build"
