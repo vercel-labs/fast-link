@@ -3,11 +3,7 @@ export {
   type FastLinkController,
   type FastLinkOptions,
 } from './controller';
-export {
-  findAnchor,
-  resolveFastLink,
-  type FastLinkIntent,
-} from './interaction';
+export { type FastLinkIntent } from './interaction';
 export {
   runFastNavigation,
   type FastRouterDecision,

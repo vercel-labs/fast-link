@@ -31,12 +31,13 @@ export interface FastLinkOptions {
   /** Enables early navigation unless set to `false`. */
   enabled?: boolean;
   /**
-   * Navigates after `onNavigate`; the return value is ignored.
+   * Navigates after `onFastNavigate`; the return value is ignored.
    * Defaults to `location.assign(intent.url.href)` in the anchor's window.
+   * Runs even if observation throws; a navigation error takes precedence.
    */
   navigate?: (intent: FastLinkIntent) => void;
-  /** Runs immediately before `navigate` for an accepted pointerdown. */
-  onNavigate?: (intent: FastLinkIntent) => void;
+  /** Observes an accepted press before navigation, which still runs if this throws. */
+  onFastNavigate?: (intent: FastLinkIntent) => void;
 }
 
 /** Controls listeners and options for one root element. */
@@ -110,8 +111,11 @@ export function createFastLink(
 
     pendingAnchor = anchor;
     pendingClickOwners.set(anchor, consumeClick);
-    currentOptions.onNavigate?.(intent);
-    (currentOptions.navigate ?? navigateInBrowser)(intent);
+    try {
+      currentOptions.onFastNavigate?.(intent);
+    } finally {
+      (currentOptions.navigate ?? navigateInBrowser)(intent);
+    }
   };
 
   const onClick = (event: FollowupClick): void => {

@@ -431,7 +431,9 @@ describe('FastLink', () => {
           Pricing
         </FastLink>,
       );
-      pointerDown(getByRole('link'));
+      const anchor = getByRole('link');
+      pointerDown(anchor);
+      expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
     } finally {
       window.removeEventListener('error', onError);
     }
