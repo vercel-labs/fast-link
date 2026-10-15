@@ -280,8 +280,9 @@ export function AppRegion(
 }
 ```
 
-The wrappers preserve caller refs, Link options, and region props such as
-`basePath`, `enabled`, and `onFastNavigate`, while binding one policy.
+Both wrappers use the same navigation policy. `AppLink` forwards the caller's ref
+and Link options. `AppRegion` forwards region props, including `basePath`,
+`enabled`, and `onFastNavigate`.
 
 Fast Link does not infer ownership from paths or metadata. Classify foreign or
 unknown ownership as document navigation. An ordinary link inside `AppRegion`
@@ -299,9 +300,9 @@ navigation error takes precedence.
 
 ## Build a custom renderer
 
-Prefer `FastLink` for reusable link wrappers, including wrappers that forward
-refs and Link props. Use `useFastLink` when an existing renderer must keep
-control of the anchor, prefetching, click handlers, or pending state:
+Prefer `FastLink` for reusable wrappers that forward refs and Link props. Use
+`useFastLink` when an existing renderer must control the anchor, prefetching,
+click handlers, or pending state:
 
 ```tsx
 'use client';

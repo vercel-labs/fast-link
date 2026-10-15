@@ -118,8 +118,9 @@ effect.
 | `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler |
 | `destroy()`            | Removes both listeners permanently; calling it more than once is safe |
 
-For example, disable new presses while keeping suppression for an accepted
-press, then clean up when the region is no longer used:
+Disable early navigation for new presses while preserving suppression of the
+pending follow-up click. Destroy the controller when the region is no longer
+used:
 
 ```ts
 import { createFastLink } from '@fast-link/core';
@@ -142,8 +143,7 @@ export function attachNavigation(
 }
 ```
 
-Each update supplies the callbacks again because omitted options reset to their
-defaults.
+Pass the callbacks on each update; omitted options reset to their defaults.
 
 Framework adapters can call `suppressClick(event)` before descendant capture
 handlers run. Pass the framework event itself, with `target`, `detail`, and
@@ -203,11 +203,12 @@ For each pointerdown, a controller:
 5. Prevents the matching pointer-generated click's default action without
    stopping propagation.
 
-Core's `onNavigate` observes the accepted intent; it has no cancellation event,
-and its return value is ignored. If it throws, `navigate` is not called.
-Next's `onNavigate` instead receives a cancellable event. The navigation runner's
-`observe` callback runs after policy selection with a frozen decision and still
-permits navigation if it throws.
+Core's `onNavigate` observes the accepted intent. It receives no cancellation
+event, and its return value is ignored. If it throws, `navigate` is not called.
+
+Next's `onNavigate` receives a cancellable event. The navigation runner's
+`observe` callback receives a frozen decision after policy selection. Navigation
+is still attempted if `observe` throws.
 
 Clicks with `detail: 0`, including keyboard activation, remain native even after
 a pointer interaction whose click was lost. If the follow-up never arrives,

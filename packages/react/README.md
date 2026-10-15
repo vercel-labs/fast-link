@@ -54,7 +54,7 @@ export function AppRegion({
 
 Primary mouse navigation inside the region now calls `route` on `pointerdown`.
 The intent provides the source anchor, its authored `href`, and a resolved
-same-origin `URL`. The application supplies routing, history, scroll, route
+same-origin `URL`. The application handles routing, history, scroll, route
 state, and transitions.
 
 The package renders no wrapper and imports no router. The `display: contents`
