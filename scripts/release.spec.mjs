@@ -11,6 +11,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parse } from 'yaml';
+
 import { checkPackageVersions } from './check-package-version.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
 import { publishPackageReleases } from './publish-package-releases.mjs';
@@ -150,14 +152,62 @@ describe('ordered publishing', () => {
 });
 
 describe('release workflow', () => {
-  it('publishes only from main', () => {
-    const workflow = readFileSync(
-      new URL('../.github/workflows/release.yml', import.meta.url),
-      'utf8',
-    );
+  const workflow = readFileSync(
+    new URL('../.github/workflows/release.yml', import.meta.url),
+    'utf8',
+  );
+  const condition =
+    "github.ref == 'refs/heads/main' && needs.detect.outputs.has_packages == 'true'";
+  const guardLine = `    if: \${{ ${condition} }}\n`;
 
-    expect(workflow).toContain(
-      "github.ref == 'refs/heads/main' && needs.detect.outputs.has_packages == 'true'",
+  function checkPublishGuard(source) {
+    const publish = parse(source).jobs.publish;
+    expect(publish.if, 'publish condition').toBe(`\${{ ${condition} }}`);
+    expect(publish.needs, 'publish dependencies').toEqual(
+      expect.arrayContaining(['detect', 'validate', 'browser']),
+    );
+  }
+
+  it('requires main, publish candidates, and all prerequisite jobs', () => {
+    checkPublishGuard(workflow);
+  });
+
+  it.each([
+    ['missing guard', (source) => source.replace(guardLine, '')],
+    [
+      'guard in a comment',
+      (source) => source.replace(guardLine, `    # ${condition}\n`),
+    ],
+    [
+      'guard in another field',
+      (source) => source.replace(guardLine, `    name: ${condition}\n`),
+    ],
+    [
+      'missing main clause',
+      (source) =>
+        source.replace(
+          condition,
+          "needs.detect.outputs.has_packages == 'true'",
+        ),
+    ],
+    [
+      'missing candidates clause',
+      (source) => source.replace(condition, "github.ref == 'refs/heads/main'"),
+    ],
+    ...['detect', 'validate', 'browser'].map((dependency) => [
+      `missing ${dependency} dependency`,
+      (source) =>
+        source.replace(
+          'needs: [detect, validate, browser]',
+          `needs: [${['detect', 'validate', 'browser'].filter((job) => job !== dependency).join(', ')}]`,
+        ),
+    ]),
+  ])('rejects %s', (_, mutate) => {
+    const mutated = mutate(workflow);
+    // Parse separately so a YAML syntax error cannot satisfy the rejection check.
+    expect(() => parse(mutated)).not.toThrow();
+    expect(() => checkPublishGuard(mutated)).toThrow(
+      /publish condition|publish dependencies/,
     );
   });
 

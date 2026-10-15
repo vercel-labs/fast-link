@@ -16,7 +16,7 @@
       "dependsOn": ["^build", "^test"]
     },
     "test:browser": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["build", "^build"],
       "cache": false
     },
     "size": {
