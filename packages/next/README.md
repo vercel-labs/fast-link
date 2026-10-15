@@ -252,9 +252,10 @@ import {
   FastLink,
   FastLinkRegion,
   type FastLinkProps,
+  type FastLinkRegionProps,
   type FastNavigationPolicy,
 } from '@fast-link/next';
-import type { ReactNode } from 'react';
+import { forwardRef } from 'react';
 
 const ownedPaths = new Set(['/overview', '/pricing']);
 
@@ -265,18 +266,23 @@ const navigationPolicy: FastNavigationPolicy = (intent, proposed) => {
     : { kind: 'document', method: 'assign' };
 };
 
-export function AppLink(props: Omit<FastLinkProps, 'navigationPolicy'>) {
-  return <FastLink {...props} navigationPolicy={navigationPolicy} />;
-}
+export const AppLink = forwardRef<
+  HTMLAnchorElement,
+  Omit<FastLinkProps, 'navigationPolicy'>
+>(function AppLink(props, ref) {
+  return <FastLink {...props} ref={ref} navigationPolicy={navigationPolicy} />;
+});
 
-export function AppRegion({ children }: { children: ReactNode }) {
-  return (
-    <FastLinkRegion navigationPolicy={navigationPolicy}>
-      {children}
-    </FastLinkRegion>
-  );
+export function AppRegion(
+  props: Omit<FastLinkRegionProps, 'navigationPolicy'>,
+) {
+  return <FastLinkRegion {...props} navigationPolicy={navigationPolicy} />;
 }
 ```
+
+Both wrappers use the same navigation policy. `AppLink` forwards the caller's ref
+and Link options. `AppRegion` forwards region props, including `basePath`,
+`enabled`, and `onFastNavigate`.
 
 Fast Link does not infer ownership from paths or metadata. Classify foreign or
 unknown ownership as document navigation. An ordinary link inside `AppRegion`
@@ -294,8 +300,9 @@ navigation error takes precedence.
 
 ## Build a custom renderer
 
-Use `useFastLink` when an application component owns rendering, prefetching,
-click handlers, refs, or pending state:
+Prefer `FastLink` for reusable wrappers that forward refs and Link props. Use
+`useFastLink` when an existing renderer must control the anchor, prefetching,
+click handlers, or pending state:
 
 ```tsx
 'use client';

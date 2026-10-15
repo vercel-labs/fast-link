@@ -54,7 +54,8 @@ export function AppRegion({
 
 Primary mouse navigation inside the region now calls `route` on `pointerdown`.
 The intent provides the source anchor, its authored `href`, and a resolved
-same-origin `URL`. The application decides how its router handles that intent.
+same-origin `URL`. The application handles routing, history, scroll, route
+state, and transitions.
 
 The package renders no wrapper and imports no router. The `display: contents`
 element in the example belongs to the application.
@@ -80,6 +81,10 @@ function useFastLink<T extends HTMLElement = HTMLElement>(
 | `onNavigate`     | `(intent) => void`     | None                                      | Runs synchronously before `navigate`                                |
 | `onClickCapture` | `MouseEventHandler<T>` | None                                      | Runs after core suppression, including for prevented clicks         |
 | `forwardedRef`   | `ForwardedRef<T>`      | `null`                                    | Composes the caller's ref with the controller ref                   |
+
+Core's `onNavigate` observes the accepted intent before `navigate`; it cannot
+cancel navigation through a return value or `preventDefault()`. If it throws,
+`navigate` is not called.
 
 The returned object, ref, and capture handler are stable. Pass a caller capture
 handler through `onClickCapture`; the hook runs it after suppression, even when

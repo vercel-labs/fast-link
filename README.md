@@ -11,7 +11,8 @@ reversible. Do not use it for forms, destructive actions, purchases,
 confirmations, downloads, external links, or interactions that must validate on
 pointer release.
 
-Fast Link prevents desktop drag-to-bookmark from starting on eligible links.
+Navigation can start before the user begins dragging. Fast Link prevents
+desktop drag-to-bookmark from starting on eligible links.
 Leave it disabled where dragging a URL is an expected interaction.
 
 ## Choose a package
@@ -35,7 +36,9 @@ supported Node.js, Next.js, and React versions.
 npm install @fast-link/next
 ```
 
-Wrap a group of existing links with `FastLinkRegion`:
+Wrap a group of existing links with `FastLinkRegion`. This example assumes one
+App Router owns every destination and no link needs click-time checks or
+individual Link options:
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
