@@ -21,6 +21,10 @@ npm install @fast-link/core
 
 ## Start document navigation on pointerdown
 
+Navigation starts on press. A later click handler cannot cancel it. Leave
+confirmation, release-time checks, and expected URL dragging on the native
+path by adding `data-no-fast-link` to the anchor.
+
 Attach one controller to the narrowest element that contains links sharing the
 same navigation behavior:
 
@@ -114,6 +118,33 @@ effect.
 | `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler |
 | `destroy()`            | Removes both listeners permanently; calling it more than once is safe |
 
+For example, disable new presses while keeping suppression for an accepted
+press, then clean up when the region is no longer used:
+
+```ts
+import { createFastLink } from '@fast-link/core';
+
+export function attachNavigation(
+  root: HTMLElement,
+  navigate: (destination: URL) => void,
+) {
+  const options = { navigate: ({ url }: { url: URL }) => navigate(url) };
+  const controller = createFastLink(root, options);
+
+  return {
+    setEnabled(enabled: boolean) {
+      controller.update({ ...options, enabled });
+    },
+    destroy() {
+      controller.destroy();
+    },
+  };
+}
+```
+
+Each update supplies the callbacks again because omitted options reset to their
+defaults.
+
 Framework adapters can call `suppressClick(event)` before descendant capture
 handlers run. Pass the framework event itself, with `target`, `detail`, and
 `preventDefault`, so its prevention flag is updated. A containing controller
@@ -171,6 +202,12 @@ For each pointerdown, a controller:
 4. Calls `navigate`.
 5. Prevents the matching pointer-generated click's default action without
    stopping propagation.
+
+Core's `onNavigate` observes the accepted intent; it has no cancellation event,
+and its return value is ignored. If it throws, `navigate` is not called.
+Next's `onNavigate` instead receives a cancellable event. The navigation runner's
+`observe` callback runs after policy selection with a frozen decision and still
+permits navigation if it throws.
 
 Clicks with `detail: 0`, including keyboard activation, remain native even after
 a pointer interaction whose click was lost. If the follow-up never arrives,
