@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "next build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:fixtures": "node ../../scripts/test-next-fixtures.mjs"
   },
   "dependencies": {
     "@fast-link/next": "workspace:^",

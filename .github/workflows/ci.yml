@@ -29,6 +29,14 @@ jobs:
       - name: Check package release intent
         run: node scripts/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
 
+      - name: Restore Turbo cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ github.job }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -38,11 +46,8 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Test release tooling
-        run: pnpm test:root
-
       - name: Build, typecheck, test, and check size
-        run: pnpm exec turbo run build typecheck test size
+        run: pnpm exec turbo run //#test:root build typecheck test size
 
       - name: Pack and inspect packages
         run: |
@@ -67,17 +72,19 @@ jobs:
           node-version: "24"
           cache: pnpm
 
+      - name: Restore Turbo cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ github.job }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install browsers
         run: pnpm --filter @fast-link/core exec playwright install --with-deps chromium firefox webkit
 
-      - name: Run browser tests
-        run: pnpm test:browser
-
-      - name: Build Next.js fixtures
-        run: pnpm exec turbo run build --filter='./fixtures/*'
-
-      - name: Run App Router fixtures
-        run: pnpm test:fixtures
+      - name: Run browser and App Router tests
+        run: pnpm exec turbo run test:browser test:fixtures

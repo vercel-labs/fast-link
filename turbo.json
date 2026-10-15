@@ -10,17 +10,39 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "typecheck": {
-      "dependsOn": ["build", "^build", "^typecheck"]
+      "dependsOn": ["build"]
     },
     "test": {
-      "dependsOn": ["^build", "^test"]
-    },
-    "test:browser": {
-      "dependsOn": ["build", "^build"],
-      "cache": false
+      "dependsOn": ["^build"]
     },
     "size": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["build"]
+    },
+    "@fast-link/core#test:browser": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/test-core-targeting.mjs"
+      ]
+    },
+    "@fast-link/fixture-next-16#test:fixtures": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "//#format": {
+      "cache": false
+    },
+    "//#lint": {
+      "cache": false
+    },
+    "//#test:root": {
+      "inputs": [
+        "scripts/**",
+        ".github/workflows/**",
+        "package.json",
+        "pnpm-lock.yaml"
+      ]
     }
   }
 }

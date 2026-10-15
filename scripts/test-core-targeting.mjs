@@ -1,6 +1,7 @@
 /* oxlint-disable no-await-in-loop -- Trusted presses and releases must run in order. */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { test } from 'node:test';
 
 import { chromium, firefox, webkit } from 'playwright';
 
@@ -8,11 +9,15 @@ const core = await readFile(
   new URL('../packages/core/dist/index.js', import.meta.url),
   'utf8',
 );
-for (const [name, browserType] of Object.entries({
-  chromium,
-  firefox,
-  webkit,
-})) {
+await test('core targeting browsers', { concurrency: true }, async (t) => {
+  await Promise.all(
+    Object.entries({ chromium, firefox, webkit }).map(([name, browserType]) =>
+      t.test(name, () => checkBrowser(name, browserType)),
+    ),
+  );
+});
+
+async function checkBrowser(name, browserType) {
   const browser = await browserType.launch();
   try {
     for (const scenario of [

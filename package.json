@@ -12,10 +12,10 @@
     "size": "turbo run size",
     "test": "turbo run test",
     "test:browser": "turbo run test:browser",
-    "test:fixtures": "node scripts/test-next-fixtures.mjs",
+    "test:fixtures": "turbo run test:fixtures",
     "test:root": "vitest run --globals scripts/*.spec.mjs",
     "typecheck": "turbo run typecheck",
-    "validate": "pnpm format && pnpm lint && pnpm test:root && pnpm build && pnpm typecheck && pnpm test && pnpm test:browser && pnpm test:fixtures && pnpm size"
+    "validate": "turbo run //#format //#lint //#test:root build typecheck test test:browser test:fixtures size"
   },
   "devDependencies": {
     "lefthook": "2.1.5",
