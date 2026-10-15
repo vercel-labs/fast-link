@@ -10,7 +10,8 @@ instead.
 
 ## Requirements
 
-See [`package.json`](./package.json) for supported Node.js and React versions.
+See
+[`package.json`](./package.json) for React peer requirements.
 
 ## Install the package
 

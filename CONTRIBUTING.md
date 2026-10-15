@@ -48,6 +48,16 @@ Run the built Next.js App Router fixture in Chromium, Firefox, and WebKit:
 pnpm test:fixtures
 ```
 
+## Test packed consumers
+
+The [packed-consumers CI job](.github/workflows/ci.yml) builds and packs on Node.js
+24, then installs the tarballs with strict engine checks on Node.js 22 and 24. It
+checks core and React imports, public types, and a production Next.js build.
+
+To check local tarballs, run `node scripts/test-packed-consumers.mjs <directory>`
+under the consumer Node.js version. The directory must contain `core.tgz`,
+`react.tgz`, and `next.tgz`, packed from a completed Node.js 24 build.
+
 ## Prepare package changes
 
 After the initial release, a change to package source, build configuration,

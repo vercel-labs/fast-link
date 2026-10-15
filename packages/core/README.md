@@ -10,8 +10,7 @@ instead.
 
 ## Requirements
 
-Requires a browser DOM. See [`package.json`](./package.json) for the supported
-Node.js version.
+Requires a browser DOM.
 
 ## Install the package
 
