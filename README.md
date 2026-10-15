@@ -3,17 +3,17 @@
 Fast Link starts eligible same-origin link navigation on `pointerdown` instead
 of waiting for `click`. Primary mouse navigation starts when the user presses a
 link, while touch, pen, keyboard, and modified clicks keep their native behavior.
+Starting on press gives routing work a head start while you release the mouse.
 
 ## When to use Fast Link
 
-Use Fast Link for ordinary navigation that can begin on press and is immediately
-reversible. Do not use it for forms, destructive actions, purchases,
-confirmations, downloads, external links, or interactions that must validate on
-pointer release.
+Use Fast Link for navigation links that can start on press. For confirmation,
+release-time checks, or URL dragging, keep ordinary click behavior with
+`enabled={false}` or `data-no-fast-link`.
 
-Navigation can start before the user begins dragging. Fast Link prevents
-desktop drag-to-bookmark from starting on eligible links.
-Leave it disabled where dragging a URL is an expected interaction.
+Fast Link is alpha software. Dragging away cannot cancel navigation once it
+starts ([WCAG 2.5.2 Pointer Cancellation](https://www.w3.org/TR/WCAG22/#pointer-cancellation)).
+Screen-reader and focus behavior haven't been tested.
 
 ## Choose a package
 
@@ -29,8 +29,9 @@ provide.
 
 ## Get started with the Next.js App Router
 
-See [`@fast-link/next`'s package manifest](./packages/next/package.json) for
-supported Node.js, Next.js, and React versions.
+See the
+[`@fast-link/next` package manifest](./packages/next/package.json) for Next.js and
+React peer requirements.
 
 ```sh
 npm install @fast-link/next

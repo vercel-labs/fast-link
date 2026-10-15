@@ -72,6 +72,7 @@ it('uses committed options and keeps a pending click across rerenders', () => {
   rerender(
     <Region enabled={false} navigate={({ href }) => second.push(href)} />,
   );
+  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
   pointerDown(anchor);
 
   expect(first).toEqual(['/first']);

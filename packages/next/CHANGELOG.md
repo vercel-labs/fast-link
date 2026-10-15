@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.3
+
+- Document alpha accessibility limits and how to retain ordinary click behavior.
+
 ## 0.0.2
 
 - Require Node.js 22 or later and remove the package-manager requirement.

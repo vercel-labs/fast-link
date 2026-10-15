@@ -4,10 +4,12 @@
 a Next.js App Router application. It provides components for existing link
 regions and individual links, plus a hook for custom renderers.
 
+For press timing and opt-outs, see
+[when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
+
 ## Requirements
 
-See
-[`package.json`](./package.json) for Next.js and React peer requirements.
+See [`package.json`](./package.json) for Next.js and React peer requirements.
 
 ## Install the package
 
