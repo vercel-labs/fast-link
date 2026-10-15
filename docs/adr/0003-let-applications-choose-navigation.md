@@ -10,7 +10,7 @@ Plain core controllers default to document navigation through
 no policy is supplied. A supplied policy should choose document navigation for
 foreign or unknown ownership; Fast Link does not infer that ownership.
 
-Decisions have a small, fixed shape:
+Decisions use a small set of supported fields. Extra properties are ignored:
 
 - Router navigation uses the adapter's destination and history method, with
   an optional scroll override.
@@ -32,14 +32,14 @@ Core shares sequencing and error handling across adapters:
   still attempted if the observer throws.
 - Router errors surface without document fallback, avoiding a second
   navigation after a router action may have started.
-- If observation and navigation both throw, or policy and fallback both throw,
-  an `AggregateError` contains both errors.
+- If navigation also throws after a policy or observer error, the navigation
+  error takes precedence.
 
 Duplicating this sequence in each adapter would let callback ordering and
 failure behavior differ. Sharing it in core keeps those rules consistent while
 leaving framework routes and application ownership with their callers.
 
-Implementation: [decision runner](../../packages/core/src/navigation/index.ts#L34)
+Implementation: [decision runner](../../packages/core/src/navigation/index.ts#L33)
 and [Next policy](../../packages/next/src/use-fast-link/index.ts#L70).
 The [policy tests](../../packages/next/src/navigation-policy/index.test.tsx#L9)
 check destination preservation and per-link decisions inside regions.
