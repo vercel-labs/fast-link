@@ -20,9 +20,9 @@ npm install @fast-link/react
 
 ## Bind navigation to a React region
 
-Navigation starts on press. A later click handler cannot cancel it. Leave
-confirmation, release-time checks, and expected URL dragging on the native
-path by adding `data-no-fast-link` to the anchor.
+Navigation starts on press, before a click handler can cancel it. Keep links
+that need confirmation, release-time checks, or expected URL dragging native
+by adding `data-no-fast-link` to the anchor.
 
 `useFastLink` returns ref and click-capture bindings. Spread both on the same
 anchor or element containing anchors, after its other props:

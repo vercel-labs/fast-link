@@ -241,6 +241,10 @@ destination, history method, or transition settings.
 Supply a policy when the current App Router does not own every same-origin
 destination. Bind the policy once in reusable Client Component wrappers:
 
+`navigationPolicy` handles accepted early mouse navigation. Preserve the
+application's normal routing across application boundaries for keyboard and
+touch activation too.
+
 ```tsx
 'use client';
 
@@ -275,10 +279,6 @@ export function AppRegion(
   return <FastLinkRegion {...props} navigationPolicy={navigationPolicy} />;
 }
 ```
-
-`navigationPolicy` handles accepted early mouse navigation. Preserve the
-application's normal routing across application boundaries for keyboard and
-touch activation too.
 
 The wrappers preserve caller refs, Link options, and region props such as
 `basePath`, `enabled`, and `onFastNavigate`, while binding one policy.
