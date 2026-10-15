@@ -241,6 +241,10 @@ destination, history method, or transition settings.
 Supply a policy when the current App Router does not own every same-origin
 destination. Bind the policy once in reusable Client Component wrappers:
 
+`navigationPolicy` handles accepted early mouse navigation. Preserve the
+application's normal routing across application boundaries for keyboard and
+touch activation too.
+
 ```tsx
 'use client';
 
@@ -294,6 +298,8 @@ Use `useFastLink` when an application component owns rendering, prefetching,
 click handlers, refs, or pending state:
 
 ```tsx
+'use client';
+
 import { useFastLink, type UseFastLinkOptions } from '@fast-link/next';
 import Link from 'next/link';
 import { forwardRef, type ComponentPropsWithoutRef } from 'react';
