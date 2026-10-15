@@ -283,9 +283,10 @@ and navigation. A link that needs a click-time guard must opt out before
 `pointerdown`; a policy cannot return control to the original click.
 
 A throwing policy or invalid decision attempts document assign to the captured
-URL, then surfaces the policy error. Observer errors still permit navigation.
-Router errors surface without a document fallback. If observation and navigation
-both throw, an `AggregateError` preserves both errors.
+URL, then surfaces the policy error. Extra decision properties are ignored.
+Observer errors still permit navigation. Router errors surface without a document
+fallback. If navigation also throws after a policy or observer error, the
+navigation error takes precedence.
 
 ## Build a custom renderer
 

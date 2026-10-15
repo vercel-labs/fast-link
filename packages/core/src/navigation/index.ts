@@ -20,16 +20,15 @@ export type FastNavigationDecision = FastRouterDecision | FastDocumentDecision;
  * The caller must claim the press before calling this function.
  *
  * - With no policy, uses `defaultRouterDecision`.
- * - Decisions accept only documented fields. Omitted `scroll` keeps the
+ * - Extra decision properties are ignored. Omitted `scroll` keeps the
  *   adapter's scroll behavior.
  * - Policy errors and invalid decisions skip observation, attempt
  *   `location.assign()` with the URL captured before policy, and rethrow the error.
- *   If fallback navigation also throws, combines both errors in an `AggregateError`.
  * - Calls the observer with a frozen decision before navigation. Navigation
  *   still runs if the observer throws.
  * - Router errors are rethrown without document fallback.
- * - If observation and navigation both throw, combines both errors in an
- *   `AggregateError`.
+ * - If navigation also throws after a policy or observer error, the navigation
+ *   error takes precedence.
  */
 export function runFastNavigation(
   intent: FastLinkIntent,
@@ -50,56 +49,31 @@ export function runFastNavigation(
         : options.policy(),
     );
   } catch (error) {
-    try {
-      location?.assign(destination);
-    } catch (navigationError) {
-      // oxlint-disable-next-line preserve-caught-error -- AggregateError retains both original errors.
-      throw new AggregateError(
-        [error, navigationError],
-        'Policy and fallback navigation failed',
-      );
-    }
+    location?.assign(destination);
     throw error;
   }
 
-  const errors: unknown[] = [];
   try {
     options.observe?.(decision);
-  } catch (error) {
-    errors.push(error);
-  }
-  try {
+  } finally {
     if (decision.kind === 'router') options.route(decision);
     else location?.[decision.method](destination);
-  } catch (error) {
-    errors.push(error);
   }
-  if (errors.length === 1) throw errors[0];
-  if (errors.length > 1)
-    throw new AggregateError(errors, 'Observation and navigation failed');
 }
 
 function validateDecision(value: unknown): FastNavigationDecision {
   if (
     value !== null &&
     typeof value === 'object' &&
-    Object.prototype.toString.call(value) === '[object Object]' &&
     typeof Reflect.get(value, 'then') !== 'function'
   ) {
-    const keys = Reflect.ownKeys(value);
     const kind = Reflect.get(value, 'kind');
-    if (
-      kind === 'router' &&
-      keys.every((key) => key === 'kind' || key === 'scroll')
-    ) {
+    if (kind === 'router') {
       const scroll: unknown = Reflect.get(value, 'scroll');
       if (scroll === undefined) return Object.freeze({ kind });
       if (typeof scroll === 'boolean') return Object.freeze({ kind, scroll });
     }
-    if (
-      kind === 'document' &&
-      keys.every((key) => key === 'kind' || key === 'method')
-    ) {
+    if (kind === 'document') {
       const method: unknown = Reflect.get(value, 'method');
       if (method === 'assign' || method === 'replace')
         return Object.freeze({ kind, method });

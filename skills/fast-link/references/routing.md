@@ -35,8 +35,8 @@ history requirement.
 
 There is no policy decision to cancel or defer to a later click. Use a managed
 Next.js link's synchronous `onNavigate` cancellation, or opt out before the
-press for interactions that need click-time validation. Async policies and
-extra decision fields are invalid.
+press for interactions that need click-time validation. Policies must be
+synchronous. Extra decision properties are ignored.
 
 ## Share the application policy deliberately
 
@@ -56,7 +56,8 @@ destination. Its return value is ignored.
   captured URL, then surfaces the policy error. Throwing is not cancellation.
 - An observer error still permits the selected navigation attempt.
 - A router error surfaces without an additional document fallback.
-- Multiple errors are preserved in an `AggregateError` in execution order.
+- If navigation also throws after a policy or observer error, the navigation
+  error takes precedence.
 
 For a custom adapter, `runFastNavigation(intent, options)` from
 `@fast-link/core` accepts a caller-supplied `defaultRouterDecision`, a `policy`

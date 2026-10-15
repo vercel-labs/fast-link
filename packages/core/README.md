@@ -224,15 +224,14 @@ makes no router-ownership assumptions.
 | `{ kind: 'document', method: 'replace' }` | Load the validated URL and replace the current history entry |
 
 `runFastNavigation` uses `defaultRouterDecision` only when `policy` is absent. A
-policy runs once and synchronously. Decisions accept only their documented
-fields.
+policy runs once and synchronously. Extra decision properties are ignored.
 
 The runner captures the URL before policy evaluation, validates the decision,
 calls `observe` with a frozen snapshot, and attempts one selected action. An
 observer error does not prevent navigation. A router error is surfaced without
 document fallback. A throwing policy or invalid decision attempts document
-assign before surfacing the policy error. If two operations throw, an
-`AggregateError` preserves both errors in execution order.
+assign before surfacing the policy error. If navigation also throws after a
+policy or observer error, the navigation error takes precedence.
 
 ## Understand controller ownership
 

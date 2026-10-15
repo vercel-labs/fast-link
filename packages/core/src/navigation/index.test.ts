@@ -74,19 +74,8 @@ it.each([
     'invalid',
   ],
   ['unknown kind', { kind: 'native' }, 'invalid'],
-  [
-    'destination override',
-    { kind: 'router', destination: '/elsewhere' },
-    'invalid',
-  ],
-  ['history override', { kind: 'router', method: 'replace' }, 'invalid'],
   ['non-boolean scroll', { kind: 'router', scroll: null }, 'invalid'],
   ['invalid document method', { kind: 'document', method: 'push' }, 'invalid'],
-  [
-    'document scroll',
-    { kind: 'document', method: 'assign', scroll: false },
-    'invalid',
-  ],
 ] as const)('selects or rejects a present policy: %s', (_, value, action) => {
   const { intent, assign, replace } = navigation();
   const observe = vi.fn();
@@ -112,6 +101,53 @@ it.each([
     expect(action === 'replace' ? replace : assign).toHaveBeenCalledWith(
       'https://example.com/docs/guide',
     );
+});
+
+it.each([
+  [
+    'router',
+    {
+      kind: 'router',
+      scroll: false,
+      destination: '/elsewhere',
+      method: 'replace',
+      source: 'sidebar',
+    },
+    { kind: 'router', scroll: false },
+  ],
+  [
+    'document',
+    {
+      kind: 'document',
+      method: 'replace',
+      destination: '/elsewhere',
+      scroll: false,
+      source: 'sidebar',
+    },
+    { kind: 'document', method: 'replace' },
+  ],
+] as const)('ignores extra fields on a %s decision', (_, value, decision) => {
+  const { intent, assign, replace } = navigation();
+  const observe = vi.fn();
+  const route = vi.fn();
+  runFastNavigation(intent, {
+    defaultRouterDecision: { kind: 'router' },
+    policy: () => value,
+    observe,
+    route,
+  });
+  expect(observe).toHaveBeenCalledExactlyOnceWith(decision);
+  expect(Object.isFrozen(observe.mock.calls[0]?.[0])).toBe(true);
+  expect(assign).not.toHaveBeenCalled();
+  if (decision.kind === 'router') {
+    expect(route).toHaveBeenCalledExactlyOnceWith(decision);
+    expect(replace).not.toHaveBeenCalled();
+  } else {
+    expect(replace).toHaveBeenCalledExactlyOnceWith(
+      'https://example.com/docs/guide',
+    );
+    expect(route).not.toHaveBeenCalled();
+  }
 });
 
 it.each([undefined, false, true])(
@@ -236,7 +272,7 @@ it('keeps the decision unchanged when an observer tries to rewrite it', () => {
   expect(assign).not.toHaveBeenCalled();
 });
 
-it('surfaces both errors if policy and fallback fail', () => {
+it('surfaces the fallback error if policy and fallback fail', () => {
   const { intent, assign } = navigation();
   const policyError = new Error('policy failed');
   const documentError = new Error('document failed');
@@ -255,9 +291,40 @@ it('surfaces both errors if policy and fallback fail', () => {
   } catch (error) {
     caught = error;
   }
-  expect(caught).toBeInstanceOf(AggregateError);
-  expect((caught as AggregateError).errors).toEqual([
-    policyError,
-    documentError,
-  ]);
+  expect(caught).toBe(documentError);
 });
+
+it.each(['router', 'assign', 'replace'] as const)(
+  'surfaces the %s error if observation and navigation fail',
+  (action) => {
+    const { intent, assign, replace } = navigation();
+    const observerError = new Error('observer failed');
+    const navigationError = new Error('navigation failed');
+    const route = vi.fn();
+    const navigate =
+      action === 'router' ? route : action === 'assign' ? assign : replace;
+    navigate.mockImplementation(() => {
+      throw navigationError;
+    });
+    let caught;
+    try {
+      runFastNavigation(intent, {
+        defaultRouterDecision: { kind: 'router' },
+        policy: () =>
+          action === 'router'
+            ? { kind: 'router' }
+            : { kind: 'document', method: action },
+        observe: () => {
+          throw observerError;
+        },
+        route,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBe(navigationError);
+    expect(route).toHaveBeenCalledTimes(action === 'router' ? 1 : 0);
+    expect(assign).toHaveBeenCalledTimes(action === 'assign' ? 1 : 0);
+    expect(replace).toHaveBeenCalledTimes(action === 'replace' ? 1 : 0);
+  },
+);

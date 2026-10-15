@@ -19,7 +19,12 @@ describe('navigation policy', () => {
       });
       Reflect.set(proposed, 'destination', '/changed');
       Reflect.set(proposed, 'method', 'push');
-      return { kind: 'router', scroll: false };
+      return {
+        kind: 'router',
+        scroll: false,
+        destination: '/ignored',
+        method: 'push',
+      };
     };
     const { getByRole } = render(
       <FastLinkRegion navigationPolicy={regionPolicy}>
