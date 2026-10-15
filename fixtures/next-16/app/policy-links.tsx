@@ -78,6 +78,7 @@ function AppRegion({ children }: { children: ReactNode }) {
 
 export function PolicyLinks(): JSX.Element {
   const [events, setEvents] = useState<string[]>([]);
+  const [showPrefetch, setShowPrefetch] = useState(false);
   useEffect(() => {
     const capture = () => setEvents((value) => [...value, 'capture']);
     const bubble = (event: MouseEvent) =>
@@ -183,6 +184,30 @@ export function PolicyLinks(): JSX.Element {
             Pending
           </AppLink>
           <AppLink>Optional href</AppLink>
+          <button
+            onClick={() => setShowPrefetch(true)}
+            data-testid="show-prefetch"
+          >
+            Show prefetch links
+          </button>
+          {showPrefetch && (
+            <>
+              <AppLink
+                href="/prefetch-enabled"
+                prefetch={true}
+                data-testid="prefetch-enabled"
+              >
+                Enabled prefetch
+              </AppLink>
+              <AppLink
+                href="/prefetch-disabled"
+                prefetch={false}
+                data-testid="prefetch-disabled"
+              >
+                Disabled prefetch
+              </AppLink>
+            </>
+          )}
           <div style={{ height: 800 }} />
           <AppLink
             href="/fast?owner=owned&keep-scroll"

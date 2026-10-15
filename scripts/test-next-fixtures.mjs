@@ -47,6 +47,7 @@ try {
   })) {
     const browser = await browserType.launch();
     try {
+      await checkPrefetch(browser, fixtureOrigin);
       const page = await browser.newPage();
       await page.goto(`${fixtureOrigin}/docs`);
       await pressBeforeRelease(
@@ -534,11 +535,6 @@ async function checkPolicyNavigation(page, origin) {
   )
     throw new Error('Policy intercepted keyboard activation');
 
-  let prefetchedSlow = false;
-  const onPrefetch = (request) => {
-    if (new URL(request.url()).pathname === '/docs/slow') prefetchedSlow = true;
-  };
-  page.on('request', onPrefetch);
   await page.goto(`${origin}/docs`);
   const pending = page.getByTestId('policy-pending');
   await pending.scrollIntoViewIfNeeded();
@@ -550,8 +546,6 @@ async function checkPolicyNavigation(page, origin) {
   const box = await pending.boundingBox();
   if (!box) throw new Error('Missing custom renderer');
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  page.off('request', onPrefetch);
-  if (prefetchedSlow) throw new Error('Custom renderer lost prefetch=false');
   await page.mouse.down();
   await page.waitForFunction(
     () =>
@@ -580,5 +574,42 @@ async function checkPolicyNavigation(page, origin) {
       starts: 'pointerdown',
       scroll: keepScroll ? 'preserve' : 'reset',
     });
+  }
+}
+
+async function checkPrefetch(browser, origin) {
+  // A separate context keeps both destinations cold, including Next's router cache.
+  const page = await browser.newPage();
+  const disabledRequests = [];
+  const matches = (request, path) => {
+    const url = new URL(request.url());
+    return url.origin === origin && url.pathname === `/docs/${path}`;
+  };
+  const onRequest = (request) => {
+    if (matches(request, 'prefetch-disabled'))
+      disabledRequests.push(request.url());
+  };
+  page.on('request', onRequest);
+  try {
+    await page.goto(`${origin}/docs`);
+    // Start observing before the button mounts either link.
+    await Promise.all([
+      page.waitForRequest((request) => matches(request, 'prefetch-enabled'), {
+        timeout: 5000,
+      }),
+      (async () => {
+        await page.getByTestId('show-prefetch').click();
+        await page.getByTestId('prefetch-enabled').hover();
+      })(),
+    ]);
+    await page.getByTestId('prefetch-disabled').hover();
+    await delay(5000);
+    if (disabledRequests.length > 0)
+      throw new Error(
+        `Custom renderer lost prefetch=false: ${disabledRequests.join(', ')}`,
+      );
+  } finally {
+    page.off('request', onRequest);
+    await page.close();
   }
 }
