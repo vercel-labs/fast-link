@@ -1,185 +1,216 @@
 # Benchmarks
 
-Run benchmarks from the repository root with Node.js 24 and the pinned pnpm
-version. Results are controlled Chromium lab measurements. The timing policy
-starts report-only. Incorrect behavior, missing samples, and infrastructure
-failures fail checks even before timing gates are enabled.
+Use this guide to run, investigate, or change Fast Link benchmarks.
+Commands run from the repository root with Node.js 24 and the pinned pnpm version.
 
-## Reproduce a run
+- Timing gates start report-only. Invalid work and infrastructure failures fail checks.
+- Results describe controlled Chromium lab conditions. They do not establish typical-user gains.
+- Keep the existing package-size checks required.
+
+## Run locally
+
+Install dependencies, install Chromium, and build production code:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm exec playwright install chromium
 pnpm build
 results="$(mktemp -d)"
+```
+
+Run the full suite or one case:
+
+```sh
 pnpm benchmark --output "$results/full.json"
 pnpm benchmark --case core --output "$results/core.json"
 pnpm benchmark --case react --output "$results/react.json"
 pnpm benchmark --case next --output "$results/next.json"
 ```
 
-`--output` is required. Choose a results directory outside source checkouts.
-CI uses its temporary directory and uploads JSON for 90 days. A failed run
-retains available samples and errors; those samples cannot become results.
+- `--output` is required. Save results outside source checkouts.
+- Failed runs retain available samples and errors. Do not publish those samples.
 
-For a comparison, prepare two isolated checkouts at the desired revisions.
+### Compare revisions
+
+Prepare disposable base and head checkouts with compatible public APIs.
 Run from the head checkout:
 
 ```sh
 pnpm benchmark:compare --base /absolute/path/to/base-checkout --output "$results/comparison"
 ```
 
-The comparison command installs each checkout's frozen dependencies, forces
-production builds, and alternates base/head execution for five batches on one
-runner. It copies the head benchmark fixture into the base checkout so both
-revisions execute the same workload, including a base that predates benchmarks.
-Use disposable checkouts: this copy changes the base fixture. For older fixtures,
-the command also adds direct workspace dependencies on core and React bindings
-and updates their local workspace lock entries offline. Package source and
-external dependency versions stay at their respective revisions. Both checkouts
-need compatible public APIs. Dependency updates measure the versions shipped by
-each revision; their costs are included in the comparison and versions are
-recorded separately.
+The command:
 
-Use `--case core`, `--case react`, or `--case next` to narrow a comparison during
-investigation. A configured gate fails if a required metric is omitted. Full
-CI comparisons always run all cases. `--informational` validates work without
-applying timing thresholds and is used for release comparisons.
+- Copies the head benchmark fixture into base, including revisions that predate benchmarks.
+- Adds missing core/React workspace imports and updates their local lock entries offline.
+- Installs each revision's frozen dependencies and forces production builds.
+- Alternates base/head execution for five batches on the same runner.
+- Retains each revision's package source and external dependency versions in the comparison.
 
-## What the runner measures
+Options:
 
-All variants run sequentially in production Chromium with a 1280 by 720
-viewport. Variant order reverses every batch. Raw JSON records source revisions,
-dirty-checkout status, package and framework versions, browser and Node versions,
-CPU, memory, operating system, sample units, correctness checks, and elapsed time.
-Medians and full minimum-to-maximum ranges use unrounded samples.
+- `--case core|react|next` narrows an investigation. Omitting a gated metric fails the check.
+- `--informational` validates work without timing thresholds. Releases use this option.
+- CI comparisons run every case. Tested versions are recorded separately for base and head.
 
-| Scenario            | Timed work                                                                                                                                               | Checks                                                                                               |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Core                | Bare DOM handlers versus `createFastLink`; 1,000 dispatched primary mouse presses and their follow-up clicks after 100 warmups, in microseconds per pair | One navigation callback per press, prevented follow-up clicks, no callback after destroy             |
-| React interaction   | Plain React anchors versus `useFastLink`, with the same interaction workload                                                                             | Navigation callback count, click suppression, no callback from retained anchors after unmount        |
-| Ignored interaction | 1,000 touch pointerdown events after 100 warmups, in microseconds per event                                                                              | No navigation callbacks                                                                              |
-| React lifecycle     | One plain anchor versus one bound anchor; mount, update, and unmount                                                                                     | Rendered anchors, changed href and text, updated navigation callback, cleanup                        |
-| Next.js lifecycle   | `next/link`, `FastLink`, and a `FastLinkRegion` containing `next/link`; 1, 100, and 1,000 links                                                          | Link count, changed href and text, empty container after unmount                                     |
-| Next.js navigation  | Mouse pointerdown capture to destination client layout effect, in milliseconds                                                                           | Committed text, one history entry, one follow-up click, suppression, accepted early-navigation count |
+## Measurements
 
-Lifecycle timings wrap synchronous `flushSync` commits, including ref callbacks
-and layout effects. Each lifecycle workload runs once before its measured
-sample. Updates change every link's href query and label. Next variants share
-the same wrapper and anchor structure. These timings include React work and
-are not measurements of paint or passive-effect completion.
+Variants run sequentially in production Chromium at a 1280 by 720 viewport.
+Variant order reverses each batch. Reports use unrounded samples for medians
+and full minimum-to-maximum ranges.
 
-Synthetic events isolate dispatch costs; they do not measure hardware input
-latency. Bare handlers use the same counting callback but omit core's general
-eligibility checks. Compare raw variant timings; a subtraction of small noisy
-medians is not a regression gate.
+### Interaction costs
 
-Navigation uses real Playwright mouse input with a requested 80 ms hold. Actual
-pointerdown-to-pointerup time is recorded separately. Source links stay mounted
-while destination content commits so the follow-up click can be checked.
-Navigation latency differences include the time `next/link` waits for mouse
-release. These lab results do not establish faster JavaScript execution or
-typical-user gains.
+- Core compares bare DOM handlers with `createFastLink`, using the same counting callback.
+- React compares plain anchors with `useFastLink`.
+- Each batch measures 1,000 synthetic mouse presses and follow-up clicks after 100 warmups.
+- Accepted interactions report microseconds per press/click pair. Ignored touch pointerdowns report microseconds per event.
+- Checks cover navigation counts, click suppression, ignored input, and cleanup on retained anchors.
+- Bare handlers omit core's general eligibility checks. Synthetic events exclude hardware input latency.
 
-Each navigation sample uses a new browser context. Prefetch is disabled on
-rendered links. Warm cases explicitly call public `router.prefetch`, wait for a
-successful route response, and require no route request during navigation. Cold
-cases require no route request before the press and a route request during
-navigation. This verifies the client router cache; the server and operating
-system caches are not cold. A cache mismatch fails the run.
+### List lifecycle
 
-The runner checks that work occurred inside the measured interval. Before
-claiming a performance difference, reproduce it, inspect load and profiles,
-identify the limiting work, and compare the difference with the sample ranges.
-No result here supports a claim about representative users without user data.
+- React measures one plain or bound anchor.
+- Next.js measures `next/link`, `FastLink`, and `FastLinkRegion` containing `next/link`, at 1, 100, and 1,000 links.
+- Each workload warms once, then times mount, update, and unmount in milliseconds.
+- Timings wrap `flushSync` commits, including ref callbacks and layout effects. They exclude paint and passive-effect completion.
+- Updates change every href query and label. Next.js variants share wrapper and anchor structure.
+- Checks cover rendered counts, changed content, updated React navigation callbacks, and cleanup.
 
-## CI and calibration
+### Navigation
 
-The `Benchmarks / benchmark` check runs for PRs, pushes to main, and manual
-dispatches. Source, fixtures, dependencies, benchmark scripts, and workflow
-changes run measurements. Docs-only changes get a successful check without
-building or measuring. Keep the existing package-size checks required.
+- Real Playwright mouse input requests an 80 ms hold. Actual press-to-release duration is recorded separately.
+- Latency runs from pointerdown capture to the destination's client layout effect, in milliseconds.
+- Source links stay mounted until the follow-up click is checked.
+- Checks require committed content, one history entry, one follow-up click, and expected navigation and suppression counts.
+- `next/link` waits for mouse release. Earlier navigation does not establish faster JavaScript execution.
 
-`full-run.json` records elapsed time from the first workflow step through setup,
-builds, and measurements. `verdict.json` also records comparison time. Queue time
-and artifact upload are outside that interval. Measure hosted run time before
-deciding whether to change this implementation; there is no preset time budget.
+Every navigation sample uses a new browser context with rendered-link prefetch disabled:
 
-Before enabling timing gates, manually dispatch the workflow with `calibrate`
-selected. This runs ten base/head comparisons of the same revision. To exercise
-the command locally:
+| Cache case | Before pressing                                                     | During navigation        |
+| ---------- | ------------------------------------------------------------------- | ------------------------ |
+| Warm       | Call public `router.prefetch` and await a successful route response | Require no route request |
+| Cold       | Require no route request                                            | Require a route request  |
+
+A cache mismatch fails the run. These checks verify the client router cache;
+the server and operating system caches are not cold.
+
+### Read the results
+
+- JSON includes raw samples, units, correctness checks, elapsed time, commits, dirty status, and tested versions.
+- Environment metadata includes the browser, Node, Playwright, CPU, memory, and operating system.
+- Gates compare raw scenario medians. They do not subtract noisy variant medians or use rounded README values.
+- Before claiming a difference, reproduce it, inspect load and profiles, identify the limiting work, and compare sample ranges.
+- Profile separately from publication measurements. Claims about representative users need user data.
+
+## CI checks
+
+`Benchmarks / benchmark` runs for PRs, main pushes, and manual dispatches.
+
+- Source, fixture, dependency, script, and workflow changes run measurements.
+- Docs-only changes pass without building or measuring.
+- CI uploads JSON artifacts for 90 days, including available results from failed runs.
+- `verdict.json` records comparison time.
+- `full-run.json` records setup, builds, and measurement time, ending before artifact upload. Queue time is excluded.
+- Measure hosted elapsed time before adjusting the implementation. There is no preset time budget.
+
+## Calibrate and enable gates
+
+1. Manually dispatch the workflow with `calibrate` selected. It runs ten unchanged-code comparisons.
+2. Retain the hosted artifact. Review `calibration.json`, all ten comparisons, and raw samples.
+3. Select stable core/React metrics. Leave zero-resolution or unstable metrics report-only.
+4. Propose budgets in `scripts/benchmarks/policy.json`, linking calibration evidence in the PR.
+5. Obtain maintainer approval before enabling those metrics.
+
+Each `metrics` entry needs an `absolute` budget in that metric's unit, above
+observed noise. Calibration proposes twice the largest absolute median difference;
+those proposals need approval. The relative budget starts at a provisional 10%;
+it is not an industry standard.
+Next.js list and navigation timings remain informational.
+
+Exercise calibration locally with:
 
 ```sh
 pnpm benchmark:compare --base "$PWD" --calibrate --output "$results/calibration"
 ```
 
-Local noise does not establish hosted-runner noise. Retain the hosted artifact
-and review `calibration.json`, the raw samples, and all ten comparisons. Its
-proposed absolute budgets are twice the largest observed absolute median
-difference. They are proposals, not approved thresholds. Metrics with zero
-resolution or unstable ranges stay report-only.
+Local calibration does not establish hosted-runner noise.
 
-Thresholds live in `scripts/benchmarks/policy.json`. In a separately reviewed
-change, add stable core/React metric names to `metrics`, each with an `absolute`
-budget in that metric's unit and a link to calibration evidence in the PR. The
-maintainer approves stable metrics and budgets above observed noise. The
-relative budget starts at a provisional 10%; it is not an industry standard.
-Next.js navigation and list timings remain informational.
+| Measurement outcome                                     | Check result                       |
+| ------------------------------------------------------- | ---------------------------------- |
+| Median exceeds both absolute and relative budgets       | Run one confirmation comparison    |
+| Same metric exceeds both budgets again                  | Fail                               |
+| Valid comparisons disagree                              | Pass as inconclusive               |
+| Within budgets                                          | Pass                               |
+| Invalid data, incorrect work, or infrastructure failure | Fail, including during calibration |
 
-A raw scenario median must exceed both budgets to request a repeat comparison.
-The check fails when the same metric exceeds both budgets again. Valid
-comparisons that disagree are inconclusive and pass. Invalid work always fails.
-To investigate, download the artifact, compare raw scenarios and environments,
-rerun one case, and profile separately from the samples used for publication.
+To investigate a regression, download the artifact, compare raw scenarios and
+environments, rerun the affected case, and profile the limiting work.
 
-## Intentional regressions
+## Approve an intentional regression
 
-Configure a GitHub environment named `benchmark-override` with required
-maintainer reviewers, and then approve a separate policy change enabling
-`overridesEnabled`. Keep it disabled until that protection is configured.
+Before allowing overrides:
 
-Manually dispatch the benchmark workflow on the PR head branch, specify the PR
-base revision, and provide `override_reason`. Approval through the protected
-environment is required before that run starts. The command also checks that
-required reviewers are configured. It records the reason, confirmed measured
-cost, units, and original failure in the artifact. Invalid data and infrastructure
-failures cannot be overridden. The successful check must belong to the PR's
-current head commit. Changing budgets is a separate review, not an override.
+1. Configure required maintainer reviewers on the `benchmark-override` GitHub environment.
+2. Approve a separate policy change setting `overridesEnabled` to `true`.
 
-## Release publication
+To override a confirmed timing regression:
 
-After the release workflow's publish job succeeds, the benchmark job records
-results in the `benchmark-results` branch. `latest.json` records the latest measured release's full source commit and its
-predecessor, so publication retries retain the same comparison. No tag convention or GitHub Release
-asset is assumed. The publish allowlist and npm Trusted Publishing rules remain
-in effect; an empty allowlist means no release benchmark publication.
+1. Dispatch the workflow on the PR's current head branch.
+2. Supply the PR base revision and `override_reason`.
+3. Obtain the protected environment's approval before the run starts.
 
-The first measured release has no previous-release column value. Later releases
-remeasure the previous source commit on the same runner, with the current
-benchmark workload. Comparisons validate work but add no cumulative timing gate.
-If a previous revision cannot build or has incompatible public APIs,
-publication fails for maintainer investigation.
-Do not silently substitute a different baseline. A rerun of an older release
-fails if the latest measured release is not its ancestor; it cannot move the
-results pointer backward.
+- The command verifies that required reviewers are configured.
+- The artifact records the reason, confirmed cost, units, and original failure.
+- Invalid data and infrastructure failures cannot be overridden.
+- The successful check must belong to the PR's current head commit.
+- Review budget changes separately from overrides.
 
-Raw batches, combined reports, navigation checks, and the verdict are saved under
-`results/<source-commit>/` on the results branch. README links point there and
-outlive CI artifact retention. The generated table shows units, tested versions,
-medians, ranges, and changes from the remeasured previous release. Values use two
-significant figures; no per-run timestamp appears in the README.
+## Publish release results
 
-The release job uses GitHub's signed `createCommitOnBranch` mutation to save
-results and update a `runewolf/benchmark-readme-<commit>` branch. It verifies the
-returned signature and opens a docs PR. Enable GitHub Actions' permission to
-create PRs in repository settings. Only this release job gets contents and PR
-write permissions; benchmark PR runs get read access. No npm write token is used.
+After the release publish job succeeds, its benchmark job:
 
-On the automated docs PR, select **Approve workflows to run** to start its
-required checks. GitHub requires this approval for PR workflows triggered by
-`GITHUB_TOKEN`; see [triggering a workflow](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow).
+1. Reads the previous measured source commit from `benchmark-results/latest.json`.
+2. Remeasures that commit and the release on the same runner using the current workload.
+3. Saves raw batches, combined reports, navigation checks, and the verdict under `results/<source-commit>/`.
+4. Opens or updates `runewolf/benchmark-readme-<commit>` with the generated README table.
 
-`scripts/benchmarks/publish.mjs` owns the README markers and skips a PR when
-generated content is unchanged. `renderTable` and `updateReadme` can be exercised
-without GitHub through `pnpm exec vitest run --globals scripts/benchmarks.spec.mjs`.
-Review release claims against their raw samples before merging the docs PR.
+Publication rules:
+
+- The first measured release has no previous-release value. Later comparisons add no cumulative timing gate.
+- The pointer stores the predecessor, so retries keep the same comparison. No tags or GitHub Release assets are assumed.
+- An incompatible or unbuildable baseline fails publication for investigation. Do not substitute another baseline.
+- A release rerun fails if the latest measured release is not its ancestor. It cannot move results backward.
+- An empty publish allowlist prevents release benchmark publication. npm Trusted Publishing restrictions still apply.
+
+README output includes units, versions, medians, ranges, previous-release changes,
+and durable JSON links. Values use two significant figures and omit run timestamps.
+Identical generated content produces no PR.
+
+### GitHub setup and review
+
+- Allow GitHub Actions to create PRs in repository settings.
+- Only the release benchmark job has contents and PR write permissions. Benchmark PR runs have read access.
+- The publisher uses `createCommitOnBranch` and verifies GitHub's returned signature. It uses no npm write token.
+- On an automated docs PR, select **Approve workflows to run** to start required checks. See [GitHub's workflow-trigger rules](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow).
+- Review claims against raw samples before merging. Durable JSON outlives CI artifact retention.
+
+## Change the benchmark code
+
+| Responsibility                                   | Source                                                                      |
+| ------------------------------------------------ | --------------------------------------------------------------------------- |
+| Browser workloads and correctness checks         | `fixtures/next-16/app/benchmark/lab.tsx`                                    |
+| Sequential measurement and fixture server        | `scripts/benchmarks/run.mjs`, `measure.mjs`, `server.mjs`, `navigation.mjs` |
+| Checkout preparation and comparisons             | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs`   |
+| Report validation and timing gates               | `scripts/benchmarks/report.mjs`, `policy.json`                              |
+| CI selection, overrides, and verdict enforcement | `scripts/benchmarks/ci.mjs`                                                 |
+| Release baseline and GitHub publication          | `scripts/benchmarks/baseline.mjs`, `publish.mjs`, `github.mjs`              |
+| README markers and table rendering               | `scripts/benchmarks/readme.mjs`                                             |
+
+Run report, gate, and publication tests without GitHub access:
+
+```sh
+pnpm exec vitest run --globals scripts/benchmarks.spec.mjs scripts/benchmark-publication.spec.mjs
+```
+
+Preserve the browser-side timing boundaries and correctness checks when refactoring.

@@ -6,8 +6,10 @@ export function summarize(samples) {
     samples.some((n) => !Number.isFinite(n) || n < 0)
   )
     throw new Error('Expected at least five finite, nonnegative samples');
+
   const sorted = samples.toSorted((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
+
   return {
     median:
       sorted.length % 2
@@ -30,7 +32,9 @@ export function validateReport(report) {
     throw new Error(
       'Missing benchmark identity, environment, versions, or metrics',
     );
+
   if (report.errors?.length) throw new Error('Benchmark reported errors');
+
   if (report.conditions) {
     const expected = scenarioNames(report.conditions.case);
     if (
@@ -39,6 +43,7 @@ export function validateReport(report) {
     )
       throw new Error('Missing or unexpected benchmark scenarios');
   }
+
   for (const [name, metric] of Object.entries(report.metrics)) {
     summarize(metric.samples);
     if (
@@ -78,19 +83,22 @@ export function scenarioNames(selected = 'all') {
   return names;
 }
 
-function compare(base, head, policy) {
+/** Rejects differences in scenario sets, runner, units, or sample counts before gating. */
+function assertComparable(base, head) {
   validateReport(base);
   validateReport(head);
+
   const keys = Object.keys(base.metrics).toSorted();
   if (
     JSON.stringify(keys) !==
     JSON.stringify(Object.keys(head.metrics).toSorted())
   )
     throw new Error('Scenario sets differ');
+
   for (const key of ['platform', 'cpu', 'node', 'playwright', 'browser'])
     if (base.environment[key] !== head.environment[key])
       throw new Error(`Environments differ: ${key}`);
-  const regressions = [];
+
   for (const key of keys) {
     const before = base.metrics[key];
     const after = head.metrics[key];
@@ -99,6 +107,17 @@ function compare(base, head, policy) {
       before.samples.length !== after.samples.length
     )
       throw new Error(`Incompatible metric: ${key}`);
+  }
+}
+
+/** Finds raw scenario medians that exceed both approved budgets. */
+function findRegressions(base, head, policy) {
+  assertComparable(base, head);
+  const regressions = [];
+
+  for (const key of Object.keys(base.metrics).toSorted()) {
+    const before = base.metrics[key];
+    const after = head.metrics[key];
     const budget = policy.metrics[key];
     if (!budget) continue;
     if (
@@ -121,15 +140,17 @@ function compare(base, head, policy) {
         unit: before.unit,
       });
   }
+
   for (const key of Object.keys(policy.metrics))
     if (!head.metrics[key]) throw new Error(`Gated metric missing: ${key}`);
+
   return regressions;
 }
 
 /** Requires a second valid comparison before failing a timing regression. */
 export function evaluateGate(base, head, policy, confirmation) {
   try {
-    const regressions = compare(base, head, policy);
+    const regressions = findRegressions(base, head, policy);
     if (!regressions.length) return { status: 'pass', regressions };
     if (!confirmation) return { status: 'repeat', regressions };
     if (
@@ -137,7 +158,11 @@ export function evaluateGate(base, head, policy, confirmation) {
       confirmation.head.revision !== head.revision
     )
       throw new Error('Confirmation revisions differ');
-    const repeated = compare(confirmation.base, confirmation.head, policy);
+    const repeated = findRegressions(
+      confirmation.base,
+      confirmation.head,
+      policy,
+    );
     const confirmed = regressions.filter(({ metric }) =>
       repeated.some((item) => item.metric === metric),
     );
@@ -149,43 +174,4 @@ export function evaluateGate(base, head, policy, confirmation) {
   } catch (error) {
     return { status: 'fail', error: error.message };
   }
-}
-
-/** Generates stable README content from verified results, without run timestamps. */
-export function renderTable(report, url, previous) {
-  validateReport(report);
-  if (previous) validateReport(previous);
-  if (!url.startsWith('https://'))
-    throw new Error('A durable HTTPS result URL is required');
-  const rows = Object.entries(report.metrics)
-    .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([name, metric]) => {
-      const { median, min, max } = summarize(metric.samples);
-      const before = previous?.metrics[name];
-      const delta =
-        before && before.unit === metric.unit
-          ? `${Number((median - summarize(before.samples).median).toPrecision(2))} ${metric.unit}`
-          : 'N/A';
-      return `| ${name} | ${Number(median.toPrecision(2))} ${metric.unit} | ${Number(min.toPrecision(2))}–${Number(max.toPrecision(2))} ${metric.unit} | ${delta} |`;
-    });
-  return [
-    '[How we benchmark](docs/benchmarks.md)',
-    '',
-    '| Scenario | Median | Range | Change from previous release |',
-    '| --- | --- | --- | --- |',
-    ...rows,
-    '',
-    `Tested versions: ${Object.entries(report.versions)
-      .map(([name, version]) => `${name} ${version}`)
-      .join(', ')}.`,
-    `Release commit: ${report.revision}. [Raw results](${url}).`,
-    ...(previous
-      ? [
-          `Previous release tested versions: ${Object.entries(previous.versions)
-            .map(([name, version]) => `${name} ${version}`)
-            .join(', ')}.`,
-        ]
-      : []),
-    'Controlled lab measurements. Navigation latency differences include the time next/link waits for mouse release. These results do not establish faster JavaScript execution or typical-user gains.',
-  ].join('\n');
 }

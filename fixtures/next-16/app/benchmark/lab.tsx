@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useLayoutEffect, useState, type JSX } from 'react';
 import { flushSync } from 'react-dom';
 
+// Browser protocol consumed by scripts/benchmarks/measure.mjs and navigation.mjs.
+
 type Variant = 'bare' | 'core' | 'plain' | 'react' | 'next' | 'fast' | 'region';
 type Metric = { unit: 'us/op' | 'ms'; value: number; correct: boolean };
 type List = {
@@ -51,6 +53,8 @@ const navigate = () => {
 const navigateUpdated = () => {
   updatedNavigations++;
 };
+
+// Rendered variants share content, destination, and wrapper structure.
 
 function ReactAnchor({ version }: { version: number }) {
   const callback = version ? navigateUpdated : navigate;
@@ -139,6 +143,8 @@ function Links({ variant, count, version, navigation }: List) {
   return <div style={{ display: 'contents' }}>{children}</div>;
 }
 
+// Synthetic interaction workloads.
+
 function press(pointerType = 'mouse') {
   return new PointerEvent('pointerdown', {
     bubbles: true,
@@ -148,6 +154,7 @@ function press(pointerType = 'mouse') {
     pointerType,
   });
 }
+
 function click() {
   return new MouseEvent('click', {
     bubbles: true,
@@ -156,6 +163,15 @@ function click() {
   });
 }
 
+function bareDown(event: PointerEvent) {
+  if (event.pointerType === 'mouse') navigate();
+}
+
+function bareClick(event: MouseEvent) {
+  event.preventDefault();
+}
+
+/** Excludes event construction and warmup from the timed dispatch loop. */
 function interactions(
   anchor: HTMLAnchorElement,
   fast: boolean,
@@ -166,22 +182,27 @@ function interactions(
       down: press(ignored ? 'touch' : 'mouse'),
       up: click(),
     }));
+
     navigations = 0;
     for (const { down, up } of events.slice(0, warmup)) {
       anchor.dispatchEvent(down);
       if (!ignored) anchor.dispatchEvent(up);
     }
+
     navigations = 0;
     suppressedClicks = 0;
     let prevented = 0;
+
     const start = performance.now();
     for (const { down, up } of events.slice(warmup)) {
       anchor.dispatchEvent(down);
       if (!ignored) anchor.dispatchEvent(up);
     }
     const elapsed = performance.now() - start;
+
     for (const { up } of events.slice(warmup))
       if (up.defaultPrevented) prevented++;
+
     const correct =
       navigations === (ignored ? 0 : iterations) &&
       (ignored || !fast || prevented === iterations) &&
@@ -195,8 +216,142 @@ function interactions(
   return { accepted: measure(false), ignored: measure(true) };
 }
 
+// Scenario execution and correctness checks.
+
+type RenderList = (value: List | null) => void;
+
+/** Measures core dispatch and verifies retained anchors stop navigating after destroy. */
+function measureCore(
+  area: HTMLElement,
+  variant: 'bare' | 'core',
+): Record<string, Metric> {
+  const anchor = document.createElement('a');
+  anchor.href = '/docs/benchmark/target';
+  area.append(anchor);
+  const controller =
+    variant === 'core' ? createFastLink(anchor, { navigate }) : null;
+  if (!controller) {
+    anchor.addEventListener('pointerdown', bareDown);
+    anchor.addEventListener('click', bareClick);
+  }
+
+  const result = interactions(anchor, true);
+
+  controller?.destroy();
+  anchor.removeEventListener('pointerdown', bareDown);
+  anchor.removeEventListener('click', bareClick);
+  navigations = 0;
+  anchor.dispatchEvent(press());
+  result.accepted.correct &&= navigations === 0;
+  anchor.remove();
+
+  return result;
+}
+
+/** Measures React dispatch and verifies ref cleanup after a synchronous unmount. */
+function measureReactInteraction(
+  area: HTMLElement,
+  render: RenderList,
+  variant: 'plain' | 'react',
+): Record<string, Metric> {
+  render({ variant, count: 1, version: 0, navigation: false });
+
+  const anchor = area.querySelector('a');
+  if (!anchor) throw new Error('Missing benchmark anchor');
+
+  const result = interactions(anchor, variant === 'react', variant === 'react');
+
+  render(null);
+  navigations = 0;
+  anchor.dispatchEvent(press());
+  result.accepted.correct &&= navigations === 0;
+
+  return result;
+}
+
+/** Times synchronous mount, changed hrefs/labels, and cleanup; checks run outside timing. */
+function measureLifecycle(
+  area: HTMLElement,
+  render: RenderList,
+  events: Navigation,
+  variant: Variant,
+  count: number,
+): Record<string, Metric> {
+  const mount = timeCommit(() =>
+    render({ variant, count, version: 0, navigation: false }),
+  );
+  mount.correct = area.querySelectorAll('a').length === count;
+
+  const update = timeCommit(() =>
+    render({ variant, count, version: 1, navigation: false }),
+  );
+  update.correct = [...area.querySelectorAll('a')].every(
+    (a) => a.textContent === 'Link 1' && a.search === '?v=1',
+  );
+
+  const anchor = area.querySelector('a');
+  if (!anchor) throw new Error('Missing benchmark anchor');
+  if (variant === 'plain' || variant === 'react') {
+    updatedNavigations = 0;
+    anchor.dispatchEvent(press());
+    anchor.dispatchEvent(click());
+    update.correct &&= updatedNavigations === 1;
+  }
+
+  const unmount = timeCommit(() => render(null));
+  updatedNavigations = 0;
+  const acceptedBefore = events.accepted;
+  anchor.dispatchEvent(press());
+  unmount.correct =
+    area.querySelectorAll('a').length === 0 &&
+    updatedNavigations === 0 &&
+    events.accepted === acceptedBefore;
+
+  return { mount, update, unmount };
+}
+
+/** Times a synchronous operation in milliseconds; assertions run afterward. */
+function timeCommit(operation: () => void): Metric {
+  const start = performance.now();
+  operation();
+
+  return {
+    unit: 'ms',
+    value: performance.now() - start,
+    correct: true,
+  };
+}
+
+/** Observes real input without changing event propagation; returns listener cleanup. */
+function observeNavigation(area: HTMLElement, events: Navigation) {
+  const onDown = () => {
+    events.start = performance.now();
+  };
+  const onUp = () => {
+    events.release = performance.now();
+  };
+  const onClick = (event: MouseEvent) => {
+    events.clicks++;
+    if (event.defaultPrevented) events.prevented++;
+  };
+
+  area.addEventListener('pointerdown', onDown, true);
+  area.addEventListener('pointerup', onUp, true);
+  document.addEventListener('click', onClick);
+
+  return () => {
+    area.removeEventListener('pointerdown', onDown, true);
+    area.removeEventListener('pointerup', onUp, true);
+    document.removeEventListener('click', onClick);
+  };
+}
+
+// React owns rendering; the measurement functions own timing and checks.
+
+/** Exposes browser workloads after hydration and keeps the source links mounted across navigation. */
 export function BenchmarkLab(): JSX.Element {
   const router = useRouter();
+
   const [list, setList] = useState<List | null>(null);
   useLayoutEffect(() => {
     const area = document.querySelector<HTMLElement>('[data-benchmark-area]');
@@ -210,107 +365,20 @@ export function BenchmarkLab(): JSX.Element {
       accepted: 0,
       suppressed: 0,
     };
-    const onDown = () => {
-      events.start = performance.now();
-    };
-    const onUp = () => {
-      events.release = performance.now();
-    };
-    const onClick = (event: MouseEvent) => {
-      events.clicks++;
-      if (event.defaultPrevented) events.prevented++;
-    };
-    area.addEventListener('pointerdown', onDown, true);
-    area.addEventListener('pointerup', onUp, true);
-    document.addEventListener('click', onClick);
+    const stopObserving = observeNavigation(area, events);
+
     window.benchmark = {
       events,
       prefetch: () => router.prefetch('/benchmark/target'),
       navigation: (variant) =>
         render({ variant, count: 1, version: 0, navigation: true }),
-      micro: (variant) => {
-        const anchor = document.createElement('a');
-        anchor.href = '/docs/benchmark/target';
-        area.append(anchor);
-        const bareDown = (event: PointerEvent) => {
-          if (event.pointerType === 'mouse') navigate();
-        };
-        const bareClick = (event: MouseEvent) => event.preventDefault();
-        const controller =
-          variant === 'core' ? createFastLink(anchor, { navigate }) : null;
-        if (!controller) {
-          anchor.addEventListener('pointerdown', bareDown);
-          anchor.addEventListener('click', bareClick);
-        }
-        const result = interactions(anchor, true);
-        controller?.destroy();
-        anchor.removeEventListener('pointerdown', bareDown);
-        anchor.removeEventListener('click', bareClick);
-        navigations = 0;
-        anchor.dispatchEvent(press());
-        result.accepted.correct &&= navigations === 0;
-        anchor.remove();
-        return result;
-      },
-      interaction: (variant) => {
-        render({ variant, count: 1, version: 0, navigation: false });
-        const anchor = area.querySelector('a');
-        if (!anchor) throw new Error('Missing benchmark anchor');
-        const result = interactions(
-          anchor,
-          variant === 'react',
-          variant === 'react',
-        );
-        render(null);
-        navigations = 0;
-        anchor.dispatchEvent(press());
-        result.accepted.correct &&= navigations === 0;
-        return result;
-      },
-      lifecycle: (variant, count) => {
-        const timed = (operation: () => void): Metric => {
-          const start = performance.now();
-          operation();
-          return {
-            unit: 'ms',
-            value: performance.now() - start,
-            correct: true,
-          };
-        };
-        const mount = timed(() =>
-          render({ variant, count, version: 0, navigation: false }),
-        );
-        mount.correct = area.querySelectorAll('a').length === count;
-        const update = timed(() =>
-          render({ variant, count, version: 1, navigation: false }),
-        );
-        update.correct = [...area.querySelectorAll('a')].every(
-          (a) => a.textContent === 'Link 1' && a.search === '?v=1',
-        );
-        const anchor = area.querySelector('a');
-        if (!anchor) throw new Error('Missing benchmark anchor');
-        if (variant === 'plain' || variant === 'react') {
-          updatedNavigations = 0;
-          anchor.dispatchEvent(press());
-          anchor.dispatchEvent(click());
-          update.correct &&= updatedNavigations === 1;
-        }
-        const unmount = timed(() => render(null));
-        updatedNavigations = 0;
-        const acceptedBefore = events.accepted;
-        anchor.dispatchEvent(press());
-        unmount.correct =
-          area.querySelectorAll('a').length === 0 &&
-          updatedNavigations === 0 &&
-          events.accepted === acceptedBefore;
-        return { mount, update, unmount };
-      },
+      micro: (variant) => measureCore(area, variant),
+      interaction: (variant) => measureReactInteraction(area, render, variant),
+      lifecycle: (variant, count) =>
+        measureLifecycle(area, render, events, variant, count),
     };
-    return () => {
-      area.removeEventListener('pointerdown', onDown, true);
-      area.removeEventListener('pointerup', onUp, true);
-      document.removeEventListener('click', onClick);
-    };
+    return stopObserving;
   }, [router]);
+
   return <div data-benchmark-area>{list ? <Links {...list} /> : null}</div>;
 }
