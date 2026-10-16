@@ -1,3 +1,9 @@
+/*
+ * Exercises the built core package through its public import in plain Node.js.
+ * Router decisions, document navigation, and policy fallback must work without
+ * React or browser globals.
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

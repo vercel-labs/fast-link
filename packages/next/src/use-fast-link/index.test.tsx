@@ -1,3 +1,9 @@
+/*
+ * Tests the Next hook with custom renderers that switch between anchors and
+ * fallback elements. Ref updates and pending clicks must follow the active
+ * element without intercepting links inside a non-anchor fallback.
+ */
+
 import { fireEvent, render } from '@testing-library/react';
 
 import { HookLink, pointerDown, router } from '../testing';

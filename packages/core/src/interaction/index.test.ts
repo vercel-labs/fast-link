@@ -1,3 +1,8 @@
+/*
+ * Tests pointer eligibility, anchor lookup within a root, URL resolution against
+ * the document base, and how accepted events are claimed only once.
+ */
+
 import { findAnchor, resolveFastLink, type FastLinkIntent } from './index';
 
 interface PointerEventOptions extends MouseEventInit {
