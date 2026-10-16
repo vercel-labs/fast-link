@@ -26,7 +26,7 @@ export function renderTable(report, url) {
     '<details>',
     '<summary>View benchmark comparisons</summary>',
     '',
-    "Cells show median (min–max). Replace `*` in each scenario ID with the column's variant key.",
+    ...renderConditions(report),
     '',
     '### Core',
     '',
@@ -34,10 +34,13 @@ export function renderTable(report, url) {
       report.metrics,
       'core',
       [
-        ['bare', 'Bare DOM (`bare`, baseline)'],
-        ['core', '`createFastLink` (`core`)'],
+        ['bare', 'Bare DOM (baseline)'],
+        ['core', '`createFastLink`'],
       ],
-      ['accepted', 'ignored'],
+      [
+        ['accepted', 'Mouse press and click'],
+        ['ignored', 'Ignored touch press'],
+      ],
     ),
     '',
     '### React',
@@ -46,33 +49,36 @@ export function renderTable(report, url) {
       report.metrics,
       'react',
       [
-        ['plain', 'Plain anchor (`plain`, baseline)'],
-        ['react', '`useFastLink` (`react`)'],
+        ['plain', 'Plain anchor (baseline)'],
+        ['react', '`useFastLink`'],
       ],
-      ['accepted', 'ignored'],
+      [
+        ['accepted', 'Mouse press and click'],
+        ['ignored', 'Ignored touch press'],
+      ],
     ),
     '',
     '### Next.js',
     '',
-    `Navigation measures pointerdown to destination commit with an **${holdMs} ms** mouse hold. \`next/link\` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.`,
+    'Navigation measures mouse press to destination commit. `next/link` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.',
     '',
     ...renderComparison(
       report.metrics,
       'next',
       [
-        ['next', '`next/link` (`next`, baseline)'],
-        ['fast', '`FastLink` (`fast`)'],
-        ['region', '`FastLinkRegion` (`region`)'],
+        ['next', '`next/link` (baseline)'],
+        ['fast', '`FastLink`'],
+        ['region', '`FastLinkRegion`'],
       ],
       [
-        'warm.navigation',
-        'cold.navigation',
-        '100.mount',
-        '100.update',
-        '100.unmount',
-        '1000.mount',
-        '1000.update',
-        '1000.unmount',
+        ['warm.navigation', 'Navigate to prefetched route'],
+        ['cold.navigation', 'Navigate to unprefetched route'],
+        ['100.mount', 'Mount 100 links'],
+        ['100.update', 'Update 100 links'],
+        ['100.unmount', 'Unmount 100 links'],
+        ['1000.mount', 'Mount 1,000 links'],
+        ['1000.update', 'Update 1,000 links'],
+        ['1000.unmount', 'Unmount 1,000 links'],
       ],
     ),
     '',
@@ -84,6 +90,30 @@ export function renderTable(report, url) {
     '',
     '</details>',
   ].join('\n');
+}
+
+/** States the recorded workload and scoring method; rejects incomplete batch summaries. */
+function renderConditions(report) {
+  const { batches, interactions, warmup, holdMs } = report.conditions;
+  if (
+    !Number.isInteger(batches) ||
+    batches < 1 ||
+    !Number.isInteger(interactions) ||
+    interactions < 1 ||
+    !Number.isInteger(warmup) ||
+    warmup < 0 ||
+    Object.values(report.metrics).some(
+      (metric) => metric.samples.length !== batches,
+    )
+  )
+    throw new Error('README requires workload counts and one sample per batch');
+
+  return [
+    `- Runs: ${batches} alternating batches, ${batches} samples per scenario.`,
+    '- Score: median time per workload; ranges and individual samples are in raw results.',
+    `- Mouse hold: **${holdMs} ms** requested for all navigation variants.`,
+    `- Interaction workload: ${interactions.toLocaleString('en-US')} synthetic interactions per sample, after ${warmup.toLocaleString('en-US')} warmups. Times are per interaction.`,
+  ];
 }
 
 /** Rounds display values only; gate decisions retain the original samples. */
@@ -100,21 +130,22 @@ function formatVersions(versions) {
 /** Pairs each workload with its baseline and adapter variants, in display order. */
 function renderComparison(metrics, prefix, variants, workloads) {
   return [
-    `| Scenario ID | ${variants.map(([, label]) => label).join(' | ')} |`,
+    `| Workload (median time) | ${variants.map(([, label]) => label).join(' | ')} |`,
     `| --- | ${variants.map(() => '---').join(' | ')} |`,
-    ...workloads.map((workload) => {
+    ...workloads.map(([workload, label]) => {
       const cells = variants.map(([variant]) => {
         const name = `${prefix}.${variant}.${workload}`;
         if (!metrics[name]) throw new Error(`Missing README scenario: ${name}`);
         return formatMetric(metrics[name]);
       });
-      return `| \`${prefix}.*.${workload}\` | ${cells.join(' | ')} |`;
+      return `| ${label} | ${cells.join(' | ')} |`;
     }),
   ];
 }
 
-/** Formats a median and full sample range in their shared unit. */
+/** Formats the median in milliseconds or microseconds per interaction. */
 function formatMetric(metric) {
-  const { median, min, max } = summarize(metric.samples);
-  return `${formatValue(median)} (${formatValue(min)}–${formatValue(max)}) ${metric.unit}`;
+  const { median } = summarize(metric.samples);
+  const unit = metric.unit === 'us/op' ? 'µs' : metric.unit;
+  return `${formatValue(median)} ${unit}`;
 }

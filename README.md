@@ -136,36 +136,39 @@ Next.js App Router integrations and custom core or React adapters.
 <details>
 <summary>View benchmark comparisons</summary>
 
-Cells show median (min–max). Replace `*` in each scenario ID with the column's variant key.
+- Runs: 5 alternating batches, 5 samples per scenario.
+- Score: median time per workload; ranges and individual samples are in raw results.
+- Mouse hold: **85 ms** requested for all navigation variants.
+- Interaction workload: 1,000 synthetic interactions per sample, after 100 warmups. Times are per interaction.
 
 ### Core
 
-| Scenario ID       | Bare DOM (`bare`, baseline) | `createFastLink` (`core`) |
-| ----------------- | --------------------------- | ------------------------- |
-| `core.*.accepted` | 4.2 (3.7–4.8) us/op         | 6.2 (5.7–6.3) us/op       |
-| `core.*.ignored`  | 1.8 (1.7–2.1) us/op         | 2 (1.9–2.1) us/op         |
+| Workload (median time) | Bare DOM (baseline) | `createFastLink` |
+| ---------------------- | ------------------- | ---------------- |
+| Mouse press and click  | 4.2 µs              | 6.2 µs           |
+| Ignored touch press    | 1.8 µs              | 2 µs             |
 
 ### React
 
-| Scenario ID        | Plain anchor (`plain`, baseline) | `useFastLink` (`react`) |
-| ------------------ | -------------------------------- | ----------------------- |
-| `react.*.accepted` | 7.8 (7.4–8.2) us/op              | 9 (8.7–9.6) us/op       |
-| `react.*.ignored`  | 3.9 (3.8–4.1) us/op              | 2.2 (2.1–2.3) us/op     |
+| Workload (median time) | Plain anchor (baseline) | `useFastLink` |
+| ---------------------- | ----------------------- | ------------- |
+| Mouse press and click  | 7.8 µs                  | 9 µs          |
+| Ignored touch press    | 3.9 µs                  | 2.2 µs        |
 
 ### Next.js
 
-Navigation measures pointerdown to destination commit with an **85 ms** mouse hold. `next/link` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.
+Navigation measures mouse press to destination commit. `next/link` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.
 
-| Scenario ID              | `next/link` (`next`, baseline) | `FastLink` (`fast`) | `FastLinkRegion` (`region`) |
-| ------------------------ | ------------------------------ | ------------------- | --------------------------- |
-| `next.*.warm.navigation` | 91 (90–96) ms                  | 3.1 (2.8–3.2) ms    | 3 (2.8–3.2) ms              |
-| `next.*.cold.navigation` | 97 (94–98) ms                  | 6.9 (5.5–7.8) ms    | 6.7 (5.9–7.2) ms            |
-| `next.*.100.mount`       | 0.5 (0.2–0.5) ms               | 0.7 (0.7–0.7) ms    | 0.3 (0.2–0.5) ms            |
-| `next.*.100.update`      | 0.4 (0.1–0.5) ms               | 0.6 (0.6–0.6) ms    | 0.2 (0.1–0.6) ms            |
-| `next.*.100.unmount`     | 0.1 (0.1–0.2) ms               | 0.1 (0–0.2) ms      | 0.1 (0–0.2) ms              |
-| `next.*.1000.mount`      | 2.2 (2–2.4) ms                 | 3.4 (3.3–3.8) ms    | 2.1 (2–2.3) ms              |
-| `next.*.1000.update`     | 1.8 (1.8–2) ms                 | 4.2 (4.1–4.5) ms    | 1.8 (1.7–1.8) ms            |
-| `next.*.1000.unmount`    | 0.5 (0.5–0.5) ms               | 0.9 (0.8–1) ms      | 0.5 (0.4–0.5) ms            |
+| Workload (median time)         | `next/link` (baseline) | `FastLink` | `FastLinkRegion` |
+| ------------------------------ | ---------------------- | ---------- | ---------------- |
+| Navigate to prefetched route   | 91 ms                  | 3.1 ms     | 3 ms             |
+| Navigate to unprefetched route | 97 ms                  | 6.9 ms     | 6.7 ms           |
+| Mount 100 links                | 0.5 ms                 | 0.7 ms     | 0.3 ms           |
+| Update 100 links               | 0.4 ms                 | 0.6 ms     | 0.2 ms           |
+| Unmount 100 links              | 0.1 ms                 | 0.1 ms     | 0.1 ms           |
+| Mount 1,000 links              | 2.2 ms                 | 3.4 ms     | 2.1 ms           |
+| Update 1,000 links             | 1.8 ms                 | 4.2 ms     | 1.8 ms           |
+| Unmount 1,000 links            | 0.5 ms                 | 0.9 ms     | 0.5 ms           |
 
 Raw results include all 53 measurements, including actual press durations and single-link lifecycle timings. Single-link timings can reach browser timer resolution.
 
@@ -174,9 +177,6 @@ Source commit: fe6fd78dfb572725fccd5b37f555f61b536dda95. [Raw results](https://g
 Controlled Chromium lab measurements.
 
 - Local run: Apple M4 Pro, Darwin 25.6.0, Chromium 147.0.7727.15.
-- 5 alternating batches; 1,000 interactions after 100 warmups.
-- Navigation requested an **85 ms** mouse hold. Actual press durations are in the raw results.
-- Displayed 0 ms values reflect browser timer resolution.
 
 </details>
 <!-- benchmarks:end -->

@@ -28,7 +28,13 @@ function fixture() {
     revision,
     versions: { next: '16.3.6' },
     environment: { browser: 'Chromium' },
-    conditions: { case: 'all', holdMs: 85 },
+    conditions: {
+      case: 'all',
+      holdMs: 85,
+      batches: 5,
+      interactions: 1000,
+      warmup: 100,
+    },
     errors: [],
     metrics: Object.fromEntries(
       scenarioNames().map((name) => [
@@ -146,7 +152,9 @@ it('retries PR creation after saving results and preserves current main prose an
     '<summary>View benchmark comparisons</summary>',
   );
   expect(state().branchReadme).not.toContain('Change from previous release');
-  expect(state().branchReadme).toContain('**85 ms** mouse hold');
+  expect(state().branchReadme).toContain('- Mouse hold: **85 ms**');
+  expect(state().branchReadme).toContain('Workload (median time)');
+  expect(state().branchReadme).not.toContain('Scenario ID');
   expect(execute('baseline').status).toBe(0);
   expect(readFileSync(join(directory, 'outputs'), 'utf8')).toBe(
     `revision=${'b'.repeat(40)}\n`,

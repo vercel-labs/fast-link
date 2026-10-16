@@ -83,7 +83,10 @@ sample counts, timing boundaries, and correctness checks.
 
 - Tables follow the dependency order: Core, React, Next.js.
 - Columns pair each workload with its baseline: bare DOM, a plain React anchor, or `next/link`.
-- Each cell shows the median and full range. Replace `*` in the row ID with the column's variant key to find its raw samples.
+- Use descriptive workload names in the README. Keep scenario IDs in this guide and raw JSON.
+- Each cell shows one median time. The config bullets state the batch count, samples per scenario, mouse hold, and interaction workload.
+- Keep ranges and individual samples in raw results. Five batch samples per scenario do not support useful p95 or p99 reporting.
+- Core/React samples average 1,000 interactions, so their batch percentiles would not describe individual-interaction latency.
 - Show interaction costs, warm/cold navigation, and lifecycle costs for 100 and 1,000 links.
 - Keep actual press durations in raw results as input diagnostics.
 - Keep single-link lifecycle timings in raw results. They can reach browser timer resolution and offer little comparison value there.
@@ -219,8 +222,8 @@ Publication rules:
 - A release rerun fails if the latest measured release is not its ancestor. It cannot move results backward.
 - An empty publish allowlist prevents release benchmark publication. npm Trusted Publishing restrictions still apply.
 
-The README's collapsible comparisons include scenario ID patterns, explicit
-baseline columns, units, versions, medians, ranges, and durable JSON links.
+The README's collapsible comparisons include descriptive workloads, explicit
+baseline columns, units, versions, medians, run conditions, and durable JSON links.
 Previous-release samples stay in the raw results.
 Values use two significant figures and omit run timestamps.
 Identical generated content produces no PR.

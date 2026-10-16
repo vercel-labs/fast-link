@@ -154,15 +154,32 @@ describe('benchmark results', () => {
     input.metrics = Object.fromEntries(
       scenarioNames().map((name) => [name, metric(12.345)]),
     );
-    input.conditions = { case: 'all', holdMs: 85 };
+    input.conditions = {
+      case: 'all',
+      holdMs: 85,
+      batches: 5,
+      interactions: 1000,
+      warmup: 100,
+    };
     input.metrics['next.next.warm.navigation'] = { ...metric(90), unit: 'ms' };
-    input.metrics['next.fast.warm.navigation'] = { ...metric(7), unit: 'ms' };
+    input.metrics['next.fast.warm.navigation'] = {
+      ...metric(7),
+      samples: [3, 5, 7, 11, 100],
+      unit: 'ms',
+    };
     input.metrics['next.region.warm.navigation'] = { ...metric(8), unit: 'ms' };
     const original = structuredClone(input);
     const first = renderTable(input, 'https://example.com/release.json');
-    expect(first).toContain('12 (12–12) us/op');
+    expect(first).toContain('12 µs');
     expect(first).toContain('16.3.6');
-    expect(first).toContain('**85 ms** mouse hold');
+    expect(first).toContain('- Mouse hold: **85 ms**');
+    expect(first).toContain(
+      '- Runs: 5 alternating batches, 5 samples per scenario.',
+    );
+    expect(first).toContain('- Score: median time per workload');
+    expect(first).toContain(
+      '1,000 synthetic interactions per sample, after 100 warmups. Times are per interaction.',
+    );
     expect(first).toContain('[Raw results](https://example.com/release.json)');
     expect(first).toContain(
       '<details>\n<summary>View benchmark comparisons</summary>',
@@ -172,12 +189,19 @@ describe('benchmark results', () => {
       first.indexOf('### Next.js'),
     );
     expect(first).toContain(
-      '| Scenario ID | `next/link` (`next`, baseline) | `FastLink` (`fast`) | `FastLinkRegion` (`region`) |',
+      '| Workload (median time) | `next/link` (baseline) | `FastLink` | `FastLinkRegion` |',
     );
     expect(first).toContain(
-      '| `next.*.warm.navigation` | 90 (90–90) ms | 7 (7–7) ms | 8 (8–8) ms |',
+      '| Navigate to prefetched route | 90 ms | 7 ms | 8 ms |',
     );
-    expect(first.match(/^\| `/gm)).toHaveLength(12);
+    expect(
+      first.match(/^\| (?:Mouse|Ignored|Navigate|Mount|Update|Unmount)/gm),
+    ).toHaveLength(12);
+    expect(first).toContain('| Mouse press and click | 12 µs | 12 µs |');
+    expect(first).toContain('| Mount 1,000 links |');
+    expect(first).not.toContain('Scenario ID');
+    expect(first).not.toContain('.*.');
+    expect(first).not.toContain('(12–12)');
     expect(first).not.toContain('pressDuration');
     expect(first).not.toMatch(/\| `(?:react|next)\.\*\.1\./);
     expect(first).toContain('Raw results include all 53 measurements');
@@ -187,8 +211,13 @@ describe('benchmark results', () => {
     expect(input).toEqual(original);
     input.conditions.holdMs = 80;
     expect(renderTable(input, 'https://example.com/release.json')).toContain(
-      '**80 ms** mouse hold',
+      '- Mouse hold: **80 ms**',
     );
+    input.conditions.batches = 6;
+    expect(() =>
+      renderTable(input, 'https://example.com/release.json'),
+    ).toThrow('README requires workload counts and one sample per batch');
+    input.conditions.batches = 5;
     delete input.conditions.holdMs;
     expect(() =>
       renderTable(input, 'https://example.com/release.json'),
