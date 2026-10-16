@@ -66,7 +66,7 @@ archives in a fresh app to catch missing files and dependency problems that
 workspace links can hide.
 
 CI builds and packs on Node.js 24, then checks strict-engine installs, core and
-React imports, public types, and a production Next.js build on Node.js 22 and 24.
+React imports, public types, and a production Next.js build on Node.js 22, 24, and 26.
 
 To check locally, run `node scripts/test-packed-consumers.mjs <directory>` under
 the consumer Node.js version. The directory must contain `core.tgz`, `react.tgz`,
