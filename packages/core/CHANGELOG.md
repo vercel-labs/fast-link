@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.5
+
+- Share controller and event coordination through one internal registry.
+
 ## 0.0.4
 
 - State supported Node.js versions in the README.
