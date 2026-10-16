@@ -3,6 +3,7 @@
 ## 0.0.5
 
 - Explain navigation decisions in a table and clarify click handling after cancellation.
+- Present navigation, click, and lifecycle consequences as concise bullets.
 
 ## 0.0.4
 

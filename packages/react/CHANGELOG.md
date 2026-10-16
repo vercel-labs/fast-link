@@ -3,6 +3,7 @@
 ## 0.0.6
 
 - Explain controller attachment, option updates, and cleanup with an inline diagram.
+- Present lifecycle and input consequences as concise bullets.
 
 ## 0.0.5
 
