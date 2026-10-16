@@ -10,3 +10,4 @@ test-results/
 /packages/react/dist/
 /fixtures/*/.next/
 /fixtures/*/next-env.d.ts
+coverage/

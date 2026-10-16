@@ -105,6 +105,11 @@ describe('createFastLink', () => {
     options.enabled = true;
 
     dispatchPointerDown(anchor);
+    expect(navigations).toEqual([]);
+    fastLink.update(options);
+    options.enabled = false;
+    dispatchPointerDown(anchor);
+    expect(navigations).toEqual(['https://example.com/pricing']);
     fastLink.update(options);
     dispatchPointerDown(anchor);
 
@@ -318,15 +323,30 @@ describe('createFastLink', () => {
   it('stops intercepting after destroy', () => {
     const anchor = createAnchor({ href: '/pricing' });
     const navigations: string[] = [];
+    const add = vi.spyOn(anchor, 'addEventListener');
+    const remove = vi.spyOn(anchor, 'removeEventListener');
     const fastLink = createFastLink(anchor, {
       navigate: () => navigations.push('navigate'),
     });
-    fastLink.destroy();
-    fastLink.destroy();
+    try {
+      fastLink.destroy();
+      fastLink.destroy();
+      dispatchPointerDown(anchor);
 
-    dispatchPointerDown(anchor);
-
-    expect(navigations).toEqual([]);
+      expect(navigations).toEqual([]);
+      for (const type of ['pointerdown', 'click']) {
+        const registration = add.mock.calls.find(([event]) => event === type);
+        expect(registration).toBeDefined();
+        expect(remove).toHaveBeenCalledWith(type, registration?.[1], {
+          capture: true,
+        });
+      }
+      expect(remove).toHaveBeenCalledTimes(2);
+    } finally {
+      fastLink.destroy();
+      add.mockRestore();
+      remove.mockRestore();
+    }
   });
 });
 

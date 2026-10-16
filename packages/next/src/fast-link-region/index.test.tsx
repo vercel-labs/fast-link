@@ -73,19 +73,22 @@ describe('FastLinkRegion', () => {
       <FastLinkRegion basePath="/docs">
         <a href="/docs">Root</a>
         <a href="/docs/pricing">Pricing</a>
-        <a href="/docs-extra" data-no-fast-link>
-          Other app
+        <a href="/docs-extra">Lookalike prefix</a>
+        <a href="/docs/optout" data-no-fast-link>
+          Opt out
         </a>
       </FastLinkRegion>,
     );
 
     pointerDown(getByText('Root'));
     pointerDown(getByText('Pricing'));
-    pointerDown(getByText('Other app'));
+    pointerDown(getByText('Lookalike prefix'));
+    pointerDown(getByText('Opt out'));
 
     expect(router.push.mock.calls.map(([destination]) => destination)).toEqual([
       '/',
       '/pricing',
+      '/docs-extra',
     ]);
   });
 

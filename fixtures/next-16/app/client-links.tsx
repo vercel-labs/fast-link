@@ -15,6 +15,7 @@ export function ClientLinks(): JSX.Element {
       <FastLink
         href="/fast"
         data-testid="cancel"
+        prefetch={false}
         onNavigate={(event) => {
           record('navigate');
           event.preventDefault();
@@ -28,17 +29,33 @@ export function ClientLinks(): JSX.Element {
         href="/fast"
         data-testid="native"
         enabled={false}
-        prefetch="auto"
+        prefetch={false}
       >
         Native
       </FastLink>
-      <FastLink href="/slow" as="/fast" data-testid="as">
+      <FastLink
+        href="/slow"
+        as="/fast"
+        data-testid="as"
+        prefetch={false}
+        onFastNavigate={() => record('unexpected-fast')}
+      >
         As
       </FastLink>
-      <FastLink href="/fast" legacyBehavior>
+      <FastLink
+        href="/fast"
+        legacyBehavior
+        prefetch={false}
+        onFastNavigate={() => record('unexpected-fast')}
+      >
         <a data-testid="legacy">Legacy</a>
       </FastLink>
-      <FastLink href="/slow" data-testid="slow" prefetch={false}>
+      <FastLink
+        href="/slow"
+        data-testid="slow"
+        prefetch={false}
+        onFastNavigate={() => record('slow-fast')}
+      >
         Slow <Status />
       </FastLink>
       <FastLink
@@ -98,6 +115,7 @@ export function ClientLinks(): JSX.Element {
           <Link
             href="/fast"
             data-testid="region-cancel"
+            prefetch={false}
             data-no-fast-link
             onClick={() => record('region-click')}
             onNavigate={(event) => {
@@ -110,6 +128,7 @@ export function ClientLinks(): JSX.Element {
           <Link
             href="/fast"
             data-testid="region-guard"
+            prefetch={false}
             data-no-fast-link
             onClick={(event) => {
               record('region-guard');

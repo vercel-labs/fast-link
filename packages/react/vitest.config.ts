@@ -5,6 +5,12 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   test: {
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/testing/**'],
+      reporter: ['text', 'json-summary'],
+    },
     projects: [
       {
         test: {

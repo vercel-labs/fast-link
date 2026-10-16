@@ -18,7 +18,8 @@
     "test": "vitest run --project=unit",
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "test:coverage": "vitest run --project=unit --coverage"
   },
   "dependencies": {
     "@fast-link/core": "workspace:^",

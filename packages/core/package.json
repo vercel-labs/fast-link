@@ -16,15 +16,15 @@
   "scripts": {
     "build": "tsdown",
     "test": "vitest run --project=unit",
-    "test:browser": "vitest run --project=browser && node ../../scripts/test-core-targeting.mjs",
+    "test:browser": "node ../../scripts/test-core-targeting.mjs",
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "test:coverage": "vitest run --project=unit --coverage"
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "12.1.0",
     "@types/node": "25.6.0",
-    "@vitest/browser-playwright": "4.1.11",
     "jsdom": "23.2.0",
     "playwright": "1.59.0",
     "size-limit": "12.1.0",

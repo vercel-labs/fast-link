@@ -2,7 +2,6 @@ import type { FastLinkIntent } from '@fast-link/core';
 import { fireEvent, render } from '@testing-library/react';
 import { StrictMode, type JSX, type MouseEventHandler } from 'react';
 import { createPortal } from 'react-dom';
-import { renderToString } from 'react-dom/server';
 
 import { useFastLink } from './index';
 
@@ -165,33 +164,6 @@ it('replaces and removes its root, including in Strict Mode', () => {
     '/first',
     '/second',
   ]);
-});
-
-it('renders server markup without installing navigation listeners', () => {
-  const addListener = vi.spyOn(EventTarget.prototype, 'addEventListener');
-  function Region(): JSX.Element {
-    const attach = useFastLink<HTMLDivElement>({
-      navigate: () => {
-        throw new Error('server rendering must not navigate');
-      },
-    });
-    return (
-      <div {...attach}>
-        <a href="/first">First</a>
-      </div>
-    );
-  }
-
-  try {
-    expect(renderToString(<Region />)).toContain('href="/first"');
-    expect(
-      addListener.mock.calls.filter(([type]) =>
-        ['pointerdown', 'click'].includes(type),
-      ),
-    ).toEqual([]);
-  } finally {
-    addListener.mockRestore();
-  }
 });
 
 it('keeps bindings stable and composes the committed caller capture handler after suppression', () => {

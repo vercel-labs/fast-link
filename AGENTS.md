@@ -4,6 +4,9 @@ Fast Link is a pnpm and Turborepo monorepo with three public packages.
 Use `CONTEXT.md` for project terms and `docs/adr/` for accepted architecture
 decisions.
 
+For writing, changing, or reviewing tests, and for test audits or cleanup, use
+[the testing skill](.agents/skills/testing/SKILL.md).
+
 - `packages/core` owns all eligibility, event ordering, click suppression, and
   cleanup behavior. It must not import React or Next.js.
 - `packages/react` owns React ref lifecycle for core controllers. It depends
