@@ -16,8 +16,8 @@ pnpm install
 pnpm validate
 ```
 
-`pnpm validate` checks formatting, linting, release tooling, builds, types, unit
-and browser behavior, the Next.js fixture, and package sizes.
+`pnpm validate` checks formatting, linting, package boundaries, release tooling,
+builds, types, unit and browser behavior, the Next.js fixture, and package sizes.
 
 ## Understand the package boundaries
 
@@ -30,6 +30,12 @@ and browser behavior, the Next.js fixture, and package sizes.
 Core must not import React or Next.js. The React package depends on core and
 must not import Next.js. The Next.js package depends on both packages and must
 not duplicate core eligibility rules.
+
+Run `pnpm boundaries` to check workspace dependency direction and package imports.
+Package tags in `packages/*/turbo.json` enforce that core has no workspace
+dependencies, React may depend on core, and Next.js may depend on core and React.
+The check also runs during validation and in CI. These tag rules apply to
+workspace packages, not external npm dependencies.
 
 Read [CONTEXT.md](./CONTEXT.md) for project terms and [docs/adr](./docs/adr/) for
 accepted architecture decisions.

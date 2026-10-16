@@ -40,14 +40,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format
-        run: pnpm format
+      - name: Check package boundaries
+        run: pnpm boundaries
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build, typecheck, test, and check size
-        run: pnpm exec turbo run //#test:root build typecheck test size
+      - name: Validate formatting, builds, types, tests, and size
+        run: pnpm exec turbo run //#format //#lint //#test:root build typecheck test size
 
       - name: Pack and inspect packages
         run: |

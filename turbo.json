@@ -4,12 +4,34 @@
   "remoteCache": {
     "enabled": false
   },
+  "boundaries": {
+    "tags": {
+      "core": {
+        "dependencies": {
+          "allow": []
+        }
+      },
+      "react": {
+        "dependencies": {
+          "allow": ["core"]
+        }
+      },
+      "next": {
+        "dependencies": {
+          "allow": ["core", "react"]
+        }
+      }
+    }
+  },
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
     "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "@fast-link/fixture-next-16#typecheck": {
       "dependsOn": ["build"]
     },
     "test": {

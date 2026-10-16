@@ -47,9 +47,8 @@ jobs:
             ${{ runner.os }}-turbo-${{ github.job }}-
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format
-      - run: pnpm lint
-      - run: pnpm exec turbo run //#test:root build typecheck test size
+      - run: pnpm boundaries
+      - run: pnpm exec turbo run //#format //#lint //#test:root build typecheck test size
 
   browser:
     runs-on: ubuntu-latest
