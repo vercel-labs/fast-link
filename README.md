@@ -38,6 +38,10 @@ Start with `@fast-link/next` for a Next.js App Router application. Use the
 React package only when building an adapter that `@fast-link/next` does not
 provide.
 
+Core handles [presses and matching clicks](./packages/core/README.md#understand-event-ordering).
+React manages the [controller lifecycle](./packages/react/README.md#understand-the-hook-lifecycle).
+Next adds [routing and cancellation](./packages/next/README.md#understand-navigation-and-click-behavior).
+
 ## Requirements
 
 Fast Link supports Node.js 22 or later. See the package READMEs for framework

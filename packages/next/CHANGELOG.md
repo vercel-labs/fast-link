@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.5
+
+- Explain navigation decisions in a table and clarify click handling after cancellation.
+
 ## 0.0.4
 
 - Depend on core and React 0.0.5 with the shared coordination registry.

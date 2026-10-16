@@ -1,6 +1,6 @@
 {
   "name": "@fast-link/react",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "React lifecycle binding for Fast Link DOM controllers",
   "author": "Vercel",
   "license": "MIT",

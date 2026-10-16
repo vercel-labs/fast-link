@@ -100,18 +100,35 @@ trees. React ancestry alone does not extend a region's DOM scope.
 
 ## Understand the hook lifecycle
 
-`useFastLink`:
+React manages the controller attached to the element receiving the returned ref:
 
-- Applies committed option and caller-ref changes without losing a pending
-  follow-up click
-- Replaces every core option when the component commits new options
-- Destroys the controller when the root changes or unmounts
-- Runs callback-ref cleanup before replacing a callback ref
-- Attaches no controller during server rendering
+```text
+Attach root
+  -> create controller
 
-Fast Link eligibility, click suppression, and event ordering come from
-`@fast-link/core`. Add `data-no-fast-link` to an anchor or descendant when the
-browser must retain the interaction.
+Commit options
+  -> replace every copied option
+  -> keep pending click
+
+Remove root or unmount
+  -> destroy controller
+
+Replace root
+  -> destroy old controller
+  -> create new controller
+```
+
+Destruction clears pending click state and removes listeners. Committed
+caller-ref changes run the old ref's cleanup before assigning the new ref.
+Server rendering attaches no controller.
+
+After an accepted press, the matching pointer click's default action is
+prevented while propagation continues. Touch, pen, keyboard, and modified
+clicks keep their native behavior and do not call `navigate`.
+
+Core owns [eligibility, click suppression, and event ordering](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering).
+Add `data-no-fast-link` to an anchor or descendant when the browser must retain
+the interaction.
 
 ## Related packages
 

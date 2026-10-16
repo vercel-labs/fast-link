@@ -130,11 +130,23 @@ export function AccountLink() {
 
 ## Understand navigation and click behavior
 
-For an accepted press, `FastLink` calls `onNavigate` first. Calling
-`preventDefault()` cancels early navigation. Otherwise, the link or region
-selects a navigation decision, calls `onFastNavigate(intent, decision)`, and
-performs that decision. Without a policy, navigation uses the current App
-Router.
+For an accepted primary mouse press, a managed link calls `onNavigate` before
+selecting navigation. Ordinary region links skip that callback.
+
+| Condition                                     | Navigation                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| Managed `onNavigate` calls `preventDefault()` | Cancel early navigation; skip policy and `onFastNavigate`.                   |
+| No `navigationPolicy`                         | Use the current App Router.                                                  |
+| Policy chooses `{ kind: 'router' }`           | Use Next's destination and history method, with an optional scroll override. |
+| Policy chooses `{ kind: 'document', method }` | Load the validated URL using document `assign` or `replace`.                 |
+
+For uncanceled navigation, `onFastNavigate(intent, decision)` observes the
+selected decision before navigation is attempted. Policy cannot cancel
+navigation or rewrite the router destination or history method.
+
+Canceling managed `onNavigate` still leaves the matching later pointer click
+default-prevented. It cannot trigger default navigation, but its handlers can
+still run.
 
 An `onPointerDown` bubble guard runs after early navigation. Use synchronous
 `onNavigate` cancellation for managed links when validation belongs on press.
@@ -162,6 +174,11 @@ With `as` or `legacyBehavior`, `FastLink` stays on the normal Link path. Legacy
 behavior does not attach the controller to the rendered anchor. Add
 `data-no-fast-link` to that anchor when it needs native handling inside a
 region.
+
+Keyboard and touch activation do not invoke `navigationPolicy`; preserve the
+application's normal routing for those inputs. The React binding keeps pending
+click suppression across committed option updates. Removing or replacing its
+root destroys the old controller and clears pending suppression.
 
 ## API reference
 

@@ -1,5 +1,9 @@
 # @fast-link/react
 
+## 0.0.6
+
+- Explain controller attachment, option updates, and cleanup with an inline diagram.
+
 ## 0.0.5
 
 - Depend on core 0.0.5 with the shared coordination registry.
