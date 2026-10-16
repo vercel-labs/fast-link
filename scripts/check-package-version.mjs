@@ -1,6 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { checkPackageChangelog } from './changelog.mjs';
+import {
+  PUBLISHED_DEPENDENCIES,
+  publishedDependencies,
+  readWorkspaceManifests,
+} from './package-dependencies.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 import {
   compareSemanticVersions,
@@ -58,6 +64,15 @@ export function checkPackageVersions({ base, root = process.cwd() }) {
     .split('\0')
     .filter(Boolean);
   const basePackages = readBasePackages(root, base);
+  const currentWorkspace = readWorkspaceManifests(root);
+  const baseWorkspace = execFileSync(
+    'git',
+    ['ls-tree', '-r', '--name-only', base, '--', 'packages'],
+    { cwd: root, encoding: 'utf8' },
+  )
+    .split('\n')
+    .filter((path) => /^packages\/[^/]+\/package.json$/.test(path))
+    .map((path) => JSON.parse(readBaseFile(root, base, path)));
   const messages = [];
   const errors = [];
 
@@ -68,6 +83,7 @@ export function checkPackageVersions({ base, root = process.cwd() }) {
       basePackages.find((entry) => entry.directory === directory) ??
       basePackages.find(({ manifest }) => manifest.name === current.name);
     if (!basePackage) {
+      checkPackageChangelog({ directory, manifest: current }, root);
       messages.push(
         `Package release requested for ${current.name}: new package at ${current.version}.`,
       );
@@ -80,9 +96,23 @@ export function checkPackageVersions({ base, root = process.cwd() }) {
         isPackageContentInput(path, directory, current.files) ||
         isPackageContentInput(path, baseDirectory, current.files),
     );
+    const currentDependencies = publishedDependencies(
+      current,
+      currentWorkspace,
+    );
+    const previousDependencies = publishedDependencies(previous, baseWorkspace);
     const manifestChanged = PUBLISHED_MANIFEST_FIELDS.some(
       (field) =>
-        JSON.stringify(current[field]) !== JSON.stringify(previous[field]),
+        JSON.stringify(
+          PUBLISHED_DEPENDENCIES.includes(field)
+            ? currentDependencies[field]
+            : current[field],
+        ) !==
+        JSON.stringify(
+          PUBLISHED_DEPENDENCIES.includes(field)
+            ? previousDependencies[field]
+            : previous[field],
+        ),
     );
     const publishScriptChanged = PUBLISHED_SCRIPT_FIELDS.some(
       (field) => current.scripts?.[field] !== previous.scripts?.[field],
@@ -117,6 +147,7 @@ export function checkPackageVersions({ base, root = process.cwd() }) {
       continue;
     }
 
+    checkPackageChangelog({ directory, manifest: current }, root);
     messages.push(
       `Package release requested for ${current.name}: ${previous.version} -> ${current.version}.`,
     );

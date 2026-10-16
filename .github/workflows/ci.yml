@@ -36,6 +36,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -50,11 +51,8 @@ jobs:
         run: |
           for package_dir in packages/core packages/react packages/next; do
             archive="$RUNNER_TEMP/$(basename "$package_dir").tgz"
-            package_name=$(node -p "require('./$package_dir/package.json').name")
-            package_version=$(node -p "require('./$package_dir/package.json').version")
             pnpm --dir "$package_dir" pack --out "$archive"
-            tar -xOf "$archive" package/package.json \
-              | EXPECTED_PACKAGE_NAME="$package_name" EXPECTED_PACKAGE_VERSION="$package_version" node scripts/verify-packed-package.mjs
+            node scripts/verify-packed-package.mjs "$archive" "$package_dir"
             tar -tf "$archive"
           done
 
@@ -76,6 +74,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

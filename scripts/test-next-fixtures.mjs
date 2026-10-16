@@ -621,11 +621,13 @@ async function freePort() {
 }
 
 async function waitForServer(url, child) {
-  for (let attempt = 0; attempt < 100; attempt++) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
     if (child.exitCode !== null)
       throw new Error(`Next.js exited with ${child.exitCode}`);
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+      await response.body?.cancel();
       if (response.ok) return;
     } catch {
       // The server may still be starting.

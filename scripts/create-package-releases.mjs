@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { readChangelogNotes } from './changelog.mjs';
 import { getPublishedCommit, getPublishedVersions } from './npm-registry.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
-import { verifyPackedPackage } from './verify-packed-package.mjs';
+import { verifyPackageIdentity } from './verify-packed-package.mjs';
 
 /**
  * Recovers missing tags and Releases for published, allowlisted package versions.
@@ -44,23 +45,13 @@ function readPublishedRelease({ directory, manifest }, execute) {
   const published = JSON.parse(
     execute('git', ['show', `${commit}:${directory}/package.json`]),
   );
-  verifyPackedPackage(published, manifest);
+  verifyPackageIdentity(published, manifest);
   const changelog = execute('git', [
     'show',
     `${commit}:${directory}/CHANGELOG.md`,
   ]);
   const notes = readChangelogNotes(changelog, manifest.version);
-  if (!notes) throw new Error(`Missing changelog notes for ${tag}`);
   return { tag, commit, notes };
-}
-
-function readChangelogNotes(changelog, version) {
-  const section = changelog
-    .split(/^## /m)
-    .slice(1)
-    .find((value) => value.split('\n')[0].trim() === version);
-  const [, ...body] = section?.split('\n') ?? [];
-  return body.join('\n').trim();
 }
 
 function ensureGitHubRelease({ tag, commit, notes }, repository, execute) {
@@ -73,9 +64,7 @@ function ensureGitHubRelease({ tag, commit, notes }, repository, execute) {
   );
   const existing = refs.find((ref) => ref.ref === `refs/tags/${tag}`);
   if (existing) verifyTagTarget(existing.object, { tag, commit }, api, execute);
-  const releases = JSON.parse(
-    execute('gh', ['api', '--paginate', '--slurp', `${api}/releases`]),
-  ).flat();
+  const releaseExists = hasGitHubRelease(api, tag, execute);
   if (!existing)
     execute('gh', [
       'api',
@@ -87,7 +76,7 @@ function ensureGitHubRelease({ tag, commit, notes }, repository, execute) {
       '-f',
       `sha=${commit}`,
     ]);
-  if (releases.some((release) => release.tag_name === tag)) return;
+  if (releaseExists) return;
   execute('gh', [
     'api',
     '--method',
@@ -104,6 +93,22 @@ function ensureGitHubRelease({ tag, commit, notes }, repository, execute) {
     '-f',
     'make_latest=false',
   ]);
+}
+
+function hasGitHubRelease(api, tag, execute) {
+  try {
+    execute('gh', [
+      'api',
+      '--include',
+      '--silent',
+      `${api}/releases/tags/${encodeURIComponent(tag)}`,
+    ]);
+    return true;
+  } catch (error) {
+    // gh includes response headers on stdout even when an HTTP error exits nonzero.
+    if (/^HTTP\/\S+ 404(?:\s|$)/.test(String(error.stdout ?? ''))) return false;
+    throw error;
+  }
 }
 
 function verifyTagTarget(object, { tag, commit }, api, execute) {

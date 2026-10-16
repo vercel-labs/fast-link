@@ -3,8 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { checkPackageChangelog } from './changelog.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
 import { getPublishedVersions, NPM_REGISTRY_ARGS } from './npm-registry.mjs';
+import { readWorkspaceManifests } from './package-dependencies.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
@@ -15,14 +17,23 @@ import { verifyPackedPackage } from './verify-packed-package.mjs';
  */
 export function publishPackageReleases(
   packages,
-  { archiveDirectory, commit, readPublishedVersions, execute },
+  {
+    archiveDirectory,
+    commit,
+    readPublishedVersions,
+    execute,
+    root = process.cwd(),
+  },
 ) {
   if (packages.length === 0) return [];
   if (!/^[a-f0-9]{40}$/.test(commit ?? '')) {
     throw new Error('A full published commit SHA is required');
   }
+  const workspace = readWorkspaceManifests(root);
+  const pending = detectPackageReleases(packages, readPublishedVersions);
+  for (const entry of pending) checkPackageChangelog(entry, root);
   const published = [];
-  for (const entry of packages) {
+  for (const entry of pending) {
     if (detectPackageReleases([entry], readPublishedVersions).length === 0)
       continue;
 
@@ -36,11 +47,19 @@ export function publishPackageReleases(
       `--filter=./${directory}`,
     ]);
     execute('pnpm', ['--dir', directory, 'pack', '--out', archive]);
-    stampArchive(archive, archiveDirectory, manifest, commit, execute);
+    stampArchive(
+      archive,
+      archiveDirectory,
+      manifest,
+      commit,
+      workspace,
+      execute,
+    );
     const packed = JSON.parse(
       execute('tar', ['-xOf', archive, 'package/package.json']),
     );
-    verifyPackedPackage(packed, manifest);
+    const files = execute('tar', ['-tf', archive]).split('\n');
+    verifyPackedPackage(packed, manifest, { workspace, files });
     execute('npm', [
       'publish',
       archive,
@@ -54,13 +73,20 @@ export function publishPackageReleases(
   return published;
 }
 
-function stampArchive(archive, archiveDirectory, manifest, commit, execute) {
+function stampArchive(
+  archive,
+  archiveDirectory,
+  manifest,
+  commit,
+  workspace,
+  execute,
+) {
   const staging = mkdtempSync(join(archiveDirectory, 'release-'));
   try {
     execute('tar', ['-xzf', archive, '-C', staging]);
     const path = join(staging, 'package/package.json');
     const packed = JSON.parse(readFileSync(path, 'utf8'));
-    verifyPackedPackage(packed, manifest);
+    verifyPackedPackage(packed, manifest, { workspace });
     writeFileSync(
       path,
       `${JSON.stringify({ ...packed, gitHead: commit }, null, 2)}\n`,

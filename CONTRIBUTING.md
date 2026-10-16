@@ -80,3 +80,23 @@ at the top of each affected package's changelog.
 
 Inspect the packed tarball for every changed public package before opening a
 pull request.
+
+Release automation accepts stable `major.minor.patch` versions without prerelease
+or build metadata. The first `##` changelog section must match the package version
+and contain release notes. CI checks this for new allowlist entries and version
+bumps, and the publisher checks all pending changelogs before publishing.
+
+A workspace dependency version change can change the dependency range pnpm writes
+into an adapter's tarball. Bump each affected adapter and add its changelog entry,
+even when its source and literal `workspace:^` dependency are unchanged.
+
+The release workflow publishes only directories in
+[`scripts/publishable-packages.json`](./scripts/publishable-packages.json).
+Keep that list empty until npm Trusted Publishing is configured. Publishing uses
+OIDC with npm 11.13.0; do not add an npm write token. Recovery checks the current
+allowlisted versions on npm, then uses each version's `gitHead` and the changelog
+at that commit to create missing tags and GitHub Releases. Existing tags must
+already target that commit. The initial bootstrap publication without a commit
+stays outside automated recovery; it must not be used as an enabled recovery
+candidate. Missing commit metadata causes recovery to fail without writes for
+that package, rather than assigning it a guessed commit.

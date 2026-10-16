@@ -46,6 +46,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm boundaries
@@ -68,6 +69,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @fast-link/core exec playwright install --with-deps chromium firefox webkit
@@ -101,9 +103,9 @@ jobs:
           verify_sigstore() {
             node -e "require.resolve('sigstore', { paths: ['$(npm root -g)/npm/node_modules/libnpmpublish/lib'] })"
           }
-          npm install -g npm@11 --force --registry=https://registry.npmjs.org
+          npm install -g npm@11.13.0 --force --registry=https://registry.npmjs.org
           if ! verify_sigstore; then
-            npm install -g npm@11 --force --registry=https://registry.npmjs.org
+            npm install -g npm@11.13.0 --force --registry=https://registry.npmjs.org
             verify_sigstore
           fi
 
