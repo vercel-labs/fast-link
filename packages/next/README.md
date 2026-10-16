@@ -130,8 +130,9 @@ export function AccountLink() {
 
 ## Understand navigation and click behavior
 
-For an accepted primary mouse press, a managed link calls `onNavigate` before
-selecting navigation. Ordinary region links skip that callback.
+For an accepted primary mouse press, a managed link calls Next.js Link's
+`onNavigate` prop before selecting navigation. Ordinary region links skip that
+callback.
 
 | Condition                                     | Navigation                                                                   |
 | --------------------------------------------- | ---------------------------------------------------------------------------- |

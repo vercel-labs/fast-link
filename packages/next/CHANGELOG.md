@@ -4,6 +4,7 @@
 
 - Explain navigation decisions in a table and clarify click handling after cancellation.
 - Present navigation, click, and lifecycle consequences as concise bullets.
+- Identify `onNavigate` as Next.js Link's prop, distinct from `onFastNavigate`.
 
 ## 0.0.4
 
