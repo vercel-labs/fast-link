@@ -127,6 +127,14 @@ npx skills add vercel-labs/fast-link --skill fast-link
 Installing an npm package does not activate the skill. The skill supports
 Next.js App Router integrations and custom core or React adapters.
 
+## Benchmarks
+
+<!-- benchmarks:start -->
+
+[How we benchmark](docs/benchmarks.md)
+
+<!-- benchmarks:end -->
+
 ## Known limitations
 
 Fast Link starts mouse navigation on press. Moving away before release won't

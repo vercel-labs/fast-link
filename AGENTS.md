@@ -4,6 +4,8 @@ Fast Link is a pnpm and Turborepo monorepo with three public packages.
 Use `CONTEXT.md` for project terms and `docs/adr/` for accepted architecture
 decisions.
 
+When adding, changing, running, or interpreting benchmarks, read `docs/benchmarks.md`.
+
 For writing, changing, or reviewing tests, and for test audits or cleanup, use
 [the testing skill](.agents/skills/testing/SKILL.md).
 When adding tests or changing test/CI configuration, follow
