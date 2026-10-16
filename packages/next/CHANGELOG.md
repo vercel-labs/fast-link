@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.4
+
+- Depend on core and React 0.0.5 with the shared coordination registry.
+
 ## 0.0.3
 
 - State supported Node.js and framework versions in the README.

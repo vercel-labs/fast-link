@@ -1,30 +1,11 @@
+import { coordination, type FollowupClick } from '../coordination';
 import {
   findAnchor,
   resolveFastLink,
   type FastLinkIntent,
 } from '../interaction';
 
-// Share anchor ownership across bundles without preventing garbage collection.
-const ANCHOR_OWNERS = Symbol.for('@fast-link/core/anchor-owners');
-const anchorOwners: WeakMap<HTMLElement, number> =
-  Reflect.get(globalThis, ANCHOR_OWNERS) ?? new WeakMap<HTMLElement, number>();
-Reflect.set(globalThis, ANCHOR_OWNERS, anchorOwners);
-
-type FollowupClick = Pick<MouseEvent, 'target' | 'detail' | 'preventDefault'>;
-
-// A consumed framework event needs no more owner lookups along capture.
-const SUPPRESSED_CLICKS = Symbol.for('@fast-link/core/suppressed-clicks');
-const suppressedClicks: WeakSet<FollowupClick> =
-  Reflect.get(globalThis, SUPPRESSED_CLICKS) ?? new WeakSet();
-Reflect.set(globalThis, SUPPRESSED_CLICKS, suppressedClicks);
-
-// Route containing capture handlers to the pending click's owner across bundles.
-const PENDING_CLICK_OWNERS = Symbol.for('@fast-link/core/pending-click-owners');
-const pendingClickOwners: WeakMap<
-  HTMLAnchorElement,
-  (event: FollowupClick) => void
-> = Reflect.get(globalThis, PENDING_CLICK_OWNERS) ?? new WeakMap();
-Reflect.set(globalThis, PENDING_CLICK_OWNERS, pendingClickOwners);
+const { anchorOwners, pendingClickOwners, suppressedClicks } = coordination;
 
 /** Options copied by a Fast Link controller. */
 export interface FastLinkOptions {

@@ -1,9 +1,6 @@
-// Share handled events across bundles, including non-extensible events.
-const HANDLED_EVENT = Symbol.for('@fast-link/core/handled-event');
-const HANDLED_EVENTS = Symbol.for('@fast-link/core/handled-events');
-const handledEvents: WeakSet<Event> =
-  Reflect.get(globalThis, HANDLED_EVENTS) ?? new WeakSet<Event>();
-Reflect.set(globalThis, HANDLED_EVENTS, handledEvents);
+import { coordination, HANDLED_EVENT } from '../coordination';
+
+const { handledEvents } = coordination;
 const NESTED_CONTROL_TAGS = new Set([
   'BUTTON',
   'INPUT',
