@@ -83,11 +83,11 @@ async function publishReadme(repository, branch, current, previous, url) {
       'docs: update release benchmarks',
     );
 
-  openReadmePr(repository, branch, previous, url);
+  openReadmePr(repository, branch, previous, url, current.conditions.holdMs);
 }
 
 /** Reuses an open PR after a partial publication failure. */
-function openReadmePr(repository, branch, previous, url) {
+function openReadmePr(repository, branch, previous, url, holdMs) {
   const prs = githubRequest(
     `repos/${repository}/pulls?state=open&head=${repository.split('/')[0]}:${branch}&base=main`,
   );
@@ -106,7 +106,7 @@ function openReadmePr(repository, branch, previous, url) {
         ? 'The previous measured release was remeasured on the same runner; its samples are saved with these results.'
         : 'This is the first measured release.',
       '',
-      `[Raw results](${url}). Navigation uses a controlled 80 ms mouse hold; the numbers do not establish typical-user gains.`,
+      `[Raw results](${url}). Navigation uses a controlled ${holdMs} ms mouse hold; the numbers do not establish typical-user gains.`,
     ].join('\n'),
   });
   console.log(pr.html_url);

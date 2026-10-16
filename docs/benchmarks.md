@@ -115,7 +115,7 @@ and full minimum-to-maximum ranges.
 
 ### Navigation
 
-- Real Playwright mouse input requests an 80 ms hold. Actual press-to-release duration is recorded separately.
+- Real Playwright mouse input requests an 85 ms hold for every variant. Actual press-to-release duration is recorded separately.
 - Latency runs from pointerdown capture to the destination's client layout effect, in milliseconds.
 - Source links stay mounted until the follow-up click is checked.
 - Checks require committed content, one history entry, one follow-up click, and expected navigation and suppression counts.

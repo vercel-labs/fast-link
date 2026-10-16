@@ -71,7 +71,7 @@ async function createReport(root, selected) {
       batches: 5,
       interactions: 1000,
       warmup: 100,
-      holdMs: 80,
+      holdMs: 85,
       listSizes: [1, 100, 1000],
       case: selected,
     },

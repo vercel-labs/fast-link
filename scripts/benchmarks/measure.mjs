@@ -102,6 +102,7 @@ export function createMeasurements(browser, origin, result, selected) {
           variant,
           cache,
           batch,
+          result.conditions.holdMs,
         );
         saveMetrics(`next.${variant}.${cache}`, metrics, batch);
         result.navigationChecks ??= [];

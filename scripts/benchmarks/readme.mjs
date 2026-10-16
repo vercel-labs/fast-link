@@ -17,6 +17,9 @@ export function renderTable(report, url) {
   validateReport(report);
   if (!url.startsWith('https://'))
     throw new Error('A durable HTTPS result URL is required');
+  const holdMs = report.conditions?.holdMs;
+  if (!Number.isFinite(holdMs) || holdMs <= 0)
+    throw new Error('README requires the measured mouse hold in milliseconds');
   return [
     '[How we benchmark](docs/benchmarks.md)',
     '',
@@ -51,7 +54,7 @@ export function renderTable(report, url) {
     '',
     '### Next.js',
     '',
-    'Navigation measures pointerdown to destination commit with an 80 ms mouse hold. `next/link` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.',
+    `Navigation measures pointerdown to destination commit with a **${holdMs} ms** mouse hold. \`next/link\` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.`,
     '',
     ...renderComparison(
       report.metrics,

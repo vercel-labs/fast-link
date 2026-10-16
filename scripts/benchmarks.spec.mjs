@@ -154,6 +154,7 @@ describe('benchmark results', () => {
     input.metrics = Object.fromEntries(
       scenarioNames().map((name) => [name, metric(12.345)]),
     );
+    input.conditions = { case: 'all', holdMs: 85 };
     input.metrics['next.next.warm.navigation'] = { ...metric(90), unit: 'ms' };
     input.metrics['next.fast.warm.navigation'] = { ...metric(7), unit: 'ms' };
     input.metrics['next.region.warm.navigation'] = { ...metric(8), unit: 'ms' };
@@ -161,6 +162,7 @@ describe('benchmark results', () => {
     const first = renderTable(input, 'https://example.com/release.json');
     expect(first).toContain('12 (12–12) us/op');
     expect(first).toContain('16.3.6');
+    expect(first).toContain('**85 ms** mouse hold');
     expect(first).toContain('[Raw results](https://example.com/release.json)');
     expect(first).toContain(
       '<details>\n<summary>View benchmark comparisons</summary>',
@@ -183,10 +185,19 @@ describe('benchmark results', () => {
     expect(first).not.toContain('previous release');
     expect(renderTable(input, 'https://example.com/release.json')).toBe(first);
     expect(input).toEqual(original);
+    input.conditions.holdMs = 80;
+    expect(renderTable(input, 'https://example.com/release.json')).toContain(
+      '**80 ms** mouse hold',
+    );
+    delete input.conditions.holdMs;
+    expect(() =>
+      renderTable(input, 'https://example.com/release.json'),
+    ).toThrow('README requires the measured mouse hold in milliseconds');
+    input.conditions.holdMs = 85;
     delete input.metrics['next.next.warm.navigation'];
     expect(() =>
       renderTable(input, 'https://example.com/release.json'),
-    ).toThrow('Missing README scenario: next.next.warm.navigation');
+    ).toThrow('Missing or unexpected benchmark scenarios');
   });
 });
 
