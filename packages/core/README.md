@@ -13,7 +13,7 @@ For press timing and opt-outs, see
 
 ## Requirements
 
-Requires a browser DOM.
+Supports Node.js 22 and 24. Navigation requires a browser DOM.
 
 ## Install the package
 

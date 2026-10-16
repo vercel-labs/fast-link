@@ -13,7 +13,7 @@ For press timing and opt-outs, see
 
 ## Requirements
 
-See [`package.json`](./package.json) for React peer requirements.
+Supports Node.js 22 and 24, with React 18 or later.
 
 ## Install the package
 

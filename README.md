@@ -25,11 +25,12 @@ Start with `@fast-link/next` for a Next.js App Router application. Use the
 React package only when building an adapter that `@fast-link/next` does not
 provide.
 
-## Get started with the Next.js App Router
+## Requirements
 
-See the
-[`@fast-link/next` package manifest](./packages/next/package.json) for Next.js and
-React peer requirements.
+Fast Link supports Node.js 22 and 24. See the package READMEs for framework
+requirements.
+
+## Get started with the Next.js App Router
 
 ```sh
 npm install @fast-link/next

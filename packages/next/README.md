@@ -9,7 +9,8 @@ For press timing and opt-outs, see
 
 ## Requirements
 
-See [`package.json`](./package.json) for Next.js and React peer requirements.
+Supports Node.js 22 and 24, with Next.js 16 or later and React 18 or later.
+Requires the Next.js App Router.
 
 ## Install the package
 
