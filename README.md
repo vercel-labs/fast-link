@@ -9,17 +9,19 @@ pages, but when every millisecond matters, that head start can help your site co
 
 ## When to use Fast Link
 
-Fast Link starts mouse navigation on press. Moving away before release won't
-cancel it, and Fast Link provides no built-in abort or undo.
+Use Fast Link for:
 
-This is an accessibility limitation under
-[WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
-See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for
-activation on press without cancellation or reversal.
+- Links between pages on your site
+- Browsing product pages or catalog listings.
+- Moving between dashboard views in the same app.
 
-Do not use early navigation for forms, destructive actions, purchases, or downloads.
-Use `enabled={false}` or `data-no-fast-link` to keep ordinary click behavior for
-these actions, confirmation checks, release-time cancellation, or URL dragging.
+Keep ordinary click behavior for:
+
+- Forms, destructive actions, purchases, and downloads.
+- Links that need confirmation checks, release-time cancellation, or URL dragging.
+
+Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
+See [Known limitations](#known-limitations) for press timing and accessibility details.
 
 ## Choose a package
 
@@ -117,6 +119,16 @@ npx skills add vercel-labs/fast-link --skill fast-link
 
 Installing an npm package does not activate the skill. The skill supports
 Next.js App Router integrations and custom core or React adapters.
+
+## Known limitations
+
+Fast Link starts mouse navigation on press. Moving away before release won't
+cancel it, and Fast Link provides no built-in abort or undo.
+
+This is an accessibility limitation under
+[WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
+See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for
+activation on press without cancellation or reversal.
 
 ## Contributing
 
