@@ -110,6 +110,14 @@ npx skills add vercel-labs/fast-link --skill fast-link
 Installing an npm package does not activate the skill. The skill supports
 Next.js App Router integrations and custom core or React adapters.
 
+## Benchmarks
+
+<!-- benchmarks:start -->
+
+[How we benchmark](docs/benchmarks.md)
+
+<!-- benchmarks:end -->
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, validation, and package

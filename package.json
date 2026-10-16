@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "benchmark": "node scripts/benchmarks/run.mjs",
+    "benchmark:compare": "node scripts/benchmarks/compare.mjs",
     "boundaries": "turbo boundaries",
     "build": "turbo run build",
     "format": "oxfmt --check",

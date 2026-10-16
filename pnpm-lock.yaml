@@ -45,9 +45,15 @@ importers:
 
   fixtures/next-16:
     dependencies:
+      '@fast-link/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@fast-link/next':
         specifier: workspace:^
         version: link:../../packages/next
+      '@fast-link/react':
+        specifier: workspace:^
+        version: link:../../packages/react
       next:
         specifier: 16.3.6
         version: 16.3.6(@types/node@25.6.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
