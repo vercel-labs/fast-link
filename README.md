@@ -142,15 +142,15 @@ Cells show median (min–max). Replace `*` in each scenario ID with the column's
 
 | Scenario ID       | Bare DOM (`bare`, baseline) | `createFastLink` (`core`) |
 | ----------------- | --------------------------- | ------------------------- |
-| `core.*.accepted` | 4.1 (3.6–4.6) us/op         | 6 (5.6–6.5) us/op         |
-| `core.*.ignored`  | 1.7 (1.7–1.9) us/op         | 2 (1.9–2) us/op           |
+| `core.*.accepted` | 4.1 (3.9–4.8) us/op         | 6.4 (5.9–6.7) us/op       |
+| `core.*.ignored`  | 1.9 (1.7–2) us/op           | 2.1 (1.8–2.3) us/op       |
 
 ### React
 
 | Scenario ID        | Plain anchor (`plain`, baseline) | `useFastLink` (`react`) |
 | ------------------ | -------------------------------- | ----------------------- |
-| `react.*.accepted` | 7.6 (7.4–7.6) us/op              | 8.7 (8.5–9.1) us/op     |
-| `react.*.ignored`  | 3.8 (3.6–3.9) us/op              | 2 (1.9–2.3) us/op       |
+| `react.*.accepted` | 7.7 (7.5–8.9) us/op              | 9 (8.7–11) us/op        |
+| `react.*.ignored`  | 4 (3.8–4.4) us/op                | 2.3 (1.9–2.8) us/op     |
 
 ### Next.js
 
@@ -158,24 +158,26 @@ Navigation measures pointerdown to destination commit with an 80 ms mouse hold. 
 
 | Scenario ID              | `next/link` (`next`, baseline) | `FastLink` (`fast`) | `FastLinkRegion` (`region`) |
 | ------------------------ | ------------------------------ | ------------------- | --------------------------- |
-| `next.*.warm.navigation` | 86 (85–92) ms                  | 2.9 (2.7–3.2) ms    | 2.9 (2.7–3) ms              |
-| `next.*.cold.navigation` | 92 (90–92) ms                  | 6.3 (6.2–7) ms      | 7 (6.3–7.3) ms              |
-| `next.*.100.mount`       | 0.3 (0.2–0.5) ms               | 0.7 (0.6–0.7) ms    | 0.3 (0.2–0.5) ms            |
-| `next.*.100.update`      | 0.4 (0.2–0.4) ms               | 0.7 (0.6–0.7) ms    | 0.2 (0.1–0.6) ms            |
-| `next.*.100.unmount`     | 0.1 (0–0.2) ms                 | 0.1 (0–0.2) ms      | 0.1 (0–0.1) ms              |
-| `next.*.1000.mount`      | 2.2 (2.1–2.3) ms               | 3.5 (3.4–3.8) ms    | 2.1 (1.9–2.2) ms            |
-| `next.*.1000.update`     | 1.8 (1.8–1.9) ms               | 4.1 (4–4.3) ms      | 1.8 (1.6–1.8) ms            |
-| `next.*.1000.unmount`    | 0.5 (0.4–0.5) ms               | 0.9 (0.8–1) ms      | 0.5 (0.3–0.6) ms            |
+| `next.*.warm.navigation` | 86 (85–89) ms                  | 2.8 (2.7–3.1) ms    | 2.9 (2.6–3) ms              |
+| `next.*.cold.navigation` | 90 (90–94) ms                  | 6.9 (6.3–7.9) ms    | 7.3 (6.3–13) ms             |
+| `next.*.100.mount`       | 0.4 (0.1–0.6) ms               | 0.7 (0.6–0.8) ms    | 0.3 (0.3–0.4) ms            |
+| `next.*.100.update`      | 0.3 (0.1–0.5) ms               | 0.7 (0.5–0.7) ms    | 0.3 (0.1–0.8) ms            |
+| `next.*.100.unmount`     | 0.1 (0–0.3) ms                 | 0.1 (0–0.1) ms      | 0 (0–0.2) ms                |
+| `next.*.1000.mount`      | 2.2 (2–2.9) ms                 | 3.6 (3.6–4.5) ms    | 2.2 (2.1–2.4) ms            |
+| `next.*.1000.update`     | 1.8 (1.7–2.2) ms               | 4.2 (4.1–5.5) ms    | 1.8 (1.8–2.3) ms            |
+| `next.*.1000.unmount`    | 0.5 (0.5–0.6) ms               | 0.8 (0.8–1.4) ms    | 0.6 (0.4–0.8) ms            |
 
 Raw results include all 53 measurements, including actual press durations and single-link lifecycle timings. Single-link timings can reach browser timer resolution.
 
 Tested versions: next 16.3.6, react 19.2.7, reactDom 19.2.7, core 0.0.1, bindings 0.0.1, adapter 0.0.1.
-Source commit: 236f1d5e9bc07642988669b8e6ecafddce7d9800. [Raw results](https://github.com/vercel-labs/fast-link/blob/be1cc56b363366cc929a84a9f6e502b7c2761d7b/local/236f1d5e9bc07642988669b8e6ecafddce7d9800/report.json).
+Source commit: 51ae4c4b06c73639bf4a0bb48e73e2c93df7127e. [Raw results](https://github.com/vercel-labs/fast-link/blob/e018de4bc6d97710cac5ce16f86f0e4f81e9355c/local/51ae4c4b06c73639bf4a0bb48e73e2c93df7127e/report.json).
 Controlled Chromium lab measurements.
 
-- Local baseline: Apple M4 Pro, Darwin 25.6.0, Chromium 147.0.7727.15.
+- Local run: Apple M4 Pro, Darwin 25.6.0, Chromium 147.0.7727.15.
 - 5 alternating batches; 1,000 interactions after 100 warmups.
 - Navigation requested an 80 ms mouse hold. Actual press durations are in the raw results.
+- Displayed 0 ms values reflect browser timer resolution.
+- Other browser and Node processes were active. Host load rose during measurement; treat these as busy-desktop results.
 
 </details>
 <!-- benchmarks:end -->
