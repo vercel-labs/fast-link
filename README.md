@@ -1,9 +1,11 @@
 # ▲ Fast Link
 
-Fast Link starts eligible same-origin link navigation on `pointerdown` instead
-of waiting for `click`. Primary mouse navigation starts when the user presses a
-link, while touch, pen, keyboard, and modified clicks keep their native behavior.
-Starting on press gives routing work a head start while you release the mouse.
+Fast Link helps your application feel faster by starting eligible same-origin
+link navigation when you press the mouse, instead of waiting for release. Your
+application gets the press-to-release interval to start loading the next page.
+
+Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
+pages, but when every millisecond matters, that head start can help your site cook.
 
 ## When to use Fast Link
 
