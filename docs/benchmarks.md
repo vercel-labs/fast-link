@@ -7,6 +7,31 @@ Commands run from the repository root with Node.js 24 and the pinned pnpm versio
 - Results describe controlled Chromium lab conditions. They do not establish typical-user gains.
 - Keep the existing package-size checks required.
 
+## Present results in the README
+
+The README helps people evaluating Fast Link understand what was measured,
+what it was compared with, and what the numbers mean.
+
+- Use the heading **Performance benchmarks**, with comparisons in a collapsed `<details>` block.
+- Keep links to this guide and raw results visible above the block.
+- Order tables by dependency: Core, React, Next.js.
+- Name workloads in plain language, such as "Update 1,000 links". Keep scenario IDs in this guide and raw JSON.
+- Name each baseline in its column: bare DOM, a plain React anchor, or `next/link`.
+- Show one median time per cell, rounded to two significant figures, with its unit. The median is the middle of the five sorted batch samples.
+- Use microseconds per interaction for dispatch workloads and milliseconds for list operations and navigation.
+- State the batch count, samples per scenario, mouse hold, interaction count, and warmup count in brief bullets. Bold the requested **85 ms** hold.
+- Explain that navigation measures mouse press to destination commit and includes `next/link` waiting for release. Earlier navigation does not establish faster JavaScript execution or typical-user gains.
+
+Select measurements that help readers compare interaction costs, prefetched and
+unprefetched navigation, and list operations at 100 and 1,000 links.
+
+- Keep ranges and individual samples in raw results. Five batch samples do not support useful p95 or p99 reporting.
+- Core/React samples average 1,000 interactions, so their batch percentiles would not describe individual-interaction latency.
+- Keep single-link lifecycle timings in raw results. They can reach browser timer resolution and offer little comparison value in the README.
+- Keep actual press durations, host details, tested versions, and source commits in raw results. Omit the provenance footer and run timestamps from the README.
+- Keep previous-release measurements in raw results. Omit previous-release change columns from the README.
+- Retain all 53 measurements and their correctness checks in the suite. Display selection does not remove collected measurements.
+
 ## Run locally
 
 Install dependencies, install Chromium, and build production code:
@@ -78,19 +103,6 @@ for example, `next.fast.100.update` measures updating 100 `FastLink` components.
 Lifecycle IDs end in `mount` (insert links), `update` (change every href and label),
 or `unmount` (remove links and verify cleanup). See the conditions below for
 sample counts, timing boundaries, and correctness checks.
-
-### README selection
-
-- Tables follow the dependency order: Core, React, Next.js.
-- Columns pair each workload with its baseline: bare DOM, a plain React anchor, or `next/link`.
-- Use descriptive workload names in the README. Keep scenario IDs in this guide and raw JSON.
-- Each cell shows one median time. The config bullets state the batch count, samples per scenario, mouse hold, and interaction workload.
-- Keep ranges and individual samples in raw results. Five batch samples per scenario do not support useful p95 or p99 reporting.
-- Core/React samples average 1,000 interactions, so their batch percentiles would not describe individual-interaction latency.
-- Show interaction costs, warm/cold navigation, and lifecycle costs for 100 and 1,000 links.
-- Keep actual press durations in raw results as input diagnostics.
-- Keep single-link lifecycle timings in raw results. They can reach browser timer resolution and offer little comparison value there.
-- Retain all 53 measurements and their correctness checks in the suite.
 
 ## Measurement conditions
 
@@ -222,10 +234,7 @@ Publication rules:
 - A release rerun fails if the latest measured release is not its ancestor. It cannot move results backward.
 - An empty publish allowlist prevents release benchmark publication. npm Trusted Publishing restrictions still apply.
 
-The README's collapsible comparisons include descriptive workloads, explicit
-baseline columns, units, medians, run conditions, and durable JSON links.
-Previous-release samples stay in the raw results.
-Values use two significant figures and omit run timestamps.
+Generated tables follow the [README presentation rules](#present-results-in-the-readme).
 Identical generated content produces no PR.
 
 ### GitHub setup and review
