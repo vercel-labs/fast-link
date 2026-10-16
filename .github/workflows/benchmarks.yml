@@ -38,6 +38,7 @@ jobs:
           fetch-depth: 0
           path: head
           persist-credentials: false
+
       - name: Select baseline and relevant changes
         id: select
         working-directory: head
@@ -46,22 +47,15 @@ jobs:
           EVENT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           CALIBRATE: ${{ inputs.calibrate }}
           MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          base="${REQUESTED_BASE:-${EVENT_BASE:-HEAD^}}"
-          if [ "$CALIBRATE" = true ]; then base=HEAD; fi
-          base=$(git rev-parse --verify "$base^{commit}")
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-          if [ "$MANUAL" = true ]; then
-            echo 'relevant=true' >> "$GITHUB_OUTPUT"
-          else
-            node scripts/benchmarks/ci.mjs relevant "$base" >> "$GITHUB_OUTPUT"
-          fi
+        run: node scripts/benchmarks/ci.mjs select
+
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         if: steps.select.outputs.relevant == 'true'
         with:
           ref: ${{ steps.select.outputs.base }}
           path: base
           persist-credentials: false
+
       - uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
         if: steps.select.outputs.relevant == 'true'
         with:
@@ -76,6 +70,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
+
       - name: Compare revisions
         if: steps.select.outputs.relevant == 'true'
         id: measure
@@ -83,10 +78,8 @@ jobs:
         working-directory: head
         env:
           CALIBRATE: ${{ inputs.calibrate }}
-        run: |
-          args=()
-          if [ "$CALIBRATE" = true ]; then args+=(--calibrate); fi
-          node scripts/benchmarks/compare.mjs --base ../base --output "$RUNNER_TEMP/benchmark-results" "${args[@]}"
+        run: node scripts/benchmarks/ci.mjs compare
+
       - name: Apply approved override
         if: steps.measure.outcome == 'failure' && inputs.override_reason != ''
         working-directory: head
@@ -94,23 +87,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BENCHMARK_OVERRIDE_REASON: ${{ inputs.override_reason }}
         run: node scripts/benchmarks/ci.mjs override "$RUNNER_TEMP/benchmark-results/verdict.json"
+
       - name: Record full elapsed time
         if: always()
         env:
           RELEVANT: ${{ steps.select.outputs.relevant }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/benchmark-results"
-          node -e 'const fs=require("node:fs"); const result={elapsedSeconds:Date.now()/1000-Number(process.env.BENCHMARK_STARTED),relevant:process.env.RELEVANT}; fs.writeFileSync(process.env.RUNNER_TEMP+"/benchmark-results/full-run.json",JSON.stringify(result,null,2)); fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"Benchmark setup, builds, and measurements: "+result.elapsedSeconds.toFixed(1)+" seconds.\n");'
+        run: node head/scripts/benchmarks/ci.mjs elapsed
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: benchmarks-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/benchmark-results
           retention-days: 90
+
       - name: Enforce benchmark result
         if: steps.select.outputs.relevant == 'true'
         working-directory: head
-        run: node -e 'const r=JSON.parse(require("node:fs").readFileSync(process.env.RUNNER_TEMP+"/benchmark-results/verdict.json")); console.log(r); if(!["pass","inconclusive","override"].includes(r.status)) process.exit(1);'
+        run: node scripts/benchmarks/ci.mjs enforce
       - name: Docs-only success
         if: steps.select.outputs.relevant != 'true'
         run: echo 'No benchmark inputs changed.'
