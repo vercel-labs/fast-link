@@ -12,6 +12,7 @@ import { flushSync } from 'react-dom';
 
 type Variant = 'bare' | 'core' | 'plain' | 'react' | 'next' | 'fast' | 'region';
 type Metric = { unit: 'us/op' | 'ms'; value: number; correct: boolean };
+type InteractionWorkload = { interactions: number; warmup: number };
 type List = {
   variant: Variant;
   count: number;
@@ -27,9 +28,15 @@ type Navigation = {
   suppressed: number;
 };
 type Lab = {
-  micro: (variant: 'bare' | 'core') => Record<string, Metric>;
+  micro: (
+    variant: 'bare' | 'core',
+    workload: InteractionWorkload,
+  ) => Record<string, Metric>;
   lifecycle: (variant: Variant, count: number) => Record<string, Metric>;
-  interaction: (variant: 'plain' | 'react') => Record<string, Metric>;
+  interaction: (
+    variant: 'plain' | 'react',
+    workload: InteractionWorkload,
+  ) => Record<string, Metric>;
   navigation: (variant: 'next' | 'fast' | 'region') => void;
   prefetch: () => void;
   events: Navigation;
@@ -42,8 +49,6 @@ declare global {
   }
 }
 
-const iterations = 1000;
-const warmup = 100;
 let navigations = 0;
 let updatedNavigations = 0;
 let suppressedClicks = 0;
@@ -174,6 +179,7 @@ function bareClick(event: MouseEvent) {
 /** Excludes event construction and warmup from the timed dispatch loop. */
 function interactions(
   anchor: HTMLAnchorElement,
+  { interactions: iterations, warmup }: InteractionWorkload,
   fast: boolean,
   react = false,
 ): Record<string, Metric> {
@@ -224,6 +230,7 @@ type RenderList = (value: List | null) => void;
 function measureCore(
   area: HTMLElement,
   variant: 'bare' | 'core',
+  workload: InteractionWorkload,
 ): Record<string, Metric> {
   const anchor = document.createElement('a');
   anchor.href = '/docs/benchmark/target';
@@ -235,7 +242,7 @@ function measureCore(
     anchor.addEventListener('click', bareClick);
   }
 
-  const result = interactions(anchor, true);
+  const result = interactions(anchor, workload, true);
 
   controller?.destroy();
   anchor.removeEventListener('pointerdown', bareDown);
@@ -253,13 +260,19 @@ function measureReactInteraction(
   area: HTMLElement,
   render: RenderList,
   variant: 'plain' | 'react',
+  workload: InteractionWorkload,
 ): Record<string, Metric> {
   render({ variant, count: 1, version: 0, navigation: false });
 
   const anchor = area.querySelector('a');
   if (!anchor) throw new Error('Missing benchmark anchor');
 
-  const result = interactions(anchor, variant === 'react', variant === 'react');
+  const result = interactions(
+    anchor,
+    workload,
+    variant === 'react',
+    variant === 'react',
+  );
 
   render(null);
   navigations = 0;
@@ -372,8 +385,9 @@ export function BenchmarkLab(): JSX.Element {
       prefetch: () => router.prefetch('/benchmark/target'),
       navigation: (variant) =>
         render({ variant, count: 1, version: 0, navigation: true }),
-      micro: (variant) => measureCore(area, variant),
-      interaction: (variant) => measureReactInteraction(area, render, variant),
+      micro: (variant, workload) => measureCore(area, variant, workload),
+      interaction: (variant, workload) =>
+        measureReactInteraction(area, render, variant, workload),
       lifecycle: (variant, count) =>
         measureLifecycle(area, render, events, variant, count),
     };

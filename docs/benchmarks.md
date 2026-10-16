@@ -249,6 +249,7 @@ Identical generated content produces no PR.
 
 | Responsibility                                   | Source                                                                      |
 | ------------------------------------------------ | --------------------------------------------------------------------------- |
+| Workload counts, list sizes, and mouse hold      | `scripts/benchmarks/workload.mjs`                                           |
 | Browser workloads and correctness checks         | `fixtures/next-16/app/benchmark/lab.tsx`                                    |
 | Sequential measurement and fixture server        | `scripts/benchmarks/run.mjs`, `measure.mjs`, `server.mjs`, `navigation.mjs` |
 | Checkout preparation and comparisons             | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs`   |

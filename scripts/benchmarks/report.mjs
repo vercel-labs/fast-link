@@ -1,3 +1,5 @@
+import { workload } from './workload.mjs';
+
 /** Summarizes unrounded samples in their original unit. */
 export function summarize(samples) {
   if (
@@ -36,7 +38,10 @@ export function validateReport(report) {
   if (report.errors?.length) throw new Error('Benchmark reported errors');
 
   if (report.conditions) {
-    const expected = scenarioNames(report.conditions.case);
+    const expected = scenarioNames(
+      report.conditions.case,
+      report.conditions.listSizes,
+    );
     if (
       JSON.stringify(Object.keys(report.metrics).toSorted()) !==
       JSON.stringify(expected.toSorted())
@@ -55,8 +60,11 @@ export function validateReport(report) {
   }
 }
 
-/** Lists the required scenarios for a complete run of the selected case. */
-export function scenarioNames(selected = 'all') {
+/** Lists required scenarios using recorded list sizes when validating saved reports. */
+export function scenarioNames(
+  selected = 'all',
+  listSizes = workload.listSizes,
+) {
   if (!['all', 'core', 'react', 'next'].includes(selected))
     throw new Error('Unknown benchmark case');
   const names = [];
@@ -73,7 +81,7 @@ export function scenarioNames(selected = 'all') {
     }
   if (selected === 'all' || selected === 'next')
     for (const variant of ['next', 'fast', 'region']) {
-      for (const count of [1, 100, 1000])
+      for (const count of listSizes)
         for (const kind of ['mount', 'update', 'unmount'])
           names.push(`next.${variant}.${count}.${kind}`);
       for (const cache of ['warm', 'cold'])

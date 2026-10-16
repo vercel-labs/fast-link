@@ -11,6 +11,7 @@ import { chromium } from 'playwright';
 import { createMeasurements } from './measure.mjs';
 import { scenarioNames, summarize, validateReport } from './report.mjs';
 import { startFixture } from './server.mjs';
+import { workload } from './workload.mjs';
 
 /** Validates CLI inputs before starting a production server. */
 function readOptions() {
@@ -68,11 +69,7 @@ async function createReport(root, selected) {
         .version,
     },
     conditions: {
-      batches: 5,
-      interactions: 1000,
-      warmup: 100,
-      holdMs: 85,
-      listSizes: [1, 100, 1000],
+      ...workload,
       case: selected,
     },
     metrics: {},
@@ -80,12 +77,14 @@ async function createReport(root, selected) {
   };
 }
 
-/** Rejects missing scenarios and summarizes only complete five-batch reports. */
+/** Rejects missing scenarios and summarizes complete reports. */
 function completeReport(result, values) {
   if (result.errors.length) throw new Error(result.errors.join('\n'));
   if (
     JSON.stringify(Object.keys(result.metrics).toSorted()) !==
-    JSON.stringify(scenarioNames(values.case).toSorted())
+    JSON.stringify(
+      scenarioNames(values.case, result.conditions.listSizes).toSorted(),
+    )
   )
     throw new Error('Benchmark scenarios are incomplete');
   if (values.batch === undefined)
@@ -108,14 +107,11 @@ async function main() {
     await server.waitUntilReady();
     browser = await chromium.launch();
     result.environment.browser = browser.version();
-    const measurements = createMeasurements(
-      browser,
-      server.origin,
-      result,
-      values.case,
-    );
+    const measurements = createMeasurements(browser, server.origin, result);
     const batches =
-      values.batch === undefined ? [0, 1, 2, 3, 4] : [Number(values.batch)];
+      values.batch === undefined
+        ? Array.from({ length: result.conditions.batches }, (_, batch) => batch)
+        : [Number(values.batch)];
     if (batches.some((batch) => !Number.isInteger(batch) || batch < 0))
       throw new Error('Invalid batch');
     for (const batch of batches) {

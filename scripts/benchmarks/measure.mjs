@@ -2,10 +2,13 @@
 import { measureNavigation } from './navigation.mjs';
 
 /**
- * Binds scenario execution to one browser and report.
+ * Executes the report's recorded workload in one browser.
  * The caller owns the browser and fixture lifetime; each batch closes its contexts.
  */
-export function createMeasurements(browser, origin, result, selected) {
+export function createMeasurements(browser, origin, result) {
+  const { conditions } = result;
+  const selected = conditions.case;
+
   /** Retains a sample only when its timed work passed correctness checks. */
   function saveMetric(name, metric, batch) {
     if (
@@ -49,9 +52,9 @@ export function createMeasurements(browser, origin, result, selected) {
     const metrics = await page.evaluate(
       (input) =>
         input.group === 'core'
-          ? window.benchmark.micro(input.variant)
-          : window.benchmark.interaction(input.variant),
-      { group, variant },
+          ? window.benchmark.micro(input.variant, input.workload)
+          : window.benchmark.interaction(input.variant, input.workload),
+      { group, variant, workload: conditions },
     );
     saveMetrics(`${group}.${variant}`, metrics, batch);
   }
@@ -84,7 +87,7 @@ export function createMeasurements(browser, origin, result, selected) {
         await measureInteraction(page, group, variant, batch);
       if (group === 'core') continue;
 
-      const counts = group === 'next' ? [1, 100, 1000] : [1];
+      const counts = group === 'next' ? conditions.listSizes : [1];
       for (const count of counts) {
         await measureLifecycle(page, group, variant, count, batch);
       }
@@ -102,7 +105,7 @@ export function createMeasurements(browser, origin, result, selected) {
           variant,
           cache,
           batch,
-          result.conditions.holdMs,
+          conditions.holdMs,
         );
         saveMetrics(`next.${variant}.${cache}`, metrics, batch);
         result.navigationChecks ??= [];

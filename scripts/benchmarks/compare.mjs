@@ -8,6 +8,7 @@ import { combineBatches, summarizeCalibration } from './comparison-results.mjs';
 import { prepareCheckouts } from './prepare.mjs';
 import { runCommand } from './process.mjs';
 import { evaluateGate } from './report.mjs';
+import { workload } from './workload.mjs';
 
 const runner = fileURLToPath(new URL('./run.mjs', import.meta.url));
 
@@ -62,11 +63,11 @@ async function measureBatch(options, index, batch, side) {
   return report;
 }
 
-/** Alternates five base/head batches, then saves a complete report for each side. */
+/** Alternates base/head batches, then saves a complete report for each side. */
 async function measureComparison(options, index, policy) {
   const collected = { base: [], head: [] };
 
-  for (let batch = 0; batch < 5; batch++) {
+  for (let batch = 0; batch < workload.batches; batch++) {
     const sides = (batch + index) % 2 ? ['head', 'base'] : ['base', 'head'];
     for (const side of sides) {
       collected[side].push(await measureBatch(options, index, batch, side));

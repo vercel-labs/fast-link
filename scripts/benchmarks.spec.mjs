@@ -20,6 +20,7 @@ import {
   evaluateGate,
   scenarioNames,
   summarize,
+  validateReport,
 } from './benchmarks/report.mjs';
 
 const metric = (value) => ({
@@ -40,6 +41,23 @@ const policy = {
 };
 
 describe('benchmark results', () => {
+  it('validates list scenarios against recorded sizes rather than current defaults', () => {
+    const input = report(10);
+    input.conditions = { case: 'all', listSizes: [1, 10, 1000] };
+    input.metrics = Object.fromEntries(
+      scenarioNames().map((name) => [
+        name.replace('.100.', '.10.'),
+        metric(10),
+      ]),
+    );
+
+    expect(() => validateReport(input)).not.toThrow();
+    input.conditions.listSizes = [1, 100, 1000];
+    expect(() => validateReport(input)).toThrow(
+      'Missing or unexpected benchmark scenarios',
+    );
+  });
+
   it('updates only the generated README region and skips identical output', () => {
     const readme =
       'Before\n<!-- benchmarks:start -->\nOld\n<!-- benchmarks:end -->\nAfter\n';
