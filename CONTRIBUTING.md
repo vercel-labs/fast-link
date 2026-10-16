@@ -40,19 +40,40 @@ workspace packages, not external npm dependencies.
 Read [CONTEXT.md](./CONTEXT.md) for project terms and [docs/adr](./docs/adr/) for
 accepted architecture decisions.
 
-## Test Next.js integrations
+## Write and run tests
 
-Run the built Next.js App Router fixture in Chromium, Firefox, and WebKit:
+Add coverage in the package that owns the behavior. Extend an existing test
+when possible; a new test should catch a failure the suite does not already cover.
 
-```sh
-pnpm test:fixtures
-```
+Run focused tests while developing. For example,
+`pnpm exec turbo run test --filter=@fast-link/core` runs the core unit suite.
+Replace the package name to test React or Next.js behavior.
 
-## Test packed consumers
+Use `pnpm test:browser` for real pointer behavior and `pnpm test:fixtures` for
+production Next.js integration. Both run in Chromium, Firefox, and WebKit.
+Run `pnpm validate` before opening a pull request.
 
-The [packed-consumers CI job](.github/workflows/ci.yml) builds and packs on Node.js
-24, then installs the tarballs with strict engine checks on Node.js 22 and 24. It
-checks core and React imports, public types, and a production Next.js build.
+### Keep tests fast
+
+- Reuse existing fixtures and test behavior at its owning layer. Add coverage in
+  another layer only when it catches a distinct integration failure.
+- Wait for observable events or state rather than fixed delays. Explain waits
+  used to verify that an action does not happen.
+- For new test commands, configure the [Turbo task graph](./turbo.json) with the
+  build dependencies, cache inputs, and generated outputs they need. Keep browser
+  checks uncached so they execute on each validation run.
+- Before claiming a speedup, compare repeated runs of the same command and note
+  whether caches are cold or warm. Avoid strict wall-clock assertions in tests.
+
+### Test package installs
+
+Check the [packed-consumers CI job](.github/workflows/ci.yml) when changing exports,
+dependencies, shipped files, or Node.js requirements. It installs archives from
+`pnpm pack` in a fresh app, catching missing files and dependency problems that
+workspace links can hide.
+
+CI builds and packs on Node.js 24, then checks strict-engine installs, core and
+React imports, public types, and a production Next.js build on Node.js 22 and 24.
 
 To check local tarballs, run `node scripts/test-packed-consumers.mjs <directory>`
 under the consumer Node.js version. The directory must contain `core.tgz`,
