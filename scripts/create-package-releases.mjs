@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { getPublishedVersions } from './detect-package-releases.mjs';
+import { getPublishedCommit, getPublishedVersions } from './npm-registry.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
@@ -28,24 +28,19 @@ export function createPackageReleases(packages, options) {
 }
 
 function createPackageRelease(
-  { directory, manifest },
+  entry,
   { repository, readPublishedVersions, execute },
 ) {
+  const { manifest } = entry;
   const versions = readPublishedVersions(manifest.name);
   if (!versions?.includes(manifest.version)) return;
+  const release = readPublishedRelease(entry, execute);
+  ensureGitHubRelease(release, repository, execute);
+}
+
+function readPublishedRelease({ directory, manifest }, execute) {
   const tag = `${manifest.name}@${manifest.version}`;
-  const commit = JSON.parse(
-    execute('npm', [
-      'view',
-      tag,
-      'gitHead',
-      '--json',
-      '--registry=https://registry.npmjs.org',
-      '--@fast-link:registry=https://registry.npmjs.org',
-    ]).trim() || 'null',
-  );
-  if (typeof commit !== 'string' || !/^[a-f0-9]{40}$/.test(commit))
-    throw new Error(`Missing published commit for ${tag}`);
+  const commit = getPublishedCommit(tag, execute);
   const published = JSON.parse(
     execute('git', ['show', `${commit}:${directory}/package.json`]),
   );
@@ -54,12 +49,21 @@ function createPackageRelease(
     'show',
     `${commit}:${directory}/CHANGELOG.md`,
   ]);
-  const sections = changelog.split(/^## /m).slice(1);
-  const section = sections.find(
-    (value) => value.split('\n')[0].trim() === manifest.version,
-  );
-  const notes = section?.slice(section.indexOf('\n') + 1).trim();
+  const notes = readChangelogNotes(changelog, manifest.version);
   if (!notes) throw new Error(`Missing changelog notes for ${tag}`);
+  return { tag, commit, notes };
+}
+
+function readChangelogNotes(changelog, version) {
+  const section = changelog
+    .split(/^## /m)
+    .slice(1)
+    .find((value) => value.split('\n')[0].trim() === version);
+  const [, ...body] = section?.split('\n') ?? [];
+  return body.join('\n').trim();
+}
+
+function ensureGitHubRelease({ tag, commit, notes }, repository, execute) {
   const api = `repos/${repository}`;
   const refs = JSON.parse(
     execute('gh', [
@@ -68,12 +72,7 @@ function createPackageRelease(
     ]),
   );
   const existing = refs.find((ref) => ref.ref === `refs/tags/${tag}`);
-  if (
-    existing &&
-    (existing.object.type !== 'commit' || existing.object.sha !== commit)
-  ) {
-    throw new Error(`Tag ${tag} does not target ${commit}`);
-  }
+  if (existing) verifyTagTarget(existing.object, { tag, commit }, api, execute);
   const releases = JSON.parse(
     execute('gh', ['api', '--paginate', '--slurp', `${api}/releases`]),
   ).flat();
@@ -105,6 +104,18 @@ function createPackageRelease(
     '-f',
     'make_latest=false',
   ]);
+}
+
+function verifyTagTarget(object, { tag, commit }, api, execute) {
+  let target = object;
+  while (target.type === 'tag') {
+    target = JSON.parse(
+      execute('gh', ['api', `${api}/git/tags/${target.sha}`]),
+    ).object;
+  }
+  if (target.type !== 'commit' || target.sha !== commit) {
+    throw new Error(`Tag ${tag} does not target ${commit}`);
+  }
 }
 
 function run() {

@@ -1,6 +1,6 @@
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { getPublishedVersions } from './npm-registry.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 
 export function detectPackageReleases(packages, readPublishedVersions) {
@@ -8,31 +8,6 @@ export function detectPackageReleases(packages, readPublishedVersions) {
     const published = readPublishedVersions(manifest.name);
     return published === null || !published.includes(manifest.version);
   });
-}
-
-/** Reads npm versions, returning `null` when the package does not exist. */
-export function getPublishedVersions(name) {
-  const result = spawnSync(
-    'npm',
-    [
-      'view',
-      name,
-      'versions',
-      '--json',
-      '--registry=https://registry.npmjs.org',
-      '--@fast-link:registry=https://registry.npmjs.org',
-    ],
-    { encoding: 'utf8' },
-  );
-
-  if (result.status !== 0) {
-    if ((result.stderr ?? '').includes('E404')) return null;
-    const detail = result.stderr?.trim() || result.error?.message || 'unknown';
-    throw new Error(`Failed to inspect ${name}: ${detail}`);
-  }
-
-  const parsed = JSON.parse(result.stdout);
-  return Array.isArray(parsed) ? parsed : [parsed];
 }
 
 function run() {

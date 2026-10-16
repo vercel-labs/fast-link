@@ -3,16 +3,15 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  detectPackageReleases,
-  getPublishedVersions,
-} from './detect-package-releases.mjs';
+import { detectPackageReleases } from './detect-package-releases.mjs';
+import { getPublishedVersions, NPM_REGISTRY_ARGS } from './npm-registry.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
 /**
  * Rechecks and publishes packages in the supplied dependency-first order.
  * A failed build, pack, verification, or publish stops subsequent packages.
+ * Records the supplied 40-character lowercase commit SHA as the archive's gitHead.
  */
 export function publishPackageReleases(
   packages,
@@ -48,8 +47,7 @@ export function publishPackageReleases(
       '--access',
       'public',
       '--provenance',
-      '--registry=https://registry.npmjs.org',
-      '--@fast-link:registry=https://registry.npmjs.org',
+      ...NPM_REGISTRY_ARGS,
     ]);
     published.push(`${manifest.name}@${manifest.version}`);
   }

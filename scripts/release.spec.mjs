@@ -145,13 +145,13 @@ describe('ordered publishing', () => {
   });
 
   it('rechecks each version and finishes dependencies before their dependents', () => {
-    const { packages } = createPackageGraph();
+    const { root, packages } = createPackageGraph();
     const events = [];
     const commands = [];
     const execute = recordingExecutor(packages, events, { commands });
 
     const published = publishPackageReleases(packages, {
-      archiveDirectory: tmpdir(),
+      archiveDirectory: root,
       commit: publishedCommit,
       readPublishedVersions(name) {
         events.push(`recheck:${name}`);
@@ -187,7 +187,7 @@ describe('ordered publishing', () => {
         command: 'npm',
         args: [
           'publish',
-          join(tmpdir(), `${name}.tgz`),
+          join(root, `${name}.tgz`),
           '--access',
           'public',
           '--provenance',
@@ -199,10 +199,10 @@ describe('ordered publishing', () => {
   });
 
   it('skips a version published since initial detection', () => {
-    const { packages } = createPackageGraph();
+    const { root, packages } = createPackageGraph();
     const events = [];
     const published = publishPackageReleases(packages, {
-      archiveDirectory: tmpdir(),
+      archiveDirectory: root,
       commit: publishedCommit,
       readPublishedVersions: () => [fixtureVersions.current],
       execute: recordingExecutor(packages, events),
@@ -259,13 +259,13 @@ describe('ordered publishing', () => {
   it.each(['build', 'pack', 'publish'])(
     'does not attempt a dependent after %s fails',
     (failure) => {
-      const { packages } = createPackageGraph();
+      const { root, packages } = createPackageGraph();
       const events = [];
       const execute = recordingExecutor(packages, events, { failure });
 
       expect(() =>
         publishPackageReleases(packages, {
-          archiveDirectory: tmpdir(),
+          archiveDirectory: root,
           commit: publishedCommit,
           readPublishedVersions(name) {
             events.push(`recheck:${name}`);
@@ -280,12 +280,12 @@ describe('ordered publishing', () => {
   );
 
   it('rejects a packed identity change before publishing any package', () => {
-    const { packages } = createPackageGraph();
+    const { root, packages } = createPackageGraph();
     const events = [];
 
     expect(() =>
       publishPackageReleases(packages, {
-        archiveDirectory: tmpdir(),
+        archiveDirectory: root,
         commit: publishedCommit,
         readPublishedVersions: () => null,
         execute: recordingExecutor(packages, events, { changedVersion: true }),
@@ -296,7 +296,7 @@ describe('ordered publishing', () => {
 });
 
 describe('GitHub package releases', () => {
-  it('tags the published commit and uses only that version’s changelog notes', () => {
+  it("uses the published commit and that version's changelog notes", () => {
     const { root, packages } = createPackageGraph();
     const commit = runGit(root, 'rev-parse', 'HEAD');
     writeFile(
@@ -347,18 +347,62 @@ describe('GitHub package releases', () => {
     ]);
   });
 
-  it('rejects an existing tag at a different commit without moving it', () => {
+  it('recovers a Release from an annotated tag at the published commit', () => {
     const { root, packages } = createPackageGraph();
-    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
-    state.tags.set('refs/tags/@fast-link/core@1.2.3', {
+    const commit = runGit(root, 'rev-parse', 'HEAD');
+    const tag = '@fast-link/core@1.2.3';
+    runGit(
+      root,
+      '-c',
+      'tag.gpgsign=false',
+      'tag',
+      '-a',
+      tag,
+      '-m',
+      'Existing release tag',
+    );
+    const tagObject = runGit(root, 'rev-parse', tag);
+    const state = releaseState(root, commit);
+    state.tags.set(`refs/tags/${tag}`, { type: 'tag', sha: tagObject });
+    state.tagObjects.set(tagObject, {
       type: 'commit',
-      sha: publishedCommit,
+      sha: runGit(root, 'rev-parse', `${tag}^{commit}`),
     });
-    expect(() =>
-      createPackageReleases(packages.slice(0, 1), state.options),
-    ).toThrow('Tag @fast-link/core@1.2.3 does not target');
-    expect(state.writes).toEqual([]);
+
+    createPackageReleases(packages.slice(0, 1), state.options);
+
+    expect(state.writes.map((write) => write.endpoint)).toEqual([
+      'repos/example/fast-link/releases',
+    ]);
+    expect(state.tags.get(`refs/tags/${tag}`)).toEqual({
+      type: 'tag',
+      sha: tagObject,
+    });
+    expect(state.releases[0].target_commitish).toBe(commit);
   });
+
+  it.each([
+    ['lightweight', 'commit'],
+    ['annotated', 'tag'],
+  ])(
+    'rejects an existing %s tag at a different commit without moving it',
+    (_, type) => {
+      const { root, packages } = createPackageGraph();
+      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      state.tags.set('refs/tags/@fast-link/core@1.2.3', {
+        type,
+        sha: publishedCommit,
+      });
+      state.tagObjects.set(publishedCommit, {
+        type: 'commit',
+        sha: publishedCommit,
+      });
+      expect(() =>
+        createPackageReleases(packages.slice(0, 1), state.options),
+      ).toThrow('Tag @fast-link/core@1.2.3 does not target');
+      expect(state.writes).toEqual([]);
+    },
+  );
 
   it('preserves other package Releases when one Release fails, then recovers it', () => {
     const { root, packages } = createPackageGraph();
@@ -405,20 +449,24 @@ describe('GitHub package releases', () => {
     },
   );
 
-  it('refuses GitHub writes when the published commit has no notes for the version', () => {
-    const { root, packages } = createPackageGraph();
-    writeFile(
-      join(root, 'packages/core/CHANGELOG.md'),
-      '# Changelog\n\n## 1.2.2\n\n- Older release.\n',
-    );
-    runGit(root, 'add', '.');
-    runGit(root, 'commit', '--quiet', '-m', 'missing release notes');
-    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
-    expect(() =>
-      createPackageReleases(packages.slice(0, 1), state.options),
-    ).toThrow('Missing changelog notes');
-    expect(state.writes).toEqual([]);
-  });
+  it.each([
+    '# Changelog\n\n## 1.2.2\n\n- Older release.\n',
+    '# Changelog\n\n## 1.2.3',
+    '# Changelog\n\n## 1.2.3\n\n',
+  ])(
+    'refuses GitHub writes when the published commit has no notes: %j',
+    (changelog) => {
+      const { root, packages } = createPackageGraph();
+      writeFile(join(root, 'packages/core/CHANGELOG.md'), changelog);
+      runGit(root, 'add', '.');
+      runGit(root, 'commit', '--quiet', '-m', 'missing release notes');
+      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      expect(() =>
+        createPackageReleases(packages.slice(0, 1), state.options),
+      ).toThrow('Missing changelog notes');
+      expect(state.writes).toEqual([]);
+    },
+  );
 });
 
 describe('release workflow', () => {
@@ -784,10 +832,12 @@ function createPackageGraph() {
 
 function releaseState(root, commit) {
   const tags = new Map();
+  const tagObjects = new Map();
   const releases = [];
   const writes = [];
   return {
     tags,
+    tagObjects,
     releases,
     writes,
     options: {
@@ -818,6 +868,10 @@ function releaseState(root, commit) {
           return JSON.stringify(
             [...tags].map(([ref, object]) => ({ ref, object })),
           );
+        if (endpoint.includes('/git/tags/'))
+          return JSON.stringify({
+            object: tagObjects.get(endpoint.split('/').at(-1)),
+          });
         if (endpoint.endsWith('/releases')) return JSON.stringify([releases]);
         throw new Error(`Unexpected GitHub endpoint: ${endpoint}`);
       },
@@ -832,16 +886,21 @@ function recordingExecutor(
 ) {
   return (command, args) => {
     commands.push({ command, args: [...args] });
-    if (command === 'tar' && args[0] !== '-xOf') {
+    if (command === 'tar') {
+      if (args[0] === '-xOf')
+        events.push(`verify:${args[1].split('/').at(-1)}`);
       return execFileSync(command, args, { encoding: 'utf8' });
     }
-    const stage = args.includes('build')
-      ? 'build'
-      : args.includes('pack')
-        ? 'pack'
-        : args.includes('publish')
-          ? 'publish'
-          : 'verify';
+    const stage =
+      command === 'pnpm' && args.includes('build')
+        ? 'build'
+        : command === 'pnpm' && args.includes('pack')
+          ? 'pack'
+          : command === 'npm' && args[0] === 'publish'
+            ? 'publish'
+            : undefined;
+    if (!stage)
+      throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
     const target =
       stage === 'build'
         ? args.at(-1)
@@ -865,8 +924,6 @@ function recordingExecutor(
       });
       execFileSync('tar', ['-czf', archive, '-C', root, 'package']);
     }
-    if (command === 'tar')
-      return execFileSync(command, args, { encoding: 'utf8' });
     return '';
   };
 }
