@@ -4,11 +4,5 @@
     "path": "src/index.ts",
     "import": "{ createFastLink }",
     "limit": "2 kB"
-  },
-  {
-    "name": "resolveFastLink",
-    "path": "src/index.ts",
-    "import": "{ resolveFastLink }",
-    "limit": "1.5 kB"
   }
 ]

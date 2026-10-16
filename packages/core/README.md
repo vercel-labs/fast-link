@@ -82,8 +82,6 @@ bundled copies of core, navigate once.
 | Export                   | Kind     | Purpose                                                |
 | ------------------------ | -------- | ------------------------------------------------------ |
 | `createFastLink`         | Function | Attach navigation behavior to an anchor or region      |
-| `findAnchor`             | Function | Find the closest anchor within a boundary              |
-| `resolveFastLink`        | Function | Validate and claim one pointer event                   |
 | `runFastNavigation`      | Function | Apply a router or document navigation decision         |
 | `FastLinkController`     | Type     | Update, suppress clicks, or destroy a controller       |
 | `FastLinkOptions`        | Type     | Configure controller eligibility and callbacks         |
@@ -103,11 +101,11 @@ function createFastLink(
 
 The root can be one anchor or a region containing anchors.
 
-| Option       | Type               | Default                                   | Behavior                                                                |
-| ------------ | ------------------ | ----------------------------------------- | ----------------------------------------------------------------------- |
-| `enabled`    | `boolean`          | `true`                                    | Controls whether new pointerdowns can start navigation                  |
-| `navigate`   | `(intent) => void` | `window.location.assign(intent.url.href)` | Performs navigation after `onNavigate`; its return value is ignored     |
-| `onNavigate` | `(intent) => void` | None                                      | Runs synchronously before `navigate`, for observation such as analytics |
+| Option           | Type               | Default                                   | Behavior                                                                |
+| ---------------- | ------------------ | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `enabled`        | `boolean`          | `true`                                    | Controls whether new pointerdowns can start navigation                  |
+| `navigate`       | `(intent) => void` | `window.location.assign(intent.url.href)` | Performs navigation after `onFastNavigate`; its return value is ignored |
+| `onFastNavigate` | `(intent) => void` | None                                      | Runs synchronously before `navigate`, for observation such as analytics |
 
 `createFastLink` copies its options. Mutating the original object has no
 effect.
@@ -167,44 +165,21 @@ Core resolves and validates `url` against the document origin. A router with a
 base path may need to derive its route from `href` or application metadata on
 `anchor`.
 
-### `findAnchor`
-
-```ts
-function findAnchor(
-  target: EventTarget | null,
-  boundary: EventTarget | null,
-): HTMLAnchorElement | null;
-```
-
-`findAnchor` returns the closest anchor only when traversal reaches the supplied
-boundary. A `null` boundary searches to the top of the target's element tree.
-
-### `resolveFastLink`
-
-```ts
-function resolveFastLink(
-  event: PointerEvent,
-  anchor: HTMLAnchorElement,
-): FastLinkIntent | null;
-```
-
-Pass the anchor associated with `event.target`, normally the result of
-`findAnchor`. An accepted event returns an intent and is marked as handled.
-Ineligible input returns `null` so native behavior can continue.
-
 ## Understand event ordering
 
 For each pointerdown, a controller:
 
 1. Clears stale click-suppression state.
 2. Resolves and claims an eligible anchor.
-3. Calls `onNavigate`.
+3. Calls `onFastNavigate`.
 4. Calls `navigate`.
 5. Prevents the matching pointer-generated click's default action without
    stopping propagation.
 
-Core's `onNavigate` observes the accepted intent. It receives no cancellation
-event, and its return value is ignored. If it throws, `navigate` is not called.
+Core's `onFastNavigate` observes the accepted intent. It receives no cancellation
+event, and its return value is ignored. If it throws, `navigate` still runs, then
+the error surfaces. If navigation also throws, the navigation error takes
+precedence. The follow-up click remains suppressed.
 
 Next's `onNavigate` receives a cancellable event. The navigation runner's
 `observe` callback receives a frozen decision after policy selection. Navigation

@@ -74,17 +74,18 @@ function useFastLink<T extends HTMLElement = HTMLElement>(
 };
 ```
 
-| Option           | Type                   | Default                                   | Behavior                                                            |
-| ---------------- | ---------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
-| `enabled`        | `boolean`              | `true`                                    | Controls whether new pointerdowns can start navigation              |
-| `navigate`       | `(intent) => void`     | `window.location.assign(intent.url.href)` | Performs navigation after `onNavigate`; its return value is ignored |
-| `onNavigate`     | `(intent) => void`     | None                                      | Runs synchronously before `navigate`                                |
-| `onClickCapture` | `MouseEventHandler<T>` | None                                      | Runs after core suppression, including for prevented clicks         |
-| `forwardedRef`   | `ForwardedRef<T>`      | `null`                                    | Composes the caller's ref with the controller ref                   |
+| Option           | Type                   | Default                                   | Behavior                                                                |
+| ---------------- | ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `enabled`        | `boolean`              | `true`                                    | Controls whether new pointerdowns can start navigation                  |
+| `navigate`       | `(intent) => void`     | `window.location.assign(intent.url.href)` | Performs navigation after `onFastNavigate`; its return value is ignored |
+| `onFastNavigate` | `(intent) => void`     | None                                      | Runs synchronously before `navigate`                                    |
+| `onClickCapture` | `MouseEventHandler<T>` | None                                      | Runs after core suppression, including for prevented clicks             |
+| `forwardedRef`   | `ForwardedRef<T>`      | `null`                                    | Composes the caller's ref with the controller ref                       |
 
-Core's `onNavigate` observes the accepted intent before `navigate`; it cannot
+Core's `onFastNavigate` observes the accepted intent before `navigate`; it cannot
 cancel navigation through a return value or `preventDefault()`. If it throws,
-`navigate` is not called.
+`navigate` still runs, then the error surfaces. A navigation error takes precedence
+if both callbacks throw. The follow-up click remains suppressed.
 
 The returned object, ref, and capture handler are stable. Pass a caller capture
 handler through `onClickCapture`; the hook runs it after suppression, even when
