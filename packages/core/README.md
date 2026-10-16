@@ -169,14 +169,34 @@ base path may need to derive its route from `href` or application metadata on
 
 ## Understand event ordering
 
-For each pointerdown, a controller:
+Core checks eligibility and claims an accepted primary mouse press before
+calling navigation callbacks. It remembers the anchor so it can prevent the
+later pointer click's default navigation:
 
-1. Clears stale click-suppression state.
-2. Resolves and claims an eligible anchor.
-3. Calls `onFastNavigate`.
-4. Calls `navigate`.
-5. Prevents the matching pointer-generated click's default action without
-   stopping propagation.
+```text
+Ready
+  |
+  | Accept press; claim event
+  | Remember anchor
+  v
+Pending click
+  | Call onFastNavigate, then navigate
+  | Options update: stay here
+  |
+  | Matching pointer click:
+  | clear pending; prevent default
+  v
+Ready
+```
+
+- A matching click's target must be inside both the accepted anchor and the
+  controller root.
+- Core prevents the click's default action without stopping propagation. Click
+  handlers can still run if their elements remain mounted, but cannot cancel
+  navigation that has already started.
+- A follow-up click may never arrive. Each new `pointerdown` clears stale pending
+  state before eligibility checks.
+- Destroying the controller clears pending state and removes its listeners.
 
 Core's `onFastNavigate` observes the accepted intent. It receives no cancellation
 event, and its return value is ignored. If it throws, `navigate` still runs, then

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.6
+
+- Explain press and click state with an inline diagram and matching rules.
+
 ## 0.0.5
 
 - Share controller and event coordination through one internal registry.
