@@ -1,4 +1,4 @@
-# Benchmarks
+# Performance benchmarks
 
 Use this guide to run, investigate, or change Fast Link benchmarks.
 Commands run from the repository root with Node.js 24 and the pinned pnpm version.
@@ -59,7 +59,27 @@ Options:
 - `--informational` validates work without timing thresholds. Releases use this option.
 - CI comparisons run every case. Tested versions are recorded separately for base and head.
 
-## Measurements
+## Scenario IDs
+
+README rows and raw JSON use the same IDs. Braces below list allowed values;
+for example, `next.fast.100.update` measures updating 100 `FastLink` components.
+
+| ID pattern                                                    | What and how                                                                          | Why                                                          |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `core.{bare,core}.accepted`                                   | Dispatch mouse presses and follow-up clicks to bare DOM handlers or `createFastLink`. | Compare accepted-interaction dispatch costs.                 |
+| `core.{bare,core}.ignored`                                    | Dispatch touch pointerdowns; require no navigation.                                   | Measure ignored-input handling.                              |
+| `react.{plain,react}.accepted`                                | Dispatch mouse presses and clicks to plain React anchors or `useFastLink`.            | Compare binding overhead during interaction.                 |
+| `react.{plain,react}.ignored`                                 | Dispatch touch pointerdowns to the same React variants.                               | Measure ignored-input handling through React.                |
+| `react.{plain,react}.1.{mount,update,unmount}`                | Commit one anchor with `flushSync`; check content, callback updates, and cleanup.     | Compare binding lifecycle costs.                             |
+| `next.{next,fast,region}.{1,100,1000}.{mount,update,unmount}` | Commit matched lists of `next/link`, `FastLink`, or region links.                     | Compare list costs as link count grows.                      |
+| `next.{next,fast,region}.{warm,cold}.navigation`              | Time pointerdown to destination commit with verified router-cache state.              | Measure when destination content becomes available.          |
+| `next.{next,fast,region}.{warm,cold}.pressDuration`           | Record actual pointerdown-to-pointerup time alongside navigation.                     | Show how much of navigation latency includes the mouse hold. |
+
+Lifecycle IDs end in `mount` (insert links), `update` (change every href and label),
+or `unmount` (remove links and verify cleanup). See the conditions below for
+sample counts, timing boundaries, and correctness checks.
+
+## Measurement conditions
 
 Variants run sequentially in production Chromium at a 1280 by 720 viewport.
 Variant order reverses each batch. Reports use unrounded samples for medians
@@ -183,14 +203,15 @@ After the release publish job succeeds, its benchmark job:
 
 Publication rules:
 
-- The first measured release has no previous-release value. Later comparisons add no cumulative timing gate.
+- The first measured release has no previous-release comparison. Later comparisons add no cumulative timing gate.
 - The pointer stores the predecessor, so retries keep the same comparison. No tags or GitHub Release assets are assumed.
 - An incompatible or unbuildable baseline fails publication for investigation. Do not substitute another baseline.
 - A release rerun fails if the latest measured release is not its ancestor. It cannot move results backward.
 - An empty publish allowlist prevents release benchmark publication. npm Trusted Publishing restrictions still apply.
 
-README output includes units, versions, medians, ranges, previous-release changes,
-and durable JSON links. Values use two significant figures and omit run timestamps.
+The README's collapsible table includes scenario IDs, units, versions, medians,
+ranges, and durable JSON links. Previous-release samples stay in the raw results.
+Values use two significant figures and omit run timestamps.
 Identical generated content produces no PR.
 
 ### GitHub setup and review

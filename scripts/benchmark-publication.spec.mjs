@@ -142,6 +142,10 @@ it('retries PR creation after saving results and preserves current main prose an
   expect(state().branchReadme.startsWith('Current main introduction\n')).toBe(
     true,
   );
+  expect(state().branchReadme).toContain(
+    '<summary>View all scenarios</summary>',
+  );
+  expect(state().branchReadme).not.toContain('Change from previous release');
   expect(execute('baseline').status).toBe(0);
   expect(readFileSync(join(directory, 'outputs'), 'utf8')).toBe(
     `revision=${'b'.repeat(40)}\n`,
@@ -154,6 +158,23 @@ it('retries PR creation after saving results and preserves current main prose an
       commit.fileChanges.additions.some((file) => file.path === 'README.md'),
     ),
   ).toHaveLength(1);
+});
+
+it('rejects invalid previous-release samples before saving results', () => {
+  const { directory, execute, state } = fixture();
+  writeFileSync(
+    join(directory, 'previous.json'),
+    JSON.stringify({ schema: 1 }),
+  );
+
+  const result = execute('publish', [
+    directory,
+    join(directory, 'current.json'),
+    join(directory, 'previous.json'),
+  ]);
+
+  expect(result.status).toBe(1);
+  expect(state().commits).toHaveLength(0);
 });
 
 it('recovers a results branch created before its first result commit', () => {

@@ -12,31 +12,30 @@ export function updateReadme(readme, table) {
   return `${readme.slice(0, before + start.length)}\n${table}\n${readme.slice(after)}`;
 }
 
-/** Generates stable README content from verified results, without run timestamps. */
-export function renderTable(report, url, previous) {
+/** Generates collapsible current-result content without release deltas or run timestamps. */
+export function renderTable(report, url) {
   validateReport(report);
-  if (previous) validateReport(previous);
   if (!url.startsWith('https://'))
     throw new Error('A durable HTTPS result URL is required');
   const rows = Object.entries(report.metrics)
     .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([name, metric]) => renderRow(name, metric, previous?.metrics[name]));
+    .map(([name, metric]) => renderRow(name, metric));
 
   return [
     '[How we benchmark](docs/benchmarks.md)',
     '',
-    '| Scenario | Median | Range | Change from previous release |',
-    '| --- | --- | --- | --- |',
+    '<details>',
+    '<summary>View all scenarios</summary>',
+    '',
+    '| Scenario ID | Median | Range |',
+    '| --- | --- | --- |',
     ...rows,
     '',
     `Tested versions: ${formatVersions(report.versions)}.`,
     `Source commit: ${report.revision}. [Raw results](${url}).`,
-    ...(previous
-      ? [
-          `Previous release tested versions: ${formatVersions(previous.versions)}.`,
-        ]
-      : []),
     'Controlled lab measurements. Navigation latency differences include the time next/link waits for mouse release. These results do not establish faster JavaScript execution or typical-user gains.',
+    '',
+    '</details>',
   ].join('\n');
 }
 
@@ -51,14 +50,10 @@ function formatVersions(versions) {
     .join(', ');
 }
 
-/** Compares matching units and leaves the first release's change unspecified. */
-function renderRow(name, metric, previous) {
+/** Formats one scenario's current median and full sample range. */
+function renderRow(name, metric) {
   const { median, min, max } = summarize(metric.samples);
-  const change =
-    previous && previous.unit === metric.unit
-      ? `${formatValue(median - summarize(previous.samples).median)} ${metric.unit}`
-      : 'N/A';
   const range = `${formatValue(min)}–${formatValue(max)} ${metric.unit}`;
 
-  return `| ${name} | ${formatValue(median)} ${metric.unit} | ${range} | ${change} |`;
+  return `| ${name} | ${formatValue(median)} ${metric.unit} | ${range} |`;
 }

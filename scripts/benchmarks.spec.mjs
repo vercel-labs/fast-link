@@ -145,12 +145,17 @@ describe('benchmark results', () => {
     ).toBe('pass');
   });
 
-  it('renders deterministic units, versions, two significant figures, and a durable link', () => {
+  it('renders collapsible current results with units, versions, and a durable link', () => {
     const input = report(12.345);
     const first = renderTable(input, 'https://example.com/release.json');
     expect(first).toContain('12 us/op');
     expect(first).toContain('16.3.6');
     expect(first).toContain('[Raw results](https://example.com/release.json)');
+    expect(first).toContain(
+      '<details>\n<summary>View all scenarios</summary>\n\n| Scenario ID | Median | Range |',
+    );
+    expect(first).toMatch(/\n<\/details>$/);
+    expect(first).not.toContain('previous release');
     expect(renderTable(input, 'https://example.com/release.json')).toBe(first);
   });
 });

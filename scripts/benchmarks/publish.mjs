@@ -58,7 +58,7 @@ async function publishReadme(repository, branch, current, previous, url) {
     `repos/${repository}/contents/README.md?ref=${main}`,
   );
   const readme = Buffer.from(mainReadme.content, 'base64').toString();
-  const generated = updateReadme(readme, renderTable(current, url, previous));
+  const generated = updateReadme(readme, renderTable(current, url));
 
   if (generated === readme) {
     console.log('README unchanged; no PR needed.');
@@ -103,7 +103,7 @@ function openReadmePr(repository, branch, previous, url) {
     body: [
       'Updates the README from verified production-browser measurements for the released packages.',
       previous
-        ? 'The table compares the previous measured release on the same runner.'
+        ? 'The previous measured release was remeasured on the same runner; its samples are saved with these results.'
         : 'This is the first measured release.',
       '',
       `[Raw results](${url}). Navigation uses a controlled 80 ms mouse hold; the numbers do not establish typical-user gains.`,
@@ -120,6 +120,7 @@ async function publish() {
     ? JSON.parse(await readFile(previousPath, 'utf8'))
     : undefined;
   validateReport(current);
+  if (previous) validateReport(previous);
   if (current.errors?.length || current.conditions?.case !== 'all')
     throw new Error('Publication requires a complete successful run');
 
