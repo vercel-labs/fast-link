@@ -1,19 +1,30 @@
 # ▲ Fast Link
 
-Fast Link starts eligible same-origin link navigation on `pointerdown` instead
-of waiting for `click`. Primary mouse navigation starts when the user presses a
-link, while touch, pen, keyboard, and modified clicks keep their native behavior.
+Fast Link helps your application feel faster by starting eligible same-origin
+link navigation when you press the mouse, instead of waiting for release. Your
+application gets the press-to-release interval to start loading the next page.
+
+Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
+pages, but when every millisecond matters, that head start can help your site cook.
 
 ## When to use Fast Link
 
-Use Fast Link for ordinary navigation that can begin on press and is immediately
-reversible. Do not use it for forms, destructive actions, purchases,
-confirmations, downloads, external links, or interactions that must validate on
-pointer release.
+Use Fast Link for ordinary links between pages in your app, when pressing the
+link is enough to commit to navigation. Examples include documentation, product
+pages, dashboard views, and links to form or checkout pages.
 
-Navigation can start before the user begins dragging. Fast Link prevents
-desktop drag-to-bookmark from starting on eligible links.
-Leave it disabled where dragging a URL is an expected interaction.
+Keep ordinary click behavior for:
+
+- Links that perform actions, such as submitting a form, placing an order, signing
+  out, or deleting something.
+- Links whose click handlers must run before navigation, such as validation or an
+  unsaved-changes warning.
+- Links that open or toggle UI, such as a modal, menu, or tab.
+- Downloads and links that need release-time cancellation or URL dragging.
+
+Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
+
+See [Known limitations](#known-limitations) for press timing and accessibility details.
 
 ## Choose a package
 
@@ -27,10 +38,16 @@ Start with `@fast-link/next` for a Next.js App Router application. Use the
 React package only when building an adapter that `@fast-link/next` does not
 provide.
 
-## Get started with the Next.js App Router
+Core handles [presses and matching clicks](./packages/core/README.md#understand-event-ordering).
+React manages the [controller lifecycle](./packages/react/README.md#understand-the-hook-lifecycle).
+Next adds [routing and cancellation](./packages/next/README.md#understand-navigation-and-click-behavior).
 
-See [`@fast-link/next`'s package manifest](./packages/next/package.json) for
-supported Node.js, Next.js, and React versions.
+## Requirements
+
+Fast Link supports Node.js 22 or later. See the package READMEs for framework
+requirements.
+
+## Get started with the Next.js App Router
 
 ```sh
 npm install @fast-link/next
@@ -109,6 +126,15 @@ npx skills add vercel-labs/fast-link --skill fast-link
 
 Installing an npm package does not activate the skill. The skill supports
 Next.js App Router integrations and custom core or React adapters.
+
+## Known limitations
+
+Fast Link starts mouse navigation on press. Moving away before release won't
+cancel it, and Fast Link provides no built-in abort or undo.
+
+This is an accessibility limitation under
+[WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
+See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for activation on press without cancellation or reversal.
 
 ## Contributing
 

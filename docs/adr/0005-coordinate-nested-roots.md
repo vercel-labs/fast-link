@@ -15,14 +15,37 @@ managed links inside a region retain per-link options, cancellation, and policy.
   does not make the innermost region win.
 
 Core also marks accepted events with a shared symbol so separately bundled
-copies can recognize a handled press. A shared `WeakSet` on
-`globalThis` deduplicates events when the event cannot accept the symbol
-property. Non-extensible events require updated copies on both roots; older
-copies cannot read the shared fallback. These mechanisms coordinate nested roots
-and multiple package copies without relying on listener attachment order for
-anchor priority.
+copies can recognize a handled press. A shared `WeakSet` deduplicates events
+when the event cannot accept the symbol property. These mechanisms coordinate
+nested roots and multiple package copies without relying on listener attachment
+order for anchor priority.
 
-Implementation: [anchor ownership](../../packages/core/src/controller/index.ts#L8)
-and [event markers](../../packages/core/src/interaction/index.ts#L100).
-The [controller tests](../../packages/core/src/controller/index.test.ts#L252)
-cover package copies, disabled anchors, and ownership cleanup.
+## Shared coordination contract
+
+The internal [coordination module](../../packages/core/src/coordination/index.ts)
+owns the keys, types, and initialization. One registry on `globalThis`, under
+`Symbol.for('@fast-link/core/coordination')`, holds four weak collections:
+
+| Field                | Meaning                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `anchorOwners`       | Number of live controllers for each managed anchor, including disabled controllers. |
+| `pendingClickOwners` | Callback that consumes an anchor's pending follow-up click.                         |
+| `suppressedClicks`   | Click events already consumed during capture.                                       |
+| `handledEvents`      | Accepted presses, including non-extensible events.                                  |
+
+The event marker remains `Symbol.for('@fast-link/core/handled-event')` with the
+value `true`. Core attempts to set it on accepted events, separately from the registry.
+The registry and marker are internal coordination contracts between versions,
+not package exports.
+
+Compatible versions reuse the same registry and collection instances. Preserve
+existing field names, meanings, and callback behavior when adding fields. Keep
+the keys independent of package versions; separate registries would lose shared
+ownership and deduplication. An incompatible change needs an explicit plan for
+versions to coexist, including non-extensible events that rely on the shared
+`handledEvents` collection.
+
+Controllers own registration and cleanup; weak collections do not keep anchors
+or events alive. The [controller tests](../../packages/core/src/controller/index.test.ts)
+cover independently loaded copies, disabled anchors, click suppression, and
+ownership cleanup through controller behavior.

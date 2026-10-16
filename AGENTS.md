@@ -6,6 +6,8 @@ decisions.
 
 For writing, changing, or reviewing tests, and for test audits or cleanup, use
 [the testing skill](.agents/skills/testing/SKILL.md).
+When adding tests or changing test/CI configuration, follow
+[Write and run tests](./CONTRIBUTING.md#write-and-run-tests).
 
 - `packages/core` owns all eligibility, event ordering, click suppression, and
   cleanup behavior. It must not import React or Next.js.

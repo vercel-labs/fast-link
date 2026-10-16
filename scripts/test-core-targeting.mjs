@@ -1,3 +1,9 @@
+/*
+ * Uses Playwright mouse presses and releases across browsers, including DOM changes
+ * and releases away from the pressed element. These expose click-targeting and
+ * duplicate-navigation behavior that synthetic events cannot establish.
+ */
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';

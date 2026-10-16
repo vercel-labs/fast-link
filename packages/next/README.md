@@ -4,10 +4,13 @@
 a Next.js App Router application. It provides components for existing link
 regions and individual links, plus a hook for custom renderers.
 
+For press timing and opt-outs, see
+[when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
+
 ## Requirements
 
-See [`package.json`](./package.json) for supported Node.js, Next.js, and React
-versions.
+Supports Node.js 22 or later, with Next.js 16 or later and React 18 or later.
+Requires the Next.js App Router.
 
 ## Install the package
 
@@ -127,20 +130,29 @@ export function AccountLink() {
 
 ## Understand navigation and click behavior
 
-For an accepted press, `FastLink` calls `onNavigate` first. Calling
-`preventDefault()` cancels early navigation. Otherwise, the link or region
-selects a navigation decision, calls `onFastNavigate(intent, decision)`, and
-performs that decision. Without a policy, navigation uses the current App
-Router.
+For an accepted primary mouse press, a managed link calls Next.js Link's
+`onNavigate` prop before selecting navigation. Ordinary region links skip that
+callback.
 
-An `onPointerDown` bubble guard runs after early navigation. Use synchronous
-`onNavigate` cancellation for managed links when validation belongs on press.
-Keep links requiring release-time validation opted out.
+| Condition                                     | Navigation                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| Managed `onNavigate` calls `preventDefault()` | Cancel early navigation; skip policy and `onFastNavigate`.                   |
+| No `navigationPolicy`                         | Use the current App Router.                                                  |
+| Policy chooses `{ kind: 'router' }`           | Use Next's destination and history method, with an optional scroll override. |
+| Policy chooses `{ kind: 'document', method }` | Load the validated URL using document `assign` or `replace`.                 |
 
-The follow-up pointer click is default-prevented but still propagates. Link and
-ancestor click handlers run if their elements remain mounted. A route may
-unmount them before release, and a drag away from the link may navigate without
-producing a click.
+- For uncanceled navigation, `onFastNavigate(intent, decision)` observes the
+  selected decision before navigation is attempted.
+- Policy cannot cancel navigation or rewrite the router destination or history
+  method.
+- The matching follow-up pointer click is default-prevented, even after managed
+  `onNavigate` cancellation. It cannot trigger default navigation but still
+  propagates to mounted link and ancestor handlers.
+- A route may unmount handlers before release. Dragging away may navigate
+  without producing a click.
+- An `onPointerDown` bubble guard runs after early navigation. Use synchronous
+  `onNavigate` cancellation for press-time validation; opt out for release-time
+  validation.
 
 Fast Link leaves these interactions on their normal Link or browser path:
 
@@ -151,14 +163,18 @@ Fast Link leaves these interactions on their normal Link or browser path:
 - Anchors or descendants with `data-no-fast-link`
 - Components with `enabled={false}`
 
-`useLinkStatus().pending` does not update for Fast Link navigation because
-public App Router calls cannot set Link's internal pending state. Use route-level
-loading UI or set application pending state from `onFastNavigate`.
+Other integration rules:
 
-With `as` or `legacyBehavior`, `FastLink` stays on the normal Link path. Legacy
-behavior does not attach the controller to the rendered anchor. Add
-`data-no-fast-link` to that anchor when it needs native handling inside a
-region.
+- Keyboard and touch activation skip `navigationPolicy`; preserve the
+  application's normal routing for those inputs.
+- `useLinkStatus().pending` does not update because public App Router calls
+  cannot set Link's internal pending state. Use route-level loading UI or set
+  application pending state from `onFastNavigate`.
+- With `as` or `legacyBehavior`, `FastLink` stays on the normal Link path.
+  Legacy behavior attaches no controller to the anchor; add `data-no-fast-link`
+  when that anchor needs native handling inside a region.
+- Committed option updates preserve pending click suppression. Removing or
+  replacing the root destroys the old controller and clears pending suppression.
 
 ## API reference
 

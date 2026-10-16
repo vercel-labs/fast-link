@@ -1,3 +1,9 @@
+/*
+ * Uses simulated DOM events to test controller ordering, follow-up click
+ * suppression, option updates, and cleanup. Nested roots and separately loaded
+ * core copies must still navigate only once.
+ */
+
 import { createFastLink, type FastLinkOptions } from './index';
 
 interface PointerEventOptions extends MouseEventInit {
@@ -51,7 +57,7 @@ describe('createFastLink', () => {
     const anchor = createAnchor({ href: '/pricing' });
     const events: string[] = [];
     const fastLink = createFastLink(anchor, {
-      onNavigate: ({ href }) => events.push(`notify:${href}`),
+      onFastNavigate: ({ href }) => events.push(`notify:${href}`),
       navigate: ({ href }) => events.push(`navigate:${href}`),
     });
 
@@ -69,7 +75,7 @@ describe('createFastLink', () => {
     const fastLink = createFastLink(anchor, {
       enabled: false,
       navigate: ({ url }) => firstNavigations.push(url.href),
-      onNavigate: ({ url }) => notifications.push(url.href),
+      onFastNavigate: ({ url }) => notifications.push(url.href),
     });
 
     fastLink.update({
@@ -498,3 +504,45 @@ it('leaves a sibling click native without consuming the accepted anchor follow-u
     controller.destroy();
   }
 });
+
+it.each([false, true])(
+  'attempts navigation after an observer error, navigation also throws=%s',
+  (navigationThrows) => {
+    const observerError = new Error('observer failed');
+    const navigationError = new Error('navigation failed');
+    const errors: unknown[] = [];
+    const onError = (event: ErrorEvent) => {
+      errors.push(event.error);
+      event.preventDefault();
+    };
+    const anchor = createAnchor({ href: '/pricing' });
+    const order: string[] = [];
+    const controller = createFastLink(anchor, {
+      onFastNavigate: () => {
+        order.push('observe');
+        throw observerError;
+      },
+      navigate: () => {
+        order.push('navigate');
+        if (navigationThrows) throw navigationError;
+      },
+    });
+    window.addEventListener('error', onError);
+    try {
+      dispatchPointerDown(anchor);
+      const click = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        detail: 1,
+      });
+      expect(anchor.dispatchEvent(click)).toBe(false);
+      expect(order).toEqual(['observe', 'navigate']);
+      expect(errors).toEqual([
+        navigationThrows ? navigationError : observerError,
+      ]);
+    } finally {
+      window.removeEventListener('error', onError);
+      controller.destroy();
+    }
+  },
+);

@@ -8,9 +8,12 @@ For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
 instead.
 
+For press timing and opt-outs, see
+[when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
+
 ## Requirements
 
-See [`package.json`](./package.json) for supported Node.js and React versions.
+Supports Node.js 22 or later, with React 18 or later.
 
 ## Install the package
 
@@ -74,17 +77,18 @@ function useFastLink<T extends HTMLElement = HTMLElement>(
 };
 ```
 
-| Option           | Type                   | Default                                   | Behavior                                                            |
-| ---------------- | ---------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
-| `enabled`        | `boolean`              | `true`                                    | Controls whether new pointerdowns can start navigation              |
-| `navigate`       | `(intent) => void`     | `window.location.assign(intent.url.href)` | Performs navigation after `onNavigate`; its return value is ignored |
-| `onNavigate`     | `(intent) => void`     | None                                      | Runs synchronously before `navigate`                                |
-| `onClickCapture` | `MouseEventHandler<T>` | None                                      | Runs after core suppression, including for prevented clicks         |
-| `forwardedRef`   | `ForwardedRef<T>`      | `null`                                    | Composes the caller's ref with the controller ref                   |
+| Option           | Type                   | Default                                   | Behavior                                                                |
+| ---------------- | ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `enabled`        | `boolean`              | `true`                                    | Controls whether new pointerdowns can start navigation                  |
+| `navigate`       | `(intent) => void`     | `window.location.assign(intent.url.href)` | Performs navigation after `onFastNavigate`; its return value is ignored |
+| `onFastNavigate` | `(intent) => void`     | None                                      | Runs synchronously before `navigate`                                    |
+| `onClickCapture` | `MouseEventHandler<T>` | None                                      | Runs after core suppression, including for prevented clicks             |
+| `forwardedRef`   | `ForwardedRef<T>`      | `null`                                    | Composes the caller's ref with the controller ref                       |
 
-Core's `onNavigate` observes the accepted intent before `navigate`; it cannot
+Core's `onFastNavigate` observes the accepted intent before `navigate`; it cannot
 cancel navigation through a return value or `preventDefault()`. If it throws,
-`navigate` is not called.
+`navigate` still runs, then the error surfaces. A navigation error takes precedence
+if both callbacks throw. The follow-up click remains suppressed.
 
 The returned object, ref, and capture handler are stable. Pass a caller capture
 handler through `onClickCapture`; the hook runs it after suppression, even when
@@ -96,18 +100,36 @@ trees. React ancestry alone does not extend a region's DOM scope.
 
 ## Understand the hook lifecycle
 
-`useFastLink`:
+React manages the controller attached to the element receiving the returned ref:
 
-- Applies committed option and caller-ref changes without losing a pending
-  follow-up click
-- Replaces every core option when the component commits new options
-- Destroys the controller when the root changes or unmounts
-- Runs callback-ref cleanup before replacing a callback ref
-- Attaches no controller during server rendering
+```text
+Attach root
+  -> create controller
 
-Fast Link eligibility, click suppression, and event ordering come from
-`@fast-link/core`. Add `data-no-fast-link` to an anchor or descendant when the
-browser must retain the interaction.
+Commit options
+  -> replace every copied option
+  -> keep pending click
+
+Remove root or unmount
+  -> destroy controller
+
+Replace root
+  -> destroy old controller
+  -> create new controller
+```
+
+- Destroying the controller clears pending click state and removes listeners.
+- Committed caller-ref changes run the old ref's cleanup before assigning the
+  new ref.
+- Server rendering attaches no controller.
+- After an accepted press, the matching pointer click is default-prevented
+  while propagation continues.
+- Touch, pen, keyboard, and modified clicks keep their native behavior and do
+  not call `navigate`.
+
+Core owns [eligibility, click suppression, and event ordering](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering).
+Add `data-no-fast-link` to an anchor or descendant when the browser must retain
+the interaction.
 
 ## Related packages
 

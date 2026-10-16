@@ -39,15 +39,15 @@ The adapter supplies the router behavior, including history, scroll, route
 state, and transitions. Choose authored versus resolved destinations according
 to that router's contract; do not treat them as interchangeable.
 
-Core's `onNavigate(intent)` runs synchronously before `navigate` and is an
+Core's `onFastNavigate(intent)` runs synchronously before `navigate` and is an
 observation callback. Its argument has no `preventDefault()` method. This
 differs from Next Link's cancellable `onNavigate` event. Returning a value from
 either core callback does not control navigation. Decide opt-outs before the
-pointerdown is accepted.
+pointerdown is accepted. If observation throws, navigation still runs and the error
+surfaces. If navigation also throws, its error takes precedence.
 
-Prefer the controller for integration. The lower-level `findAnchor` and
-`resolveFastLink` functions do not supply controller lifecycle or follow-up
-click handling on their own.
+Use the public controller for eligibility, event ownership, cleanup, and follow-up
+click suppression. Anchor lookup and event resolution are internal.
 
 ## React lifecycle
 

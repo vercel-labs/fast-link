@@ -1,3 +1,9 @@
+/*
+ * Tests release eligibility, version requirements, workflow safeguards, and
+ * dependency-ordered publishing using temporary repositories and mocked commands.
+ * This exercises release failures without publishing packages to npm.
+ */
+
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   mkdirSync,

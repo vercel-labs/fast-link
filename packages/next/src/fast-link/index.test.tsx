@@ -1,3 +1,9 @@
+/*
+ * Tests FastLink's routing options, cancellation, click handling, and ref updates
+ * with mocked Next Link and App Router. Real framework and browser integration
+ * is covered in scripts/test-next-fixtures.mjs.
+ */
+
 import { act, fireEvent, render } from '@testing-library/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 
@@ -431,7 +437,9 @@ describe('FastLink', () => {
           Pricing
         </FastLink>,
       );
-      pointerDown(getByRole('link'));
+      const anchor = getByRole('link');
+      pointerDown(anchor);
+      expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
     } finally {
       window.removeEventListener('error', onError);
     }

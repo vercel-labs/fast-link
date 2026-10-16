@@ -1,3 +1,9 @@
+/*
+ * Tests navigation policy integration across Next links, regions, and custom
+ * renderers. Checks router proposals, document navigation, and failure fallback
+ * while keeping each adapter's destination and history choices intact.
+ */
+
 import { render } from '@testing-library/react';
 
 import { FastLink } from '../fast-link';

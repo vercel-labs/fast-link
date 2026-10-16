@@ -1,3 +1,9 @@
+/*
+ * Runs the built Next.js app in real browsers to check navigation timing, native
+ * activation, routing options, and policies. This verifies integration with Next
+ * Link and App Router beyond what the mocked component tests can prove.
+ */
+
 /* oxlint-disable no-await-in-loop -- Fixture startup and browser interactions must run in order. */
 
 import assert from 'node:assert/strict';

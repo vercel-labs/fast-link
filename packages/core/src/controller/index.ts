@@ -1,42 +1,24 @@
+import { coordination, type FollowupClick } from '../coordination';
 import {
   findAnchor,
   resolveFastLink,
   type FastLinkIntent,
 } from '../interaction';
 
-// Share anchor ownership across bundles without preventing garbage collection.
-const ANCHOR_OWNERS = Symbol.for('@fast-link/core/anchor-owners');
-const anchorOwners: WeakMap<HTMLElement, number> =
-  Reflect.get(globalThis, ANCHOR_OWNERS) ?? new WeakMap<HTMLElement, number>();
-Reflect.set(globalThis, ANCHOR_OWNERS, anchorOwners);
-
-type FollowupClick = Pick<MouseEvent, 'target' | 'detail' | 'preventDefault'>;
-
-// A consumed framework event needs no more owner lookups along capture.
-const SUPPRESSED_CLICKS = Symbol.for('@fast-link/core/suppressed-clicks');
-const suppressedClicks: WeakSet<FollowupClick> =
-  Reflect.get(globalThis, SUPPRESSED_CLICKS) ?? new WeakSet();
-Reflect.set(globalThis, SUPPRESSED_CLICKS, suppressedClicks);
-
-// Route containing capture handlers to the pending click's owner across bundles.
-const PENDING_CLICK_OWNERS = Symbol.for('@fast-link/core/pending-click-owners');
-const pendingClickOwners: WeakMap<
-  HTMLAnchorElement,
-  (event: FollowupClick) => void
-> = Reflect.get(globalThis, PENDING_CLICK_OWNERS) ?? new WeakMap();
-Reflect.set(globalThis, PENDING_CLICK_OWNERS, pendingClickOwners);
+const { anchorOwners, pendingClickOwners, suppressedClicks } = coordination;
 
 /** Options copied by a Fast Link controller. */
 export interface FastLinkOptions {
   /** Enables early navigation unless set to `false`. */
   enabled?: boolean;
   /**
-   * Navigates after `onNavigate`; the return value is ignored.
+   * Navigates after `onFastNavigate`; the return value is ignored.
    * Defaults to `location.assign(intent.url.href)` in the anchor's window.
+   * Runs even if observation throws; a navigation error takes precedence.
    */
   navigate?: (intent: FastLinkIntent) => void;
-  /** Runs immediately before `navigate` for an accepted pointerdown. */
-  onNavigate?: (intent: FastLinkIntent) => void;
+  /** Observes an accepted press before navigation, which still runs if this throws. */
+  onFastNavigate?: (intent: FastLinkIntent) => void;
 }
 
 /** Controls listeners and options for one root element. */
@@ -110,8 +92,11 @@ export function createFastLink(
 
     pendingAnchor = anchor;
     pendingClickOwners.set(anchor, consumeClick);
-    currentOptions.onNavigate?.(intent);
-    (currentOptions.navigate ?? navigateInBrowser)(intent);
+    try {
+      currentOptions.onFastNavigate?.(intent);
+    } finally {
+      (currentOptions.navigate ?? navigateInBrowser)(intent);
+    }
   };
 
   const onClick = (event: FollowupClick): void => {

@@ -53,8 +53,8 @@ Keep exhaustive cases with their owner:
 - Prove actual Next Link/router behavior, hydration, history, scroll, base paths, prefetch, and composed navigation.
 - Extend `fixtures/next-16` and `scripts/test-next-fixtures.mjs`; keep the production app pinned.
 - Router mocks cannot establish real framework behavior.
-- Preserve `fixtures/core` as built-public-import proof in Node without framework or browser globals.
-- Use `fixtures/react` for built-public-import SSR without DOM globals.
+- Preserve `fixtures/core` to verify the built public core package in Node without framework or browser globals.
+- Use `fixtures/react` to verify SSR through the built public React package without DOM globals.
 
 ## Assertion value
 

@@ -1,3 +1,9 @@
+/*
+ * Tests router/document decisions, policy fallback, observer failures, and error
+ * precedence. Navigation methods are mocked to isolate the decision contract
+ * from browser routing.
+ */
+
 import type { FastLinkIntent } from '../interaction';
 import { runFastNavigation, type FastNavigationDecision } from './index';
 
