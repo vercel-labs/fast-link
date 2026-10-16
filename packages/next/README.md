@@ -9,7 +9,7 @@ For press timing and opt-outs, see
 
 ## Requirements
 
-Supports Node.js 22 and 24, with Next.js 16 or later and React 18 or later.
+Supports Node.js 22 or later, with Next.js 16 or later and React 18 or later.
 Requires the Next.js App Router.
 
 ## Install the package

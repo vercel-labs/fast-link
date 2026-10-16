@@ -33,7 +33,7 @@ provide.
 
 ## Requirements
 
-Fast Link supports Node.js 22 and 24. See the package READMEs for framework
+Fast Link supports Node.js 22 or later. See the package READMEs for framework
 requirements.
 
 ## Get started with the Next.js App Router
