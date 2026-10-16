@@ -1,0 +1,2042 @@
+{
+  "schema": 1,
+  "revision": "236f1d5e9bc07642988669b8e6ecafddce7d9800",
+  "dirty": false,
+  "versions": {
+    "next": "16.3.6",
+    "react": "19.2.7",
+    "reactDom": "19.2.7",
+    "core": "0.0.1",
+    "bindings": "0.0.1",
+    "adapter": "0.0.1"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "cpu": "Apple M4 Pro",
+    "cores": 14,
+    "memoryBytes": 51539607552,
+    "node": "v24.14.0",
+    "playwright": "1.59.0",
+    "browser": "147.0.7727.15"
+  },
+  "conditions": {
+    "batches": 5,
+    "interactions": 1000,
+    "warmup": 100,
+    "holdMs": 80,
+    "listSizes": [
+      1,
+      100,
+      1000
+    ],
+    "case": "all"
+  },
+  "metrics": {
+    "core.bare.accepted": {
+      "unit": "us/op",
+      "samples": [
+        4.600000001490116,
+        3.699999999254942,
+        4.100000001490116,
+        3.600000001490116,
+        4.400000002235174
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 4.100000001490116,
+      "min": 3.600000001490116,
+      "max": 4.600000001490116
+    },
+    "core.bare.ignored": {
+      "unit": "us/op",
+      "samples": [
+        1.8999999985098839,
+        1.7000000029802322,
+        1.7999999970197678,
+        1.699999999254942,
+        1.699999999254942
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 1.7000000029802322,
+      "min": 1.699999999254942,
+      "max": 1.8999999985098839
+    },
+    "core.core.accepted": {
+      "unit": "us/op",
+      "samples": [
+        6.099999997764826,
+        6.5,
+        5.600000001490116,
+        6,
+        5.699999999254942
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 6,
+      "min": 5.600000001490116,
+      "max": 6.5
+    },
+    "core.core.ignored": {
+      "unit": "us/op",
+      "samples": [
+        2,
+        2,
+        1.8999999985098839,
+        2,
+        1.9000000022351742
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 2,
+      "min": 1.8999999985098839,
+      "max": 2
+    },
+    "react.plain.accepted": {
+      "unit": "us/op",
+      "samples": [
+        7.600000001490116,
+        7.399999998509884,
+        7.400000002235174,
+        7.600000001490116,
+        7.600000001490116
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 7.600000001490116,
+      "min": 7.399999998509884,
+      "max": 7.600000001490116
+    },
+    "react.plain.ignored": {
+      "unit": "us/op",
+      "samples": [
+        3.800000000745058,
+        3.599999997764826,
+        3.899999998509884,
+        3.800000000745058,
+        3.699999999254942
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 3.800000000745058,
+      "min": 3.599999997764826,
+      "max": 3.899999998509884
+    },
+    "react.plain.1.mount": {
+      "unit": "ms",
+      "samples": [
+        0.19999999925494194,
+        0,
+        0.10000000149011612,
+        0.09999999776482582,
+        0.10000000149011612
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.10000000149011612,
+      "min": 0,
+      "max": 0.19999999925494194
+    },
+    "react.plain.1.update": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0
+    },
+    "react.plain.1.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.09999999776482582,
+        0,
+        0.10000000149011612,
+        0,
+        0.09999999776482582
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.09999999776482582,
+      "min": 0,
+      "max": 0.10000000149011612
+    },
+    "react.react.accepted": {
+      "unit": "us/op",
+      "samples": [
+        8.600000001490116,
+        8.699999999254942,
+        8.5,
+        8.899999998509884,
+        9.100000001490116
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 8.699999999254942,
+      "min": 8.5,
+      "max": 9.100000001490116
+    },
+    "react.react.ignored": {
+      "unit": "us/op",
+      "samples": [
+        2,
+        2.300000000745058,
+        1.8999999985098839,
+        2.300000000745058,
+        2
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 2,
+      "min": 1.8999999985098839,
+      "max": 2.300000000745058
+    },
+    "react.react.1.mount": {
+      "unit": "ms",
+      "samples": [
+        0.09999999776482582,
+        0.19999999925494194,
+        0.10000000149011612,
+        0.10000000149011612,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.10000000149011612,
+      "min": 0,
+      "max": 0.19999999925494194
+    },
+    "react.react.1.update": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0.19999999925494194,
+        0,
+        0,
+        0.09999999776482582
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0.19999999925494194
+    },
+    "react.react.1.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.10000000149011612,
+        0.20000000298023224,
+        0,
+        0,
+        0.10000000149011612
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.10000000149011612,
+      "min": 0,
+      "max": 0.20000000298023224
+    },
+    "next.next.1.mount": {
+      "unit": "ms",
+      "samples": [
+        0.10000000149011612,
+        0.10000000149011612,
+        0.10000000149011612,
+        0,
+        0.10000000149011612
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.10000000149011612,
+      "min": 0,
+      "max": 0.10000000149011612
+    },
+    "next.next.1.update": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0,
+        0.09999999776482582,
+        0,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0.09999999776482582
+    },
+    "next.next.1.unmount": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0,
+        0,
+        0,
+        0.09999999776482582
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0.09999999776482582
+    },
+    "next.next.100.mount": {
+      "unit": "ms",
+      "samples": [
+        0.5,
+        0.19999999925494194,
+        0.3999999985098839,
+        0.30000000074505806,
+        0.30000000074505806
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.30000000074505806,
+      "min": 0.19999999925494194,
+      "max": 0.5
+    },
+    "next.next.100.update": {
+      "unit": "ms",
+      "samples": [
+        0.4000000022351742,
+        0.19999999925494194,
+        0.4000000022351742,
+        0.19999999925494194,
+        0.3999999985098839
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.3999999985098839,
+      "min": 0.19999999925494194,
+      "max": 0.4000000022351742
+    },
+    "next.next.100.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.19999999925494194,
+        0.10000000149011612,
+        0.10000000149011612,
+        0,
+        0.19999999925494194
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.10000000149011612,
+      "min": 0,
+      "max": 0.19999999925494194
+    },
+    "next.next.1000.mount": {
+      "unit": "ms",
+      "samples": [
+        2.199999999254942,
+        2.100000001490116,
+        2.300000000745058,
+        2.100000001490116,
+        2.199999999254942
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 2.199999999254942,
+      "min": 2.100000001490116,
+      "max": 2.300000000745058
+    },
+    "next.next.1000.update": {
+      "unit": "ms",
+      "samples": [
+        1.800000000745058,
+        1.800000000745058,
+        1.7999999970197678,
+        1.8999999985098839,
+        1.9000000022351742
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 1.800000000745058,
+      "min": 1.7999999970197678,
+      "max": 1.9000000022351742
+    },
+    "next.next.1000.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.5,
+        0.5,
+        0.5,
+        0.4000000022351742,
+        0.5
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.5,
+      "min": 0.4000000022351742,
+      "max": 0.5
+    },
+    "next.fast.1.mount": {
+      "unit": "ms",
+      "samples": [
+        0.19999999925494194,
+        0,
+        0.09999999776482582,
+        0,
+        0.19999999925494194
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.09999999776482582,
+      "min": 0,
+      "max": 0.19999999925494194
+    },
+    "next.fast.1.update": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0,
+        0,
+        0.10000000149011612,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0.10000000149011612
+    },
+    "next.fast.1.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.09999999776482582,
+        0.09999999776482582,
+        0,
+        0,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0.09999999776482582
+    },
+    "next.fast.100.mount": {
+      "unit": "ms",
+      "samples": [
+        0.6999999992549419,
+        0.7000000029802322,
+        0.6000000014901161,
+        0.6999999992549419,
+        0.6999999992549419
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.6999999992549419,
+      "min": 0.6000000014901161,
+      "max": 0.7000000029802322
+    },
+    "next.fast.100.update": {
+      "unit": "ms",
+      "samples": [
+        0.7000000029802322,
+        0.6999999992549419,
+        0.6999999992549419,
+        0.6000000014901161,
+        0.7000000029802322
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.6999999992549419,
+      "min": 0.6000000014901161,
+      "max": 0.7000000029802322
+    },
+    "next.fast.100.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.09999999776482582,
+        0,
+        0.10000000149011612,
+        0.19999999925494194,
+        0.09999999776482582
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.09999999776482582,
+      "min": 0,
+      "max": 0.19999999925494194
+    },
+    "next.fast.1000.mount": {
+      "unit": "ms",
+      "samples": [
+        3.5,
+        3.699999999254942,
+        3.399999998509884,
+        3.800000000745058,
+        3.5
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 3.5,
+      "min": 3.399999998509884,
+      "max": 3.800000000745058
+    },
+    "next.fast.1000.update": {
+      "unit": "ms",
+      "samples": [
+        4.099999997764826,
+        4.300000000745058,
+        4,
+        4.099999997764826,
+        4.199999999254942
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 4.099999997764826,
+      "min": 4,
+      "max": 4.300000000745058
+    },
+    "next.fast.1000.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.9000000022351742,
+        0.8000000007450581,
+        0.8999999985098839,
+        1,
+        0.8000000007450581
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.8999999985098839,
+      "min": 0.8000000007450581,
+      "max": 1
+    },
+    "next.region.1.mount": {
+      "unit": "ms",
+      "samples": [
+        0.10000000149011612,
+        0,
+        0.09999999776482582,
+        0,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0.10000000149011612
+    },
+    "next.region.1.update": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0.09999999776482582,
+        0,
+        0.09999999776482582,
+        0.10000000149011612
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.09999999776482582,
+      "min": 0,
+      "max": 0.10000000149011612
+    },
+    "next.region.1.unmount": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0,
+      "min": 0,
+      "max": 0
+    },
+    "next.region.100.mount": {
+      "unit": "ms",
+      "samples": [
+        0.19999999925494194,
+        0.5,
+        0.19999999925494194,
+        0.5,
+        0.29999999701976776
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.29999999701976776,
+      "min": 0.19999999925494194,
+      "max": 0.5
+    },
+    "next.region.100.update": {
+      "unit": "ms",
+      "samples": [
+        0.09999999776482582,
+        0.5999999977648258,
+        0.19999999925494194,
+        0.6000000014901161,
+        0.20000000298023224
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.20000000298023224,
+      "min": 0.09999999776482582,
+      "max": 0.6000000014901161
+    },
+    "next.region.100.unmount": {
+      "unit": "ms",
+      "samples": [
+        0,
+        0,
+        0.10000000149011612,
+        0.10000000149011612,
+        0.09999999776482582
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.09999999776482582,
+      "min": 0,
+      "max": 0.10000000149011612
+    },
+    "next.region.1000.mount": {
+      "unit": "ms",
+      "samples": [
+        2.199999999254942,
+        2.099999997764826,
+        2,
+        2.199999999254942,
+        1.8999999985098839
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 2.099999997764826,
+      "min": 1.8999999985098839,
+      "max": 2.199999999254942
+    },
+    "next.region.1000.update": {
+      "unit": "ms",
+      "samples": [
+        1.800000000745058,
+        1.800000000745058,
+        1.800000000745058,
+        1.800000000745058,
+        1.5999999977648258
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 1.800000000745058,
+      "min": 1.5999999977648258,
+      "max": 1.800000000745058
+    },
+    "next.region.1000.unmount": {
+      "unit": "ms",
+      "samples": [
+        0.6000000014901161,
+        0.5,
+        0.5,
+        0.3999999985098839,
+        0.30000000074505806
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 0.5,
+      "min": 0.30000000074505806,
+      "max": 0.6000000014901161
+    },
+    "next.next.warm.navigation": {
+      "unit": "ms",
+      "samples": [
+        91.70000000298023,
+        86.5,
+        84.90000000223517,
+        86.19999999925494,
+        86.09999999776483
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 86.19999999925494,
+      "min": 84.90000000223517,
+      "max": 91.70000000298023
+    },
+    "next.next.warm.pressDuration": {
+      "unit": "ms",
+      "samples": [
+        87.30000000074506,
+        82.39999999850988,
+        82.30000000074506,
+        82.19999999925494,
+        82.30000000074506
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 82.30000000074506,
+      "min": 82.19999999925494,
+      "max": 87.30000000074506
+    },
+    "next.next.cold.navigation": {
+      "unit": "ms",
+      "samples": [
+        91.89999999850988,
+        90.30000000074506,
+        91.5,
+        91.69999999925494,
+        91.90000000223517
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 91.69999999925494,
+      "min": 90.30000000074506,
+      "max": 91.90000000223517
+    },
+    "next.next.cold.pressDuration": {
+      "unit": "ms",
+      "samples": [
+        83.19999999925494,
+        82.89999999850988,
+        82.19999999925494,
+        82.5,
+        82.40000000223517
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 82.5,
+      "min": 82.19999999925494,
+      "max": 83.19999999925494
+    },
+    "next.fast.warm.navigation": {
+      "unit": "ms",
+      "samples": [
+        2.699999999254942,
+        2.900000002235174,
+        3.2000000029802322,
+        3.099999997764826,
+        2.899999998509884
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 2.900000002235174,
+      "min": 2.699999999254942,
+      "max": 3.2000000029802322
+    },
+    "next.fast.warm.pressDuration": {
+      "unit": "ms",
+      "samples": [
+        83.5,
+        83.69999999925494,
+        84,
+        83.29999999701977,
+        83.60000000149012
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 83.60000000149012,
+      "min": 83.29999999701977,
+      "max": 84
+    },
+    "next.fast.cold.navigation": {
+      "unit": "ms",
+      "samples": [
+        7,
+        6.199999999254942,
+        6.300000000745058,
+        6.400000002235174,
+        6.300000000745058
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 6.300000000745058,
+      "min": 6.199999999254942,
+      "max": 7
+    },
+    "next.fast.cold.pressDuration": {
+      "unit": "ms",
+      "samples": [
+        84.30000000074506,
+        83.59999999776483,
+        83.59999999776483,
+        83.90000000223517,
+        84.60000000149012
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 83.90000000223517,
+      "min": 83.59999999776483,
+      "max": 84.60000000149012
+    },
+    "next.region.warm.navigation": {
+      "unit": "ms",
+      "samples": [
+        2.899999998509884,
+        2.7999999970197678,
+        3,
+        3,
+        2.699999999254942
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 2.899999998509884,
+      "min": 2.699999999254942,
+      "max": 3
+    },
+    "next.region.warm.pressDuration": {
+      "unit": "ms",
+      "samples": [
+        82.60000000149012,
+        82.39999999850988,
+        83.60000000149012,
+        83.70000000298023,
+        84.19999999925494
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 83.60000000149012,
+      "min": 82.39999999850988,
+      "max": 84.19999999925494
+    },
+    "next.region.cold.navigation": {
+      "unit": "ms",
+      "samples": [
+        7.300000000745058,
+        6.600000001490116,
+        7.300000000745058,
+        6.300000000745058,
+        7
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 7,
+      "min": 6.300000000745058,
+      "max": 7.300000000745058
+    },
+    "next.region.cold.pressDuration": {
+      "unit": "ms",
+      "samples": [
+        83.60000000149012,
+        83.5,
+        83.90000000223517,
+        83.39999999850988,
+        83.29999999701977
+      ],
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "batches": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "median": 83.5,
+      "min": 83.29999999701977,
+      "max": 83.90000000223517
+    }
+  },
+  "errors": [],
+  "navigationChecks": [
+    {
+      "variant": "next",
+      "cache": "warm",
+      "batch": 0,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 577.8999999985099,
+      "release": 665.1999999992549,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 669.6000000014901
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "cold",
+      "batch": 0,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 561.1000000014901,
+      "release": 644.3000000007451,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 653
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "warm",
+      "batch": 0,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 577.9000000022352,
+      "release": 661.4000000022352,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 580.6000000014901
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "cold",
+      "batch": 0,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 554.1999999992549,
+      "release": 638.5,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 561.1999999992549
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "warm",
+      "batch": 0,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 591.5,
+      "release": 674.1000000014901,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 594.3999999985099
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "cold",
+      "batch": 0,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 559.6999999992549,
+      "release": 643.3000000007451,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 567
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "warm",
+      "batch": 1,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 581,
+      "release": 663.3999999985099,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 583.7999999970198
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "cold",
+      "batch": 1,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 560.1999999992549,
+      "release": 643.6999999992549,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 566.8000000007451
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "warm",
+      "batch": 1,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 590.8000000007451,
+      "release": 674.5,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 593.7000000029802
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "cold",
+      "batch": 1,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 552.6000000014901,
+      "release": 636.1999999992549,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 558.8000000007451
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "warm",
+      "batch": 1,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 591.9000000022352,
+      "release": 674.3000000007451,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 678.4000000022352
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "cold",
+      "batch": 1,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 557.5,
+      "release": 640.3999999985099,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 647.8000000007451
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "warm",
+      "batch": 2,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 572.0999999977648,
+      "release": 654.3999999985099,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 657
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "cold",
+      "batch": 2,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 559.1000000014901,
+      "release": 641.3000000007451,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 650.6000000014901
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "warm",
+      "batch": 2,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 585.0999999977648,
+      "release": 669.0999999977648,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 588.3000000007451
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "cold",
+      "batch": 2,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 541.6000000014901,
+      "release": 625.1999999992549,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 547.9000000022352
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "warm",
+      "batch": 2,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 591,
+      "release": 674.6000000014901,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 594
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "cold",
+      "batch": 2,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 563.1999999992549,
+      "release": 647.1000000014901,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 570.5
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "warm",
+      "batch": 3,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 591.2999999970198,
+      "release": 675,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 594.2999999970198
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "cold",
+      "batch": 3,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 560.8999999985099,
+      "release": 644.2999999970198,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 567.1999999992549
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "warm",
+      "batch": 3,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 589.3000000007451,
+      "release": 672.5999999977648,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 592.3999999985099
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "cold",
+      "batch": 3,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 562,
+      "release": 645.9000000022352,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 568.4000000022352
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "warm",
+      "batch": 3,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 595.3000000007451,
+      "release": 677.5,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 681.5
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "cold",
+      "batch": 3,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 565.6000000014901,
+      "release": 648.1000000014901,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 657.3000000007451
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "warm",
+      "batch": 4,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 589.8000000007451,
+      "release": 672.1000000014901,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 675.8999999985099
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "next",
+      "cache": "cold",
+      "batch": 4,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 557.5999999977648,
+      "release": 640,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 0,
+      "suppressed": 0,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 649.5
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "warm",
+      "batch": 4,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 595.6000000014901,
+      "release": 679.2000000029802,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 598.5
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "fast",
+      "cache": "cold",
+      "batch": 4,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 563.6999999992549,
+      "release": 648.3000000007451,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 570
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "warm",
+      "batch": 4,
+      "beforeRequests": 2,
+      "navigationRequests": 0,
+      "start": 594.6999999992549,
+      "release": 678.8999999985099,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 597.3999999985099
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    },
+    {
+      "variant": "region",
+      "cache": "cold",
+      "batch": 4,
+      "beforeRequests": 0,
+      "navigationRequests": 1,
+      "start": 559.1000000014901,
+      "release": 642.3999999985099,
+      "clicks": 1,
+      "prevented": 1,
+      "accepted": 1,
+      "suppressed": 1,
+      "destination": {
+        "text": "Benchmark destination",
+        "committed": 566.1000000014901
+      },
+      "history": 3,
+      "text": "Benchmark destination"
+    }
+  ],
+  "elapsedMs": 23670.483
+}
