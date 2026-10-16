@@ -1,3 +1,10 @@
+/*
+ * Installs archives from pnpm pack in a temporary app, then checks package
+ * metadata, core/React imports without a browser, and a Next.js production build
+ * and TypeScript check.
+ * This catches missing files and dependency problems that workspace links can hide.
+ */
+
 /* oxlint-disable no-await-in-loop -- Consumer checks run in dependency order. */
 
 import assert from 'node:assert/strict';

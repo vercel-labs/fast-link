@@ -1,3 +1,9 @@
+/*
+ * Tests the React hook's bindings, committed options, refs, and cleanup through
+ * rendered components. Rerenders, Strict Mode, and portals exercise controller
+ * lifetime and pending-click suppression.
+ */
+
 import type { FastLinkIntent } from '@fast-link/core';
 import { fireEvent, render } from '@testing-library/react';
 import { StrictMode, type JSX, type MouseEventHandler } from 'react';
@@ -72,6 +78,7 @@ it('uses committed options and keeps a pending click across rerenders', () => {
   rerender(
     <Region enabled={false} navigate={({ href }) => second.push(href)} />,
   );
+  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
   pointerDown(anchor);
 
   expect(first).toEqual(['/first']);

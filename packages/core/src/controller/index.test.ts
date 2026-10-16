@@ -1,3 +1,9 @@
+/*
+ * Uses simulated DOM events to test controller ordering, follow-up click
+ * suppression, option updates, and cleanup. Nested roots and separately loaded
+ * core copies must still navigate only once.
+ */
+
 import { createFastLink, type FastLinkOptions } from './index';
 
 interface PointerEventOptions extends MouseEventInit {

@@ -1,3 +1,9 @@
+/*
+ * Uses synthetic events in real browsers to check navigation timing, click
+ * propagation, and inputs left to the browser. Playwright mouse targeting
+ * is covered separately in scripts/test-core-targeting.mjs.
+ */
+
 import { createFastLink } from '../index';
 
 afterEach(() => {

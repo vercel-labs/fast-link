@@ -1,5 +1,10 @@
 # @fast-link/react
 
+## 0.0.4
+
+- State supported Node.js and framework versions in the README.
+- Document alpha accessibility limits and how to retain ordinary click behavior.
+
 ## 0.0.3
 
 - Require Node.js 22 or later and remove the package-manager requirement.

@@ -8,9 +8,12 @@ For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
 instead.
 
+For press timing and opt-outs, see
+[when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
+
 ## Requirements
 
-Requires a browser DOM.
+Supports Node.js 22 or later. Navigation requires a browser DOM.
 
 ## Install the package
 

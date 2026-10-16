@@ -1,3 +1,9 @@
+/*
+ * Tests region navigation for existing links with mocked Next Link and App
+ * Router, including base paths, opt-outs, and click propagation. Nested regions
+ * and managed links must share ownership without duplicate routes.
+ */
+
 import { fireEvent, render } from '@testing-library/react';
 import Link from 'next/link';
 

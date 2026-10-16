@@ -6,8 +6,9 @@ license: MIT
 
 # Fast Link
 
-Fast Link starts eligible mouse navigation on pointerdown. Use it for ordinary,
-immediately reversible navigation where pressing the link is enough to commit.
+Fast Link starts eligible mouse navigation on pointerdown. Use it where pressing
+the link is enough to commit. For press timing and opt-outs, see
+[when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
 ## Inspect the consumer
 
