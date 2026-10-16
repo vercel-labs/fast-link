@@ -39,6 +39,46 @@ afterEach(() => {
 });
 
 describe('publishable packages', () => {
+  it.each([
+    ['private package', { private: true }, 'must not be private'],
+    ['invalid name', { name: 'Not A Package' }, 'valid npm name and version'],
+    ['invalid version', { version: '1.02.3' }, 'valid npm name and version'],
+    [
+      'foreign registry',
+      { publishConfig: { registry: 'https://example.com' } },
+      'must publish to npmjs.org',
+    ],
+  ])('rejects a %s', (_, fields, message) => {
+    const { root } = createRepository();
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      ...fields,
+    });
+    expect(() => readPublishablePackages(root)).toThrow(message);
+  });
+
+  it.each([
+    ['non-array declaration', {}, 'must be an array'],
+    ['directory outside packages', ['../core'], 'Invalid package directory'],
+    [
+      'duplicate directory',
+      ['packages/core', 'packages/core'],
+      'Duplicate package directory',
+    ],
+  ])('rejects a %s', (_, declaration, message) => {
+    const { root } = createRepository();
+    writeJson(join(root, 'scripts/publishable-packages.json'), declaration);
+    expect(() => readPublishablePackages(root)).toThrow(message);
+  });
+
+  it('rejects duplicate npm names across directories', () => {
+    const { root } = createPackageGraph();
+    writeJson(join(root, 'packages/react/package.json'), packageManifest);
+    expect(() => readPublishablePackages(root)).toThrow(
+      'Duplicate npm package name',
+    );
+  });
+
   it('publishes nothing while the allowlist is empty', () => {
     const { root } = createRepository({ publishablePackages: [] });
 
@@ -72,7 +112,8 @@ describe('ordered publishing', () => {
   it('rechecks each version and finishes dependencies before their dependents', () => {
     const { packages } = createPackageGraph();
     const events = [];
-    const execute = recordingExecutor(packages, events);
+    const commands = [];
+    const execute = recordingExecutor(packages, events, { commands });
 
     const published = publishPackageReleases(packages, {
       archiveDirectory: tmpdir(),
@@ -105,6 +146,20 @@ describe('ordered publishing', () => {
       'verify:next.tgz',
       'publish:next.tgz',
     ]);
+    expect(commands.filter(({ command }) => command === 'npm')).toEqual(
+      ['core', 'react', 'next'].map((name) => ({
+        command: 'npm',
+        args: [
+          'publish',
+          join(tmpdir(), `${name}.tgz`),
+          '--access',
+          'public',
+          '--provenance',
+          '--registry=https://registry.npmjs.org',
+          '--@fast-link:registry=https://registry.npmjs.org',
+        ],
+      })),
+    );
   });
 
   it('skips a version published since initial detection', () => {
@@ -164,56 +219,11 @@ describe('release workflow', () => {
   );
   const condition =
     "github.ref == 'refs/heads/main' && needs.detect.outputs.has_packages == 'true'";
-  const guardLine = `    if: \${{ ${condition} }}\n`;
-
-  function checkPublishGuard(source) {
-    const publish = parse(source).jobs.publish;
+  it('requires main, publish candidates, and all prerequisite jobs', () => {
+    const publish = parse(workflow).jobs.publish;
     expect(publish.if, 'publish condition').toBe(`\${{ ${condition} }}`);
     expect(publish.needs, 'publish dependencies').toEqual(
       expect.arrayContaining(['detect', 'validate', 'browser']),
-    );
-  }
-
-  it('requires main, publish candidates, and all prerequisite jobs', () => {
-    checkPublishGuard(workflow);
-  });
-
-  it.each([
-    ['missing guard', (source) => source.replace(guardLine, '')],
-    [
-      'guard in a comment',
-      (source) => source.replace(guardLine, `    # ${condition}\n`),
-    ],
-    [
-      'guard in another field',
-      (source) => source.replace(guardLine, `    name: ${condition}\n`),
-    ],
-    [
-      'missing main clause',
-      (source) =>
-        source.replace(
-          condition,
-          "needs.detect.outputs.has_packages == 'true'",
-        ),
-    ],
-    [
-      'missing candidates clause',
-      (source) => source.replace(condition, "github.ref == 'refs/heads/main'"),
-    ],
-    ...['detect', 'validate', 'browser'].map((dependency) => [
-      `missing ${dependency} dependency`,
-      (source) =>
-        source.replace(
-          'needs: [detect, validate, browser]',
-          `needs: [${['detect', 'validate', 'browser'].filter((job) => job !== dependency).join(', ')}]`,
-        ),
-    ]),
-  ])('rejects %s', (_, mutate) => {
-    const mutated = mutate(workflow);
-    // Parse separately so a YAML syntax error cannot satisfy the rejection check.
-    expect(() => parse(mutated)).not.toThrow();
-    expect(() => checkPublishGuard(mutated)).toThrow(
-      /publish condition|publish dependencies/,
     );
   });
 
@@ -465,8 +475,13 @@ function createPackageGraph() {
   return { root, packages: readPublishablePackages(root) };
 }
 
-function recordingExecutor(packages, events, { failure, changedVersion } = {}) {
+function recordingExecutor(
+  packages,
+  events,
+  { failure, changedVersion, commands = [] } = {},
+) {
   return (command, args) => {
+    commands.push({ command, args: [...args] });
     const stage = args.includes('build')
       ? 'build'
       : args.includes('pack')

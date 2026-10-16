@@ -16,9 +16,11 @@
     "test:fixtures": "turbo run test:fixtures",
     "test:root": "vitest run --globals scripts/*.spec.mjs",
     "typecheck": "turbo run typecheck",
-    "validate": "turbo boundaries && turbo run //#format //#lint //#test:root build typecheck test test:browser test:fixtures size"
+    "validate": "turbo boundaries && turbo run //#format //#lint //#test:root build typecheck test test:browser test:fixtures size",
+    "coverage": "turbo run test:coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "4.1.11",
     "lefthook": "2.1.5",
     "oxfmt": "0.44.0",
     "oxlint": "1.59.0",
