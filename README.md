@@ -9,20 +9,21 @@ pages, but when every millisecond matters, that head start can help your site co
 
 ## When to use Fast Link
 
-Use Fast Link for:
-
-- Links between pages on your site.
-- Browsing product pages or catalog listings.
-- Moving between dashboard views in the same app.
+Use Fast Link for ordinary links between pages in your app, when pressing the
+link is enough to commit to navigation. Examples include documentation, product
+pages, dashboard views, and links to form or checkout pages.
 
 Keep ordinary click behavior for:
 
-- Forms, destructive actions, purchases, and downloads.
-- Links that need confirmation checks, release-time cancellation, or URL dragging.
-- Links that open or toggle a UI element
-- Links with effects beyond navigation.
+- Links that perform actions, such as submitting a form, placing an order, signing
+  out, or deleting something.
+- Links whose click handlers must run before navigation, such as validation or an
+  unsaved-changes warning.
+- Links that open or toggle UI, such as a modal, menu, or tab.
+- Downloads and links that need release-time cancellation or URL dragging.
 
 Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
+
 See [Known limitations](#known-limitations) for press timing and accessibility details.
 
 ## Choose a package
@@ -129,8 +130,7 @@ cancel it, and Fast Link provides no built-in abort or undo.
 
 This is an accessibility limitation under
 [WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
-See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for
-activation on press without cancellation or reversal.
+See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for activation on press without cancellation or reversal.
 
 ## Contributing
 
