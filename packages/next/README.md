@@ -6,8 +6,8 @@ regions and individual links, plus a hook for custom renderers.
 
 ## Requirements
 
-See [`package.json`](./package.json) for supported Node.js, Next.js, and React
-versions.
+See
+[`package.json`](./package.json) for Next.js and React peer requirements.
 
 ## Install the package
 
