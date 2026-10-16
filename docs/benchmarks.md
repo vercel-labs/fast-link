@@ -32,7 +32,7 @@ pnpm benchmark --case next --output "$results/next.json"
 
 For a local README baseline:
 
-- Show the host and measurement conditions with the table.
+- Keep host details, tested versions, source commit, and diagnostics in the linked JSON.
 - Store raw JSON under `local/<source-commit>/` on `benchmark-results`.
 - Keep `latest.json` for releases. Release publication replaces the README table.
 
@@ -223,7 +223,7 @@ Publication rules:
 - An empty publish allowlist prevents release benchmark publication. npm Trusted Publishing restrictions still apply.
 
 The README's collapsible comparisons include descriptive workloads, explicit
-baseline columns, units, versions, medians, run conditions, and durable JSON links.
+baseline columns, units, medians, run conditions, and durable JSON links.
 Previous-release samples stay in the raw results.
 Values use two significant figures and omit run timestamps.
 Identical generated content produces no PR.

@@ -131,7 +131,7 @@ Next.js App Router integrations and custom core or React adapters.
 
 <!-- benchmarks:start -->
 
-[How we benchmark](docs/benchmarks.md)
+[How we benchmark](docs/benchmarks.md) · [Raw results](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
 
 <details>
 <summary>View benchmark comparisons</summary>
@@ -169,14 +169,6 @@ Navigation measures mouse press to destination commit. `next/link` waits for rel
 | Mount 1,000 links              | 2.2 ms                 | 3.4 ms     | 2.1 ms           |
 | Update 1,000 links             | 1.8 ms                 | 4.2 ms     | 1.8 ms           |
 | Unmount 1,000 links            | 0.5 ms                 | 0.9 ms     | 0.5 ms           |
-
-Raw results include all 53 measurements, including actual press durations and single-link lifecycle timings. Single-link timings can reach browser timer resolution.
-
-Tested versions: next 16.3.6, react 19.2.7, reactDom 19.2.7, core 0.0.1, bindings 0.0.1, adapter 0.0.1.
-Source commit: fe6fd78dfb572725fccd5b37f555f61b536dda95. [Raw results](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json).
-Controlled Chromium lab measurements.
-
-- Local run: Apple M4 Pro, Darwin 25.6.0, Chromium 147.0.7727.15.
 
 </details>
 <!-- benchmarks:end -->

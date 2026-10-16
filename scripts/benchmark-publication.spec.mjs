@@ -155,6 +155,8 @@ it('retries PR creation after saving results and preserves current main prose an
   expect(state().branchReadme).toContain('- Mouse hold: **85 ms**');
   expect(state().branchReadme).toContain('Workload (median time)');
   expect(state().branchReadme).not.toContain('Scenario ID');
+  expect(state().branchReadme).not.toContain('Tested versions:');
+  expect(state().branchReadme).not.toContain('Source commit:');
   expect(execute('baseline').status).toBe(0);
   expect(readFileSync(join(directory, 'outputs'), 'utf8')).toBe(
     `revision=${'b'.repeat(40)}\n`,

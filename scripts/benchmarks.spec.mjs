@@ -149,7 +149,7 @@ describe('benchmark results', () => {
     ).toBe('pass');
   });
 
-  it('renders collapsible current results with units, versions, and a durable link', () => {
+  it('renders medians and workload conditions with provenance behind a durable link', () => {
     const input = report(12.345);
     input.metrics = Object.fromEntries(
       scenarioNames().map((name) => [name, metric(12.345)]),
@@ -171,7 +171,8 @@ describe('benchmark results', () => {
     const original = structuredClone(input);
     const first = renderTable(input, 'https://example.com/release.json');
     expect(first).toContain('12 µs');
-    expect(first).toContain('16.3.6');
+    expect(first).not.toContain('16.3.6');
+    expect(first).not.toContain(input.revision);
     expect(first).toContain('- Mouse hold: **85 ms**');
     expect(first).toContain(
       '- Runs: 5 alternating batches, 5 samples per scenario.',
@@ -204,11 +205,27 @@ describe('benchmark results', () => {
     expect(first).not.toContain('(12–12)');
     expect(first).not.toContain('pressDuration');
     expect(first).not.toMatch(/\| `(?:react|next)\.\*\.1\./);
-    expect(first).toContain('Raw results include all 53 measurements');
+    expect(first).not.toContain('Raw results include');
+    expect(first).not.toContain('Tested versions:');
+    expect(first).not.toContain('Source commit:');
+    expect(first).not.toContain('Controlled Chromium lab measurements');
+    expect(first.indexOf('[Raw results]')).toBeLessThan(
+      first.indexOf('<details>'),
+    );
     expect(first).toMatch(/\n<\/details>$/);
     expect(first).not.toContain('previous release');
     expect(renderTable(input, 'https://example.com/release.json')).toBe(first);
     expect(input).toEqual(original);
+    const otherHost = structuredClone(input);
+    otherHost.environment = {
+      cpu: 'Different CPU',
+      browser: 'Different browser',
+    };
+    otherHost.versions.next = '16.3.7';
+    otherHost.revision = 'b'.repeat(40);
+    expect(renderTable(otherHost, 'https://example.com/release.json')).toBe(
+      first,
+    );
     input.conditions.holdMs = 80;
     expect(renderTable(input, 'https://example.com/release.json')).toContain(
       '- Mouse hold: **80 ms**',

@@ -21,7 +21,7 @@ export function renderTable(report, url) {
   if (!Number.isFinite(holdMs) || holdMs <= 0)
     throw new Error('README requires the measured mouse hold in milliseconds');
   return [
-    '[How we benchmark](docs/benchmarks.md)',
+    `[How we benchmark](docs/benchmarks.md) · [Raw results](${url})`,
     '',
     '<details>',
     '<summary>View benchmark comparisons</summary>',
@@ -82,12 +82,6 @@ export function renderTable(report, url) {
       ],
     ),
     '',
-    'Raw results include all 53 measurements, including actual press durations and single-link lifecycle timings. Single-link timings can reach browser timer resolution.',
-    '',
-    `Tested versions: ${formatVersions(report.versions)}.`,
-    `Source commit: ${report.revision}. [Raw results](${url}).`,
-    'Controlled Chromium lab measurements.',
-    '',
     '</details>',
   ].join('\n');
 }
@@ -119,12 +113,6 @@ function renderConditions(report) {
 /** Rounds display values only; gate decisions retain the original samples. */
 function formatValue(value) {
   return Number(value.toPrecision(2));
-}
-
-function formatVersions(versions) {
-  return Object.entries(versions)
-    .map(([name, version]) => `${name} ${version}`)
-    .join(', ');
 }
 
 /** Pairs each workload with its baseline and adapter variants, in display order. */
