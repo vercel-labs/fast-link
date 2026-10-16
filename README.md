@@ -16,9 +16,9 @@ Use Fast Link for:
 - Moving between dashboard views in the same app.
 
 Keep ordinary click behavior for:
-
 - Forms, destructive actions, purchases, and downloads.
 - Links that need confirmation checks, release-time cancellation, or URL dragging.
+- Any link that has a real consequence beyond navigation when clicking
 
 Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
 See [Known limitations](#known-limitations) for press timing and accessibility details.
