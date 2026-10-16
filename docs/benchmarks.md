@@ -30,6 +30,12 @@ pnpm benchmark --case next --output "$results/next.json"
 - `--output` is required. Save results outside source checkouts.
 - Failed runs retain available samples and errors. Do not publish those samples.
 
+For a local README baseline:
+
+- Show the host and measurement conditions with the table.
+- Store raw JSON under `local/<source-commit>/` on `benchmark-results`.
+- Keep `latest.json` for releases. Release publication replaces the README table.
+
 ### Compare revisions
 
 Prepare disposable base and head checkouts with compatible public APIs.

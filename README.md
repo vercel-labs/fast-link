@@ -133,6 +133,70 @@ Next.js App Router integrations and custom core or React adapters.
 
 [How we benchmark](docs/benchmarks.md)
 
+| Scenario                       | Median    | Range         | Change from previous release |
+| ------------------------------ | --------- | ------------- | ---------------------------- |
+| core.bare.accepted             | 4.1 us/op | 3.6–4.6 us/op | N/A                          |
+| core.bare.ignored              | 1.7 us/op | 1.7–1.9 us/op | N/A                          |
+| core.core.accepted             | 6 us/op   | 5.6–6.5 us/op | N/A                          |
+| core.core.ignored              | 2 us/op   | 1.9–2 us/op   | N/A                          |
+| next.fast.1.mount              | 0.1 ms    | 0–0.2 ms      | N/A                          |
+| next.fast.1.unmount            | 0 ms      | 0–0.1 ms      | N/A                          |
+| next.fast.1.update             | 0 ms      | 0–0.1 ms      | N/A                          |
+| next.fast.100.mount            | 0.7 ms    | 0.6–0.7 ms    | N/A                          |
+| next.fast.100.unmount          | 0.1 ms    | 0–0.2 ms      | N/A                          |
+| next.fast.100.update           | 0.7 ms    | 0.6–0.7 ms    | N/A                          |
+| next.fast.1000.mount           | 3.5 ms    | 3.4–3.8 ms    | N/A                          |
+| next.fast.1000.unmount         | 0.9 ms    | 0.8–1 ms      | N/A                          |
+| next.fast.1000.update          | 4.1 ms    | 4–4.3 ms      | N/A                          |
+| next.fast.cold.navigation      | 6.3 ms    | 6.2–7 ms      | N/A                          |
+| next.fast.cold.pressDuration   | 84 ms     | 84–85 ms      | N/A                          |
+| next.fast.warm.navigation      | 2.9 ms    | 2.7–3.2 ms    | N/A                          |
+| next.fast.warm.pressDuration   | 84 ms     | 83–84 ms      | N/A                          |
+| next.next.1.mount              | 0.1 ms    | 0–0.1 ms      | N/A                          |
+| next.next.1.unmount            | 0 ms      | 0–0.1 ms      | N/A                          |
+| next.next.1.update             | 0 ms      | 0–0.1 ms      | N/A                          |
+| next.next.100.mount            | 0.3 ms    | 0.2–0.5 ms    | N/A                          |
+| next.next.100.unmount          | 0.1 ms    | 0–0.2 ms      | N/A                          |
+| next.next.100.update           | 0.4 ms    | 0.2–0.4 ms    | N/A                          |
+| next.next.1000.mount           | 2.2 ms    | 2.1–2.3 ms    | N/A                          |
+| next.next.1000.unmount         | 0.5 ms    | 0.4–0.5 ms    | N/A                          |
+| next.next.1000.update          | 1.8 ms    | 1.8–1.9 ms    | N/A                          |
+| next.next.cold.navigation      | 92 ms     | 90–92 ms      | N/A                          |
+| next.next.cold.pressDuration   | 83 ms     | 82–83 ms      | N/A                          |
+| next.next.warm.navigation      | 86 ms     | 85–92 ms      | N/A                          |
+| next.next.warm.pressDuration   | 82 ms     | 82–87 ms      | N/A                          |
+| next.region.1.mount            | 0 ms      | 0–0.1 ms      | N/A                          |
+| next.region.1.unmount          | 0 ms      | 0–0 ms        | N/A                          |
+| next.region.1.update           | 0.1 ms    | 0–0.1 ms      | N/A                          |
+| next.region.100.mount          | 0.3 ms    | 0.2–0.5 ms    | N/A                          |
+| next.region.100.unmount        | 0.1 ms    | 0–0.1 ms      | N/A                          |
+| next.region.100.update         | 0.2 ms    | 0.1–0.6 ms    | N/A                          |
+| next.region.1000.mount         | 2.1 ms    | 1.9–2.2 ms    | N/A                          |
+| next.region.1000.unmount       | 0.5 ms    | 0.3–0.6 ms    | N/A                          |
+| next.region.1000.update        | 1.8 ms    | 1.6–1.8 ms    | N/A                          |
+| next.region.cold.navigation    | 7 ms      | 6.3–7.3 ms    | N/A                          |
+| next.region.cold.pressDuration | 84 ms     | 83–84 ms      | N/A                          |
+| next.region.warm.navigation    | 2.9 ms    | 2.7–3 ms      | N/A                          |
+| next.region.warm.pressDuration | 84 ms     | 82–84 ms      | N/A                          |
+| react.plain.1.mount            | 0.1 ms    | 0–0.2 ms      | N/A                          |
+| react.plain.1.unmount          | 0.1 ms    | 0–0.1 ms      | N/A                          |
+| react.plain.1.update           | 0 ms      | 0–0 ms        | N/A                          |
+| react.plain.accepted           | 7.6 us/op | 7.4–7.6 us/op | N/A                          |
+| react.plain.ignored            | 3.8 us/op | 3.6–3.9 us/op | N/A                          |
+| react.react.1.mount            | 0.1 ms    | 0–0.2 ms      | N/A                          |
+| react.react.1.unmount          | 0.1 ms    | 0–0.2 ms      | N/A                          |
+| react.react.1.update           | 0 ms      | 0–0.2 ms      | N/A                          |
+| react.react.accepted           | 8.7 us/op | 8.5–9.1 us/op | N/A                          |
+| react.react.ignored            | 2 us/op   | 1.9–2.3 us/op | N/A                          |
+
+Tested versions: next 16.3.6, react 19.2.7, reactDom 19.2.7, core 0.0.1, bindings 0.0.1, adapter 0.0.1.
+Source commit: 236f1d5e9bc07642988669b8e6ecafddce7d9800. [Raw results](https://github.com/vercel-labs/fast-link/blob/be1cc56b363366cc929a84a9f6e502b7c2761d7b/local/236f1d5e9bc07642988669b8e6ecafddce7d9800/report.json).
+Controlled lab measurements. Navigation latency differences include the time next/link waits for mouse release. These results do not establish faster JavaScript execution or typical-user gains.
+
+- Local baseline: Apple M4 Pro, Darwin 25.6.0, Chromium 147.0.7727.15.
+- 5 alternating batches; 1,000 interactions after 100 warmups.
+- Navigation requested an 80 ms mouse hold. Actual press durations appear in the table.
+- Displayed 0 ms values reflect browser timer resolution.
 <!-- benchmarks:end -->
 
 ## Known limitations

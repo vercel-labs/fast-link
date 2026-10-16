@@ -30,7 +30,7 @@ export function renderTable(report, url, previous) {
     ...rows,
     '',
     `Tested versions: ${formatVersions(report.versions)}.`,
-    `Release commit: ${report.revision}. [Raw results](${url}).`,
+    `Source commit: ${report.revision}. [Raw results](${url}).`,
     ...(previous
       ? [
           `Previous release tested versions: ${formatVersions(previous.versions)}.`,
