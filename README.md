@@ -8,10 +8,16 @@ Starting on press gives routing work a head start while you release the mouse.
 ## When to use Fast Link
 
 Fast Link starts mouse navigation on press. Moving away before release won't
-cancel it.
+cancel it, and Fast Link provides no built-in abort or undo.
 
+This is an accessibility limitation under
+[WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
+See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for
+activation on press without cancellation or reversal.
+
+Do not use early navigation for forms, destructive actions, purchases, or downloads.
 Use `enabled={false}` or `data-no-fast-link` to keep ordinary click behavior for
-release-time cancellation, confirmation checks, or URL dragging.
+these actions, confirmation checks, release-time cancellation, or URL dragging.
 
 ## Choose a package
 
