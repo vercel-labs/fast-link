@@ -17,6 +17,7 @@ jobs:
     outputs:
       packages: ${{ steps.releases.outputs.packages }}
       has_packages: ${{ steps.releases.outputs.has_packages }}
+      has_publishable_packages: ${{ steps.releases.outputs.has_publishable_packages }}
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
@@ -108,3 +109,25 @@ jobs:
 
       - name: Publish packages in dependency order
         run: node scripts/publish-package-releases.mjs
+
+  release:
+    needs: [detect, validate, browser, publish]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.detect.result == 'success' && needs.detect.outputs.has_publishable_packages == 'true' && needs.validate.result == 'success' && needs.browser.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Recover package tags and GitHub Releases
+        run: node scripts/create-package-releases.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}

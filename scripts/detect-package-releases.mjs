@@ -54,6 +54,7 @@ function run() {
     `packages=${JSON.stringify(pending.map(({ directory }) => directory))}`,
   );
   console.log(`has_packages=${pending.length > 0}`);
+  console.log(`has_publishable_packages=${declared.length > 0}`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) run();

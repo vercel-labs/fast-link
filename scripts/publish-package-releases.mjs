@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,8 +16,12 @@ import { verifyPackedPackage } from './verify-packed-package.mjs';
  */
 export function publishPackageReleases(
   packages,
-  { archiveDirectory, readPublishedVersions, execute },
+  { archiveDirectory, commit, readPublishedVersions, execute },
 ) {
+  if (packages.length === 0) return [];
+  if (!/^[a-f0-9]{40}$/.test(commit ?? '')) {
+    throw new Error('A full published commit SHA is required');
+  }
   const published = [];
   for (const entry of packages) {
     if (detectPackageReleases([entry], readPublishedVersions).length === 0)
@@ -32,6 +37,7 @@ export function publishPackageReleases(
       `--filter=./${directory}`,
     ]);
     execute('pnpm', ['--dir', directory, 'pack', '--out', archive]);
+    stampArchive(archive, archiveDirectory, manifest, commit, execute);
     const packed = JSON.parse(
       execute('tar', ['-xOf', archive, 'package/package.json']),
     );
@@ -50,6 +56,23 @@ export function publishPackageReleases(
   return published;
 }
 
+function stampArchive(archive, archiveDirectory, manifest, commit, execute) {
+  const staging = mkdtempSync(join(archiveDirectory, 'release-'));
+  try {
+    execute('tar', ['-xzf', archive, '-C', staging]);
+    const path = join(staging, 'package/package.json');
+    const packed = JSON.parse(readFileSync(path, 'utf8'));
+    verifyPackedPackage(packed, manifest);
+    writeFileSync(
+      path,
+      `${JSON.stringify({ ...packed, gitHead: commit }, null, 2)}\n`,
+    );
+    execute('tar', ['-czf', archive, '-C', staging, 'package']);
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+}
+
 function run() {
   const packages = readPublishablePackages();
   if (packages.length === 0) return;
@@ -58,6 +81,9 @@ function run() {
 
   const published = publishPackageReleases(packages, {
     archiveDirectory,
+    commit: execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+    }).trim(),
     readPublishedVersions: getPublishedVersions,
     execute(command, args) {
       const output = execFileSync(command, args, {
