@@ -54,7 +54,7 @@ export function renderTable(report, url) {
     '',
     '### Next.js',
     '',
-    `Navigation measures pointerdown to destination commit with a **${holdMs} ms** mouse hold. \`next/link\` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.`,
+    `Navigation measures pointerdown to destination commit with an **${holdMs} ms** mouse hold. \`next/link\` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.`,
     '',
     ...renderComparison(
       report.metrics,
