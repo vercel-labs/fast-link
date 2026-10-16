@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Start elapsed-time measurement
         run: echo "BENCHMARK_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
@@ -49,14 +49,14 @@ jobs:
           MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
         run: node scripts/benchmarks/ci.mjs select
 
-      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         if: steps.select.outputs.relevant == 'true'
         with:
           ref: ${{ steps.select.outputs.base }}
           path: base
           persist-credentials: false
 
-      - uses: pnpm/action-setup@fdbc4fdcf7d143a5d0a39e9a02e103b13e309024 # v6.0.4
+      - uses: pnpm/action-setup@26f6d4f2c533a43e6b5da0b4a5dd983f98f7b49a # v6.0.4
         if: steps.select.outputs.relevant == 'true'
         with:
           package_json_file: head/package.json
