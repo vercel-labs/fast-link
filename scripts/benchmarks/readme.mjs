@@ -12,28 +12,72 @@ export function updateReadme(readme, table) {
   return `${readme.slice(0, before + start.length)}\n${table}\n${readme.slice(after)}`;
 }
 
-/** Generates collapsible current-result content without release deltas or run timestamps. */
+/** Generates baseline comparisons; diagnostic measurements stay in the raw report. */
 export function renderTable(report, url) {
   validateReport(report);
   if (!url.startsWith('https://'))
     throw new Error('A durable HTTPS result URL is required');
-  const rows = Object.entries(report.metrics)
-    .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([name, metric]) => renderRow(name, metric));
-
   return [
     '[How we benchmark](docs/benchmarks.md)',
     '',
     '<details>',
-    '<summary>View all scenarios</summary>',
+    '<summary>View benchmark comparisons</summary>',
     '',
-    '| Scenario ID | Median | Range |',
-    '| --- | --- | --- |',
-    ...rows,
+    "Cells show median (min–max). Replace `*` in each scenario ID with the column's variant key.",
+    '',
+    '### Core',
+    '',
+    ...renderComparison(
+      report.metrics,
+      'core',
+      [
+        ['bare', 'Bare DOM (`bare`, baseline)'],
+        ['core', '`createFastLink` (`core`)'],
+      ],
+      ['accepted', 'ignored'],
+    ),
+    '',
+    '### React',
+    '',
+    ...renderComparison(
+      report.metrics,
+      'react',
+      [
+        ['plain', 'Plain anchor (`plain`, baseline)'],
+        ['react', '`useFastLink` (`react`)'],
+      ],
+      ['accepted', 'ignored'],
+    ),
+    '',
+    '### Next.js',
+    '',
+    'Navigation measures pointerdown to destination commit with an 80 ms mouse hold. `next/link` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.',
+    '',
+    ...renderComparison(
+      report.metrics,
+      'next',
+      [
+        ['next', '`next/link` (`next`, baseline)'],
+        ['fast', '`FastLink` (`fast`)'],
+        ['region', '`FastLinkRegion` (`region`)'],
+      ],
+      [
+        'warm.navigation',
+        'cold.navigation',
+        '100.mount',
+        '100.update',
+        '100.unmount',
+        '1000.mount',
+        '1000.update',
+        '1000.unmount',
+      ],
+    ),
+    '',
+    'Raw results include all 53 measurements, including actual press durations and single-link lifecycle timings. Single-link timings can reach browser timer resolution.',
     '',
     `Tested versions: ${formatVersions(report.versions)}.`,
     `Source commit: ${report.revision}. [Raw results](${url}).`,
-    'Controlled lab measurements. Navigation latency differences include the time next/link waits for mouse release. These results do not establish faster JavaScript execution or typical-user gains.',
+    'Controlled Chromium lab measurements.',
     '',
     '</details>',
   ].join('\n');
@@ -50,10 +94,24 @@ function formatVersions(versions) {
     .join(', ');
 }
 
-/** Formats one scenario's current median and full sample range. */
-function renderRow(name, metric) {
-  const { median, min, max } = summarize(metric.samples);
-  const range = `${formatValue(min)}–${formatValue(max)} ${metric.unit}`;
+/** Pairs each workload with its baseline and adapter variants, in display order. */
+function renderComparison(metrics, prefix, variants, workloads) {
+  return [
+    `| Scenario ID | ${variants.map(([, label]) => label).join(' | ')} |`,
+    `| --- | ${variants.map(() => '---').join(' | ')} |`,
+    ...workloads.map((workload) => {
+      const cells = variants.map(([variant]) => {
+        const name = `${prefix}.${variant}.${workload}`;
+        if (!metrics[name]) throw new Error(`Missing README scenario: ${name}`);
+        return formatMetric(metrics[name]);
+      });
+      return `| \`${prefix}.*.${workload}\` | ${cells.join(' | ')} |`;
+    }),
+  ];
+}
 
-  return `| ${name} | ${formatValue(median)} ${metric.unit} | ${range} |`;
+/** Formats a median and full sample range in their shared unit. */
+function formatMetric(metric) {
+  const { median, min, max } = summarize(metric.samples);
+  return `${formatValue(median)} (${formatValue(min)}–${formatValue(max)}) ${metric.unit}`;
 }

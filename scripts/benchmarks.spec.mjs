@@ -16,7 +16,11 @@ import {
   summarizeCalibration,
 } from './benchmarks/comparison-results.mjs';
 import { updateReadme, renderTable } from './benchmarks/readme.mjs';
-import { evaluateGate, summarize } from './benchmarks/report.mjs';
+import {
+  evaluateGate,
+  scenarioNames,
+  summarize,
+} from './benchmarks/report.mjs';
 
 const metric = (value) => ({
   unit: 'us/op',
@@ -147,16 +151,42 @@ describe('benchmark results', () => {
 
   it('renders collapsible current results with units, versions, and a durable link', () => {
     const input = report(12.345);
+    input.metrics = Object.fromEntries(
+      scenarioNames().map((name) => [name, metric(12.345)]),
+    );
+    input.metrics['next.next.warm.navigation'] = { ...metric(90), unit: 'ms' };
+    input.metrics['next.fast.warm.navigation'] = { ...metric(7), unit: 'ms' };
+    input.metrics['next.region.warm.navigation'] = { ...metric(8), unit: 'ms' };
+    const original = structuredClone(input);
     const first = renderTable(input, 'https://example.com/release.json');
-    expect(first).toContain('12 us/op');
+    expect(first).toContain('12 (12–12) us/op');
     expect(first).toContain('16.3.6');
     expect(first).toContain('[Raw results](https://example.com/release.json)');
     expect(first).toContain(
-      '<details>\n<summary>View all scenarios</summary>\n\n| Scenario ID | Median | Range |',
+      '<details>\n<summary>View benchmark comparisons</summary>',
     );
+    expect(first.indexOf('### Core')).toBeLessThan(first.indexOf('### React'));
+    expect(first.indexOf('### React')).toBeLessThan(
+      first.indexOf('### Next.js'),
+    );
+    expect(first).toContain(
+      '| Scenario ID | `next/link` (`next`, baseline) | `FastLink` (`fast`) | `FastLinkRegion` (`region`) |',
+    );
+    expect(first).toContain(
+      '| `next.*.warm.navigation` | 90 (90–90) ms | 7 (7–7) ms | 8 (8–8) ms |',
+    );
+    expect(first.match(/^\| `/gm)).toHaveLength(12);
+    expect(first).not.toContain('pressDuration');
+    expect(first).not.toMatch(/\| `(?:react|next)\.\*\.1\./);
+    expect(first).toContain('Raw results include all 53 measurements');
     expect(first).toMatch(/\n<\/details>$/);
     expect(first).not.toContain('previous release');
     expect(renderTable(input, 'https://example.com/release.json')).toBe(first);
+    expect(input).toEqual(original);
+    delete input.metrics['next.next.warm.navigation'];
+    expect(() =>
+      renderTable(input, 'https://example.com/release.json'),
+    ).toThrow('Missing README scenario: next.next.warm.navigation');
   });
 });
 

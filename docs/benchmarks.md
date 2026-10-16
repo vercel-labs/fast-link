@@ -61,7 +61,7 @@ Options:
 
 ## Scenario IDs
 
-README rows and raw JSON use the same IDs. Braces below list allowed values;
+Raw JSON uses the IDs below. Braces list allowed values;
 for example, `next.fast.100.update` measures updating 100 `FastLink` components.
 
 | ID pattern                                                    | What and how                                                                          | Why                                                          |
@@ -78,6 +78,16 @@ for example, `next.fast.100.update` measures updating 100 `FastLink` components.
 Lifecycle IDs end in `mount` (insert links), `update` (change every href and label),
 or `unmount` (remove links and verify cleanup). See the conditions below for
 sample counts, timing boundaries, and correctness checks.
+
+### README selection
+
+- Tables follow the dependency order: Core, React, Next.js.
+- Columns pair each workload with its baseline: bare DOM, a plain React anchor, or `next/link`.
+- Each cell shows the median and full range. Replace `*` in the row ID with the column's variant key to find its raw samples.
+- Show interaction costs, warm/cold navigation, and lifecycle costs for 100 and 1,000 links.
+- Keep actual press durations in raw results as input diagnostics.
+- Keep single-link lifecycle timings in raw results. They can reach browser timer resolution and offer little comparison value there.
+- Retain all 53 measurements and their correctness checks in the suite.
 
 ## Measurement conditions
 
@@ -209,8 +219,9 @@ Publication rules:
 - A release rerun fails if the latest measured release is not its ancestor. It cannot move results backward.
 - An empty publish allowlist prevents release benchmark publication. npm Trusted Publishing restrictions still apply.
 
-The README's collapsible table includes scenario IDs, units, versions, medians,
-ranges, and durable JSON links. Previous-release samples stay in the raw results.
+The README's collapsible comparisons include scenario ID patterns, explicit
+baseline columns, units, versions, medians, ranges, and durable JSON links.
+Previous-release samples stay in the raw results.
 Values use two significant figures and omit run timestamps.
 Identical generated content produces no PR.
 

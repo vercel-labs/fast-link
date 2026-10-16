@@ -143,7 +143,7 @@ it('retries PR creation after saving results and preserves current main prose an
     true,
   );
   expect(state().branchReadme).toContain(
-    '<summary>View all scenarios</summary>',
+    '<summary>View benchmark comparisons</summary>',
   );
   expect(state().branchReadme).not.toContain('Change from previous release');
   expect(execute('baseline').status).toBe(0);
