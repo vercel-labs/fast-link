@@ -11,14 +11,16 @@ pages, but when every millisecond matters, that head start can help your site co
 
 Use Fast Link for:
 
-- Links between pages on your site
+- Links between pages on your site.
 - Browsing product pages or catalog listings.
 - Moving between dashboard views in the same app.
 
 Keep ordinary click behavior for:
+
 - Forms, destructive actions, purchases, and downloads.
 - Links that need confirmation checks, release-time cancellation, or URL dragging.
-- Any link that has a real consequence beyond navigation when clicking
+- Links that open or toggle a UI element
+- Links with effects beyond navigation.
 
 Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
 See [Known limitations](#known-limitations) for press timing and accessibility details.
