@@ -7,13 +7,11 @@ Starting on press gives routing work a head start while you release the mouse.
 
 ## When to use Fast Link
 
-Use Fast Link for navigation links that can start on press. For confirmation,
-release-time checks, or URL dragging, keep ordinary click behavior with
-`enabled={false}` or `data-no-fast-link`.
+Fast Link starts mouse navigation on press. Moving away before release won't
+cancel it.
 
-Fast Link is alpha software. Dragging away cannot cancel navigation once it
-starts ([WCAG 2.5.2 Pointer Cancellation](https://www.w3.org/TR/WCAG22/#pointer-cancellation)).
-Screen-reader and focus behavior haven't been tested.
+Use `enabled={false}` or `data-no-fast-link` to keep ordinary click behavior for
+release-time cancellation, confirmation checks, or URL dragging.
 
 ## Choose a package
 
