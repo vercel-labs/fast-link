@@ -1,0 +1,195 @@
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+import { parse } from 'yaml';
+
+const workflow = parse(
+  readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+);
+const fixtures = [];
+
+afterEach(() => {
+  for (const root of fixtures.splice(0))
+    rmSync(root, { recursive: true, force: true });
+});
+
+describe('PR CI selection', () => {
+  it.each([
+    ['root Markdown', ['README.md'], 'true'],
+    ['docs Markdown', ['docs/guides/start.md'], 'true'],
+    [
+      'skill Markdown and YAML',
+      ['skills/fast-link/SKILL.md', 'skills/fast-link/agents/openai.yaml'],
+      'true',
+    ],
+    [
+      'combined allowed paths',
+      ['README.md', 'docs/guide.md', 'skills/fast-link/agents/openai.yaml'],
+      'true',
+    ],
+    ['package README', ['packages/core/README.md'], 'false'],
+    ['mixed paths', ['README.md', 'packages/core/src/index.ts'], 'false'],
+    ['workflow', ['.github/workflows/ci.yml'], 'false'],
+    ['root config', ['package.json'], 'false'],
+    ['other skill', ['skills/other/SKILL.md'], 'false'],
+    ['nested root Markdown', ['notes/README.md'], 'false'],
+    ['non-Markdown docs', ['docs/image.svg'], 'false'],
+    ['filename with spaces', ['docs/start here.md'], 'true'],
+  ])('%s selects the expected CI path', (_, paths, expected) => {
+    const { root, base } = createRepository();
+    for (const path of paths) writeFile(root, path, 'changed\n');
+    commit(root);
+
+    expect(detect(root, base).output).toContain(`lightweight=${expected}\n`);
+  });
+
+  it('keeps full CI for an empty diff', () => {
+    const { root, base } = createRepository();
+
+    expect(detect(root, base).output).toContain('lightweight=false\n');
+  });
+
+  it('accepts a deletion inside the allowed paths', () => {
+    const { root, base } = createRepository();
+    rmSync(join(root, 'README.md'));
+    commit(root);
+
+    expect(detect(root, base).output).toContain('lightweight=true\n');
+  });
+
+  it('checks both sides of a rename across the boundary', () => {
+    const { root, base } = createRepository();
+    mkdirSync(join(root, 'packages/core'), { recursive: true });
+    execFileSync('mv', ['README.md', 'packages/core/README.md'], { cwd: root });
+    commit(root);
+
+    expect(detect(root, base).output).toContain('lightweight=false\n');
+  });
+
+  it('accepts a rename within the allowed paths', () => {
+    const { root, base } = createRepository();
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    execFileSync('mv', ['README.md', 'docs/README.md'], { cwd: root });
+    commit(root);
+
+    expect(detect(root, base).output).toContain('lightweight=true\n');
+  });
+
+  it('keeps full CI when an outside path is deleted', () => {
+    const { root } = createRepository();
+    writeFile(root, 'package.json', '{}\n');
+    commit(root);
+    const base = runGit(root, 'rev-parse', 'HEAD');
+    rmSync(join(root, 'package.json'));
+    commit(root);
+
+    expect(detect(root, base).output).toContain('lightweight=false\n');
+  });
+
+  it('fails when Git cannot compare the revisions', () => {
+    const { root } = createRepository();
+
+    expect(detect(root, 'missing-revision').status).not.toBe(0);
+  });
+
+  it('keeps validation and release intent active on lightweight PRs', () => {
+    const { jobs } = workflow;
+    expect(jobs.validate.needs).toContain('paths');
+    expect(jobs.validate.if).toContain('always()');
+    const steps = jobs.validate.steps;
+    expect(
+      steps.some(
+        (step) =>
+          step.if?.includes("needs.paths.result != 'success'") &&
+          step.run?.includes('exit 1'),
+      ),
+    ).toBe(true);
+    expect(
+      steps.find((step) => step.name === 'Check package release intent').if,
+    ).toBeUndefined();
+    const formatting = steps.find(
+      (step) => step.name === 'Validate formatting',
+    );
+    expect(formatting.if).toContain("lightweight == 'true'");
+    expect(formatting.run).toContain('//#format');
+    expect(
+      steps.find(
+        (step) =>
+          step.name === 'Validate formatting, builds, types, tests, and size',
+      ).if,
+    ).toContain("lightweight != 'true'");
+    for (const name of [
+      'Check package boundaries',
+      'Pack and inspect packages',
+    ]) {
+      expect(steps.find((step) => step.name === name).if).toContain(
+        "lightweight != 'true'",
+      );
+    }
+  });
+
+  it('skips whole browser and packed-consumer jobs only for lightweight PRs', () => {
+    for (const name of ['browser', 'packed-consumers']) {
+      expect(workflow.jobs[name].needs).toContain('paths');
+      expect(workflow.jobs[name].if).toContain("lightweight != 'true'");
+    }
+  });
+});
+
+function createRepository() {
+  const root = mkdtempSync(join(tmpdir(), 'fast-link-ci-'));
+  fixtures.push(root);
+  runGit(root, 'init', '--quiet');
+  runGit(root, 'config', 'user.email', 'fast-link@example.com');
+  runGit(root, 'config', 'user.name', 'Fast Link test');
+  runGit(root, 'config', 'commit.gpgsign', 'false');
+  writeFile(root, 'README.md', 'initial\n');
+  commit(root);
+  return { root, base: runGit(root, 'rev-parse', 'HEAD') };
+}
+
+function writeFile(root, path, contents) {
+  const target = join(root, path);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, contents);
+}
+
+function commit(root) {
+  runGit(root, 'add', '-A');
+  runGit(root, 'commit', '--quiet', '--allow-empty', '-m', 'change');
+}
+
+function runGit(root, ...args) {
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+}
+
+function detect(root, base) {
+  const outputPath = join(root, 'output');
+  const script = workflow.jobs.paths.steps.find(
+    (step) => step.id === 'changes',
+  ).run;
+  const result = spawnSync('bash', ['-eo', 'pipefail', '-c', script], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PR_BASE: base,
+      PR_HEAD: runGit(root, 'rev-parse', 'HEAD'),
+      GITHUB_OUTPUT: outputPath,
+      RUNNER_TEMP: root,
+    },
+  });
+  return {
+    status: result.status,
+    output: existsSync(outputPath) ? readFileSync(outputPath, 'utf8') : '',
+  };
+}
