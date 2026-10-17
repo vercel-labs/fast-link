@@ -14,12 +14,6 @@ pnpm validate
 builds, types, unit and browser tests, the Next.js fixture, and package sizes.
 Run it before opening a pull request. All commits must be signed.
 
-Pull request CI uses a lighter check when every changed file is root Markdown,
-Markdown under `docs/`, or a file under `skills/fast-link/`. It still checks
-formatting and package release intent. Any other change runs the full CI jobs,
-including package README or changelog edits. Local `pnpm validate` always runs
-the full checks.
-
 ## Package boundaries
 
 | Package            | Owns                                                    | Workspace dependencies |
