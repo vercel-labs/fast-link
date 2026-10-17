@@ -47,14 +47,7 @@ export function publishPackageReleases(
       `--filter=./${directory}`,
     ]);
     execute('pnpm', ['--dir', directory, 'pack', '--out', archive]);
-    stampArchive(
-      archive,
-      archiveDirectory,
-      manifest,
-      commit,
-      workspace,
-      execute,
-    );
+    stampArchive(archive, archiveDirectory, commit, execute);
     const packed = JSON.parse(
       execute('tar', ['-xOf', archive, 'package/package.json']),
     );
@@ -73,20 +66,12 @@ export function publishPackageReleases(
   return published;
 }
 
-function stampArchive(
-  archive,
-  archiveDirectory,
-  manifest,
-  commit,
-  workspace,
-  execute,
-) {
+function stampArchive(archive, archiveDirectory, commit, execute) {
   const staging = mkdtempSync(join(archiveDirectory, 'release-'));
   try {
     execute('tar', ['-xzf', archive, '-C', staging]);
     const path = join(staging, 'package/package.json');
     const packed = JSON.parse(readFileSync(path, 'utf8'));
-    verifyPackedPackage(packed, manifest, { workspace });
     writeFileSync(
       path,
       `${JSON.stringify({ ...packed, gitHead: commit }, null, 2)}\n`,

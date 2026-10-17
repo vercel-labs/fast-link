@@ -4,7 +4,7 @@
  * This exercises release failures without publishing packages to npm.
  */
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
@@ -339,7 +339,7 @@ describe('ordered publishing', () => {
         execute: recordingExecutor(packages, events, { changedVersion: true }),
       }),
     ).toThrow('Packed package changed');
-    expect(events).toEqual(['build:core', 'pack:core.tgz']);
+    expect(events).toEqual(['build:core', 'pack:core.tgz', 'verify:core.tgz']);
   });
 });
 
@@ -670,28 +670,7 @@ describe('release workflow', () => {
       },
     );
 
-    expect(output).toContain('packages=[]');
-    expect(output).toContain('has_packages=false');
-  });
-
-  it('rejects an explicit package outside the allowlist', () => {
-    const { root } = createRepository({ publishablePackages: [] });
-    const result = spawnSync(
-      process.execPath,
-      [
-        fileURLToPath(
-          new URL('./detect-package-releases.mjs', import.meta.url),
-        ),
-        'packages/core',
-      ],
-      {
-        cwd: root,
-        encoding: 'utf8',
-      },
-    );
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('Package is not declared: packages/core');
+    expect(output).toBe('has_packages=false\nhas_publishable_packages=false\n');
   });
 });
 

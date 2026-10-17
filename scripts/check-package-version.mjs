@@ -49,6 +49,11 @@ const PUBLISHED_SCRIPT_FIELDS = [
   'postpublish',
 ];
 
+/**
+ * Checks allowlisted packages against a base commit, including published workspace ranges.
+ * Requires version increases for changed existing packages and top changelog notes
+ * for releases. Returns status messages or throws on invalid release intent.
+ */
 export function checkPackageVersions({ base, root = process.cwd() }) {
   if (!base) throw new Error('A base commit is required');
   execFileSync('git', ['rev-parse', '--verify', `${base}^{commit}`], {
