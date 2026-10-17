@@ -49,6 +49,40 @@ serverProcess.stderr.on('data', (data) => {
 
 const scenarios = [
   [
+    'benchmark interactions use the supplied measurement and warmup counts',
+    async (page) => {
+      await page.goto(`${fixtureOrigin}/docs/benchmark`);
+      await page.waitForFunction(() => Boolean(window.benchmark));
+      const observations = await page.evaluate(() => {
+        return ['bare', 'core', 'plain', 'react'].map((variant) => {
+          const counts = { mouse: 0, touch: 0, clicks: 0 };
+          const onDown = (event) => counts[event.pointerType]++;
+          const onClick = () => counts.clicks++;
+          document.addEventListener('pointerdown', onDown, true);
+          document.addEventListener('click', onClick, true);
+          try {
+            const workload = { interactions: 7, warmup: 3 };
+            const metrics =
+              variant === 'bare' || variant === 'core'
+                ? window.benchmark.micro(variant, workload)
+                : window.benchmark.interaction(variant, workload);
+            return { variant, counts, metrics };
+          } finally {
+            document.removeEventListener('pointerdown', onDown, true);
+            document.removeEventListener('click', onClick, true);
+          }
+        });
+      });
+      for (const { variant, counts, metrics } of observations) {
+        // Core probes cleanup before removing its anchor; React unmounts first.
+        const mouse = variant === 'bare' || variant === 'core' ? 11 : 10;
+        assert.deepEqual(counts, { mouse, touch: 10, clicks: 10 }, variant);
+        assert.equal(metrics.accepted.correct, true, variant);
+        assert.equal(metrics.ignored.correct, true, variant);
+      }
+    },
+  ],
+  [
     'prefetch respects explicit false with a cold positive control',
     (page) => checkPrefetch(page, fixtureOrigin),
   ],

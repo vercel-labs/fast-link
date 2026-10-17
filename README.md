@@ -127,6 +127,55 @@ npx skills add vercel-labs/fast-link --skill fast-link
 Installing an npm package does not activate the skill. The skill supports
 Next.js App Router integrations and custom core or React adapters.
 
+## Performance benchmarks
+
+<!-- benchmarks:start -->
+
+[How we benchmark](docs/benchmarks.md) · [Raw results](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
+
+<details>
+<summary>View benchmark comparisons</summary>
+
+- Runs: 5 alternating batches, 5 samples per scenario.
+- Score: median time per workload; ranges and individual samples are in raw results.
+- Mouse hold: **85 ms** requested for all navigation variants.
+- Interaction workload: 1,000 synthetic interactions per sample, after 100 warmups. Times are per interaction.
+
+### Core
+
+| Workload (median time) | Bare DOM (baseline) | `createFastLink` |
+| ---------------------- | ------------------- | ---------------- |
+| Mouse press and click  | 4.2 µs              | 6.2 µs           |
+| Ignored touch press    | 1.8 µs              | 2 µs             |
+
+### React
+
+| Workload (median time) | Plain anchor (baseline) | `useFastLink` |
+| ---------------------- | ----------------------- | ------------- |
+| Mouse press and click  | 7.8 µs                  | 9 µs          |
+| Ignored touch press    | 3.9 µs                  | 2.2 µs        |
+
+### Next.js
+
+Navigation measures mouse press to destination commit. `next/link` waits for release; earlier navigation does not establish faster JavaScript execution or typical-user gains.
+
+| Workload (median time)         | `next/link` (baseline) | `FastLink` | `FastLinkRegion` |
+| ------------------------------ | ---------------------- | ---------- | ---------------- |
+| Navigate to prefetched route   | 91 ms                  | 3.1 ms     | 3 ms             |
+| Navigate to unprefetched route | 97 ms                  | 6.9 ms     | 6.7 ms           |
+| Mount 100 links                | 0.5 ms                 | 0.7 ms     | 0.3 ms           |
+| Update 100 links               | 0.4 ms                 | 0.6 ms     | 0.2 ms           |
+| Unmount 100 links              | 0.1 ms                 | 0.1 ms     | 0.1 ms           |
+| Mount 1,000 links              | 2.2 ms                 | 3.4 ms     | 2.1 ms           |
+| Update 1,000 links             | 1.8 ms                 | 4.2 ms     | 1.8 ms           |
+| Unmount 1,000 links            | 0.5 ms                 | 0.9 ms     | 0.5 ms           |
+
+</details>
+
+<sub>Measured on Apple M4 Pro (macOS).</sub>
+
+<!-- benchmarks:end -->
+
 ## Known limitations
 
 Fast Link starts mouse navigation on press. Moving away before release won't

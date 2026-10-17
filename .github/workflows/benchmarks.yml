@@ -1,0 +1,110 @@
+name: Benchmarks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Base source revision (blank uses the previous commit)
+        type: string
+      calibrate:
+        description: Collect ten unchanged-code comparisons
+        type: boolean
+        default: false
+      override_reason:
+        description: Reason for an intentional timing regression (requires environment approval)
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: benchmark
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.override_reason != '' && 'benchmark-override' || 'benchmark-report' }}
+    steps:
+      - name: Start elapsed-time measurement
+        run: echo "BENCHMARK_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          path: head
+          persist-credentials: false
+
+      - name: Select baseline and relevant changes
+        id: select
+        working-directory: head
+        env:
+          REQUESTED_BASE: ${{ inputs.base }}
+          EVENT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CALIBRATE: ${{ inputs.calibrate }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: node scripts/benchmarks/ci.mjs select
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: steps.select.outputs.relevant == 'true'
+        with:
+          ref: ${{ steps.select.outputs.base }}
+          path: base
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@26f6d4f2c533a43e6b5da0b4a5dd983f98f7b49a # v6.0.4
+        if: steps.select.outputs.relevant == 'true'
+        with:
+          package_json_file: head/package.json
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        if: steps.select.outputs.relevant == 'true'
+        with:
+          node-version: '24'
+      - name: Install runner and Chromium
+        if: steps.select.outputs.relevant == 'true'
+        working-directory: head
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Compare revisions
+        if: steps.select.outputs.relevant == 'true'
+        id: measure
+        continue-on-error: true
+        working-directory: head
+        env:
+          CALIBRATE: ${{ inputs.calibrate }}
+        run: node scripts/benchmarks/ci.mjs compare
+
+      - name: Apply approved override
+        if: steps.measure.outcome == 'failure' && inputs.override_reason != ''
+        working-directory: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BENCHMARK_OVERRIDE_REASON: ${{ inputs.override_reason }}
+        run: node scripts/benchmarks/ci.mjs override "$RUNNER_TEMP/benchmark-results/verdict.json"
+
+      - name: Record full elapsed time
+        if: always()
+        env:
+          RELEVANT: ${{ steps.select.outputs.relevant }}
+        run: node head/scripts/benchmarks/ci.mjs elapsed
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: benchmarks-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/benchmark-results
+          retention-days: 90
+
+      - name: Enforce benchmark result
+        if: steps.select.outputs.relevant == 'true'
+        working-directory: head
+        run: node scripts/benchmarks/ci.mjs enforce
+      - name: Docs-only success
+        if: steps.select.outputs.relevant != 'true'
+        run: echo 'No benchmark inputs changed.'

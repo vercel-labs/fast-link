@@ -9,6 +9,8 @@
     "test:fixtures": "node ../../scripts/test-next-fixtures.mjs"
   },
   "dependencies": {
+    "@fast-link/core": "workspace:^",
+    "@fast-link/react": "workspace:^",
     "@fast-link/next": "workspace:^",
     "next": "16.3.6",
     "react": "19.2.7",
