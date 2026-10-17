@@ -71,12 +71,3 @@ React imports, public types, and a production Next.js build on Node.js 22, 24, a
 To check locally, run `node scripts/test-packed-consumers.mjs <directory>` under
 the consumer Node.js version. The directory must contain `core.tgz`, `react.tgz`,
 and `next.tgz` from a completed Node.js 24 build.
-
-## Prepare package changes
-
-After the initial release, changes to package source, build configuration,
-shipped files, or published manifest fields require a version bump and an entry
-at the top of each affected package's changelog.
-
-Inspect the packed tarball for every changed public package before opening a
-pull request.

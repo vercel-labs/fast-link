@@ -38,9 +38,12 @@ export function readPublishablePackages(root = process.cwd()) {
       typeof manifest.name !== 'string' ||
       manifest.name.length > 214 ||
       !NPM_PACKAGE_NAME.test(manifest.name) ||
-      !isSemanticVersion(manifest.version)
+      !isSemanticVersion(manifest.version) ||
+      /[-+]/.test(manifest.version)
     ) {
-      throw new Error(`${directory} must have a valid npm name and version`);
+      throw new Error(
+        `${directory} must have a valid npm name and canonical stable version (no prerelease or build metadata)`,
+      );
     }
     if (packageNames.has(manifest.name)) {
       throw new Error(`Duplicate npm package name: ${manifest.name}`);

@@ -4,7 +4,7 @@
  * This exercises release failures without publishing packages to npm.
  */
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
 import { checkPackageVersions } from './check-package-version.mjs';
+import { createPackageReleases } from './create-package-releases.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
 import { publishPackageReleases } from './publish-package-releases.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
@@ -31,6 +32,7 @@ const fixtureVersions = {
   current: '1.2.3',
   later: '1.2.4',
 };
+const publishedCommit = 'a'.repeat(40);
 
 afterEach(() => {
   for (const fixture of fixtures.splice(0)) {
@@ -41,8 +43,16 @@ afterEach(() => {
 describe('publishable packages', () => {
   it.each([
     ['private package', { private: true }, 'must not be private'],
-    ['invalid name', { name: 'Not A Package' }, 'valid npm name and version'],
-    ['invalid version', { version: '1.02.3' }, 'valid npm name and version'],
+    [
+      'invalid name',
+      { name: 'Not A Package' },
+      'valid npm name and canonical stable version',
+    ],
+    [
+      'invalid version',
+      { version: '1.02.3' },
+      'valid npm name and canonical stable version',
+    ],
     [
       'foreign registry',
       { publishConfig: { registry: 'https://example.com' } },
@@ -79,6 +89,18 @@ describe('publishable packages', () => {
     );
   });
 
+  it.each(['1.2.3+build.1', '1.2.4-beta.1'])(
+    'rejects noncanonical stable release versions: %s',
+    (version) => {
+      const { root } = createRepository();
+      writeJson(join(root, 'packages/core/package.json'), {
+        ...packageManifest,
+        version,
+      });
+      expect(() => readPublishablePackages(root)).toThrow('stable version');
+    },
+  );
+
   it('publishes nothing while the allowlist is empty', () => {
     const { root } = createRepository({ publishablePackages: [] });
 
@@ -109,14 +131,69 @@ describe('publishable packages', () => {
 });
 
 describe('ordered publishing', () => {
+  it('checks every pending changelog before publishing any package', () => {
+    const { root, packages } = createPackageGraph();
+    writeFile(
+      join(root, 'packages/next/CHANGELOG.md'),
+      '# Changelog\n\n## 1.2.2\n\n- Old.\n',
+    );
+    const events = [];
+    expect(() =>
+      publishPackageReleases(packages, {
+        archiveDirectory: root,
+        root,
+        commit: publishedCommit,
+        readPublishedVersions: () => null,
+        execute: recordingExecutor(packages, events),
+      }),
+    ).toThrow('Missing changelog notes');
+    expect(events).toEqual([]);
+  });
+  it('records the published commit in the archive metadata', () => {
+    const { root, packages } = createPackageGraph();
+    const commit = runGit(root, 'rev-parse', 'HEAD');
+    publishPackageReleases(packages.slice(0, 1), {
+      archiveDirectory: root,
+      root,
+      commit,
+      readPublishedVersions: () => null,
+      execute(command, args) {
+        if (command === 'pnpm' && args.includes('pack')) {
+          writeJson(join(root, 'package/package.json'), packages[0].manifest);
+          writeFile(join(root, 'package/dist/index.js'), 'export {};\n');
+          execFileSync('tar', [
+            '-czf',
+            join(root, 'core.tgz'),
+            '-C',
+            root,
+            'package',
+          ]);
+        }
+        if (command === 'tar')
+          return execFileSync(command, args, { encoding: 'utf8' });
+        return '';
+      },
+    });
+    const packed = JSON.parse(
+      execFileSync(
+        'tar',
+        ['-xOf', join(root, 'core.tgz'), 'package/package.json'],
+        { encoding: 'utf8' },
+      ),
+    );
+    expect(packed.gitHead).toBe(commit);
+  });
+
   it('rechecks each version and finishes dependencies before their dependents', () => {
-    const { packages } = createPackageGraph();
+    const { root, packages } = createPackageGraph();
     const events = [];
     const commands = [];
     const execute = recordingExecutor(packages, events, { commands });
 
     const published = publishPackageReleases(packages, {
-      archiveDirectory: tmpdir(),
+      archiveDirectory: root,
+      root,
+      commit: publishedCommit,
       readPublishedVersions(name) {
         events.push(`recheck:${name}`);
         return null;
@@ -130,6 +207,9 @@ describe('ordered publishing', () => {
       '@fast-link/next@1.2.3',
     ]);
     expect(events).toEqual([
+      'recheck:@fast-link/core',
+      'recheck:@fast-link/react',
+      'recheck:@fast-link/next',
       'recheck:@fast-link/core',
       'build:core',
       'pack:core.tgz',
@@ -151,7 +231,7 @@ describe('ordered publishing', () => {
         command: 'npm',
         args: [
           'publish',
-          join(tmpdir(), `${name}.tgz`),
+          join(root, `${name}.tgz`),
           '--access',
           'public',
           '--provenance',
@@ -163,10 +243,12 @@ describe('ordered publishing', () => {
   });
 
   it('skips a version published since initial detection', () => {
-    const { packages } = createPackageGraph();
+    const { root, packages } = createPackageGraph();
     const events = [];
     const published = publishPackageReleases(packages, {
-      archiveDirectory: tmpdir(),
+      archiveDirectory: root,
+      root,
+      commit: publishedCommit,
       readPublishedVersions: () => [fixtureVersions.current],
       execute: recordingExecutor(packages, events),
     });
@@ -175,16 +257,63 @@ describe('ordered publishing', () => {
     expect(events).toEqual([]);
   });
 
+  it('recovers a successful dependency after a later npm publish fails without republishing it', () => {
+    const { root, packages } = createPackageGraph();
+    const commit = runGit(root, 'rev-parse', 'HEAD');
+    const versions = new Map();
+    const events = [];
+    const execute = recordingExecutor(packages, events);
+    let fail = true;
+    const options = {
+      archiveDirectory: root,
+      root,
+      commit,
+      readPublishedVersions: (name) => versions.get(name) ?? null,
+      execute(command, args) {
+        if (command === 'npm') {
+          const entry = packages.find(({ directory }) =>
+            args[1].endsWith(`${directory.split('/').at(-1)}.tgz`),
+          );
+          if (fail && entry.manifest.name === '@fast-link/react')
+            throw new Error('npm unavailable');
+          versions.set(entry.manifest.name, [entry.manifest.version]);
+        }
+        return execute(command, args);
+      },
+    };
+    expect(() => publishPackageReleases(packages, options)).toThrow(
+      'npm unavailable',
+    );
+    const state = releaseState(root, commit);
+    state.options.readPublishedVersions = options.readPublishedVersions;
+    createPackageReleases(packages, state.options);
+    expect(state.releases.map((release) => release.tag_name)).toEqual([
+      '@fast-link/core@1.2.3',
+    ]);
+    fail = false;
+    expect(publishPackageReleases(packages, options)).toEqual([
+      '@fast-link/react@1.2.3',
+      '@fast-link/next@1.2.3',
+    ]);
+    createPackageReleases(packages, state.options);
+    expect(events.filter((event) => event === 'publish:core.tgz')).toHaveLength(
+      1,
+    );
+    expect(state.releases).toHaveLength(3);
+  });
+
   it.each(['build', 'pack', 'publish'])(
     'does not attempt a dependent after %s fails',
     (failure) => {
-      const { packages } = createPackageGraph();
+      const { root, packages } = createPackageGraph();
       const events = [];
       const execute = recordingExecutor(packages, events, { failure });
 
       expect(() =>
         publishPackageReleases(packages, {
-          archiveDirectory: tmpdir(),
+          archiveDirectory: root,
+          root,
+          commit: publishedCommit,
           readPublishedVersions(name) {
             events.push(`recheck:${name}`);
             return null;
@@ -192,18 +321,20 @@ describe('ordered publishing', () => {
           execute,
         }),
       ).toThrow(`${failure} failed`);
-      expect(events).not.toContain('recheck:@fast-link/react');
+      expect(events).not.toContain('build:react');
       expect(events).not.toContain('publish:next.tgz');
     },
   );
 
   it('rejects a packed identity change before publishing any package', () => {
-    const { packages } = createPackageGraph();
+    const { root, packages } = createPackageGraph();
     const events = [];
 
     expect(() =>
       publishPackageReleases(packages, {
-        archiveDirectory: tmpdir(),
+        archiveDirectory: root,
+        root,
+        commit: publishedCommit,
         readPublishedVersions: () => null,
         execute: recordingExecutor(packages, events, { changedVersion: true }),
       }),
@@ -212,7 +343,214 @@ describe('ordered publishing', () => {
   });
 });
 
+describe('GitHub package releases', () => {
+  it.each([
+    'HTTP/2.0 403 Forbidden\r\n\r\n',
+    'HTTP/2.0 500 Internal Server Error\r\n\r\n',
+    '',
+  ])('makes no writes when exact-tag lookup fails: %j', (stdout) => {
+    const { root, packages } = createPackageGraph();
+    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+    const execute = state.options.execute;
+    state.options.execute = (command, args) => {
+      if (
+        command === 'gh' &&
+        args.some((arg) => arg.includes('/releases/tags/'))
+      ) {
+        throw Object.assign(new Error('lookup failed'), { stdout });
+      }
+      return execute(command, args);
+    };
+    expect(() =>
+      createPackageReleases(packages.slice(0, 1), state.options),
+    ).toThrow('lookup failed');
+    expect(state.writes).toEqual([]);
+  });
+
+  it("uses the published commit and that version's changelog notes", () => {
+    const { root, packages } = createPackageGraph();
+    const commit = runGit(root, 'rev-parse', 'HEAD');
+    writeFile(
+      join(root, 'packages/core/CHANGELOG.md'),
+      '# Changelog\n\n## 1.2.3\n\n- Unpublished edits.\n',
+    );
+    runGit(root, 'add', '.');
+    runGit(root, 'commit', '--quiet', '-m', 'later changelog edits');
+    const state = releaseState(root, commit);
+
+    createPackageReleases(packages.slice(0, 1), state.options);
+
+    expect(state.tags.get('refs/tags/@fast-link/core@1.2.3')).toEqual({
+      type: 'commit',
+      sha: commit,
+    });
+    expect(state.releases).toEqual([
+      {
+        tag_name: '@fast-link/core@1.2.3',
+        target_commitish: commit,
+        name: '@fast-link/core@1.2.3',
+        body: '- Initial core release.',
+        make_latest: 'false',
+      },
+    ]);
+  });
+
+  it('leaves completed tags and Releases unchanged on repeat runs', () => {
+    const { root, packages } = createPackageGraph();
+    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+    createPackageReleases(packages, state.options);
+    state.writes.length = 0;
+    createPackageReleases(packages, state.options);
+    expect(state.writes).toEqual([]);
+  });
+
+  it('recovers a missing Release without recreating its existing tag', () => {
+    const { root, packages } = createPackageGraph();
+    const commit = runGit(root, 'rev-parse', 'HEAD');
+    const state = releaseState(root, commit);
+    state.tags.set('refs/tags/@fast-link/core@1.2.3', {
+      type: 'commit',
+      sha: commit,
+    });
+    createPackageReleases(packages.slice(0, 1), state.options);
+    expect(state.writes.map((write) => write.endpoint)).toEqual([
+      'repos/example/fast-link/releases',
+    ]);
+  });
+
+  it('recovers a Release from an annotated tag at the published commit', () => {
+    const { root, packages } = createPackageGraph();
+    const commit = runGit(root, 'rev-parse', 'HEAD');
+    const tag = '@fast-link/core@1.2.3';
+    runGit(
+      root,
+      '-c',
+      'tag.gpgsign=false',
+      'tag',
+      '-a',
+      tag,
+      '-m',
+      'Existing release tag',
+    );
+    const tagObject = runGit(root, 'rev-parse', tag);
+    const state = releaseState(root, commit);
+    state.tags.set(`refs/tags/${tag}`, { type: 'tag', sha: tagObject });
+    state.tagObjects.set(tagObject, {
+      type: 'commit',
+      sha: runGit(root, 'rev-parse', `${tag}^{commit}`),
+    });
+
+    createPackageReleases(packages.slice(0, 1), state.options);
+
+    expect(state.writes.map((write) => write.endpoint)).toEqual([
+      'repos/example/fast-link/releases',
+    ]);
+    expect(state.tags.get(`refs/tags/${tag}`)).toEqual({
+      type: 'tag',
+      sha: tagObject,
+    });
+    expect(state.releases[0].target_commitish).toBe(commit);
+  });
+
+  it.each([
+    ['lightweight', 'commit'],
+    ['annotated', 'tag'],
+  ])(
+    'rejects an existing %s tag at a different commit without moving it',
+    (_, type) => {
+      const { root, packages } = createPackageGraph();
+      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      state.tags.set('refs/tags/@fast-link/core@1.2.3', {
+        type,
+        sha: publishedCommit,
+      });
+      state.tagObjects.set(publishedCommit, {
+        type: 'commit',
+        sha: publishedCommit,
+      });
+      expect(() =>
+        createPackageReleases(packages.slice(0, 1), state.options),
+      ).toThrow('Tag @fast-link/core@1.2.3 does not target');
+      expect(state.writes).toEqual([]);
+    },
+  );
+
+  it('preserves other package Releases when one Release fails, then recovers it', () => {
+    const { root, packages } = createPackageGraph();
+    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+    const execute = state.options.execute;
+    let fail = true;
+    state.options.execute = (command, args) => {
+      if (
+        fail &&
+        command === 'gh' &&
+        args.includes('POST') &&
+        args.includes('tag_name=@fast-link/core@1.2.3')
+      )
+        throw new Error('GitHub unavailable');
+      return execute(command, args);
+    };
+    expect(() => createPackageReleases(packages, state.options)).toThrow(
+      'GitHub unavailable',
+    );
+    expect(state.releases.map((release) => release.tag_name)).toEqual([
+      '@fast-link/react@1.2.3',
+      '@fast-link/next@1.2.3',
+    ]);
+    fail = false;
+    state.writes.length = 0;
+    createPackageReleases(packages, state.options);
+    expect(state.writes.map((write) => write.fields.tag_name)).toEqual([
+      '@fast-link/core@1.2.3',
+    ]);
+  });
+
+  it.each(['', 'null', '"main"', '"abc123"'])(
+    'refuses GitHub writes without an exact published commit: %s',
+    (gitHead) => {
+      const { root, packages } = createPackageGraph();
+      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      const execute = state.options.execute;
+      state.options.execute = (command, args) =>
+        command === 'npm' ? gitHead : execute(command, args);
+      expect(() => createPackageReleases(packages, state.options)).toThrow(
+        'Missing published commit',
+      );
+      expect(state.writes).toEqual([]);
+    },
+  );
+
+  it.each([
+    '# Changelog\n\n## 1.2.2\n\n- Older release.\n',
+    '# Changelog\n\n## 1.2.3',
+    '# Changelog\n\n## 1.2.3\n\n',
+  ])(
+    'refuses GitHub writes when the published commit has no notes: %j',
+    (changelog) => {
+      const { root, packages } = createPackageGraph();
+      writeFile(join(root, 'packages/core/CHANGELOG.md'), changelog);
+      runGit(root, 'add', '.');
+      runGit(root, 'commit', '--quiet', '-m', 'missing release notes');
+      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      expect(() =>
+        createPackageReleases(packages.slice(0, 1), state.options),
+      ).toThrow('Missing changelog notes');
+      expect(state.writes).toEqual([]);
+    },
+  );
+});
+
 describe('release workflow', () => {
+  it('reruns CI when a pull request is retargeted to a different base', () => {
+    const ci = parse(
+      readFileSync(
+        new URL('../.github/workflows/ci.yml', import.meta.url),
+        'utf8',
+      ),
+    );
+    // GitHub sends a base-branch retarget as pull_request.edited.
+    expect(ci.on.pull_request.types).toContain('edited');
+  });
   const workflow = readFileSync(
     new URL('../.github/workflows/release.yml', import.meta.url),
     'utf8',
@@ -225,6 +563,96 @@ describe('release workflow', () => {
     expect(publish.needs, 'publish dependencies').toEqual(
       expect.arrayContaining(['detect', 'validate', 'browser']),
     );
+  });
+
+  it('separates npm publishing permissions from GitHub release permissions', () => {
+    const { permissions, jobs } = parse(workflow);
+    expect(permissions).toEqual({ contents: 'read' });
+    expect(jobs.publish.permissions).toEqual({
+      contents: 'read',
+      'id-token': 'write',
+    });
+    expect(jobs.release.permissions).toEqual({ contents: 'write' });
+    expect(jobs.release.environment).toBe('release');
+    expect(jobs.release.needs).toEqual([
+      'detect',
+      'validate',
+      'browser',
+      'publish',
+    ]);
+    expect(
+      jobs.release.steps.find(
+        (step) => step.run === 'node scripts/create-package-releases.mjs',
+      ).env.GH_TOKEN,
+    ).toBe('${{ github.token }}');
+    expect(jobs.release.steps[0].with['fetch-depth']).toBe(0);
+  });
+
+  it.each([
+    ['success', 'success', 'success', 'true', 'refs/heads/main', true],
+    ['success', 'success', 'failure', 'true', 'refs/heads/main', true],
+    ['success', 'success', 'skipped', 'true', 'refs/heads/main', true],
+    ['failure', 'success', 'success', 'true', 'refs/heads/main', false],
+    ['success', 'failure', 'success', 'true', 'refs/heads/main', false],
+    ['success', 'success', 'skipped', 'false', 'refs/heads/main', false],
+    ['success', 'success', 'success', 'true', 'refs/heads/other', false],
+  ])(
+    'gates Release recovery: validate=%s browser=%s publish=%s allowlisted=%s ref=%s',
+    (validate, browser, publish, allowlisted, ref, expected) => {
+      const releaseCondition = parse(workflow).jobs.release.if.slice(3, -2);
+      const evaluate = new Function(
+        'github',
+        'needs',
+        'cancelled',
+        `return ${releaseCondition}`,
+      );
+      const needs = {
+        detect: {
+          result: 'success',
+          outputs: { has_publishable_packages: allowlisted },
+        },
+        validate: { result: validate },
+        browser: { result: browser },
+        publish: { result: publish },
+      };
+      expect(evaluate({ ref }, needs, () => false)).toBe(expected);
+      expect(evaluate({ ref }, needs, () => true)).toBe(false);
+      expect(
+        evaluate(
+          { ref },
+          { ...needs, detect: { ...needs.detect, result: 'failure' } },
+          () => false,
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it('makes no external calls for an empty allowlist', () => {
+    const packages = readPublishablePackages();
+    expect(packages).toEqual([]);
+    const unexpected = () => {
+      throw new Error(
+        `External call with ${packages.length} allowlisted packages`,
+      );
+    };
+    const options = { readPublishedVersions: unexpected, execute: unexpected };
+    expect(publishPackageReleases([], options)).toEqual([]);
+    createPackageReleases([], options);
+    for (const script of [
+      'publish-package-releases.mjs',
+      'create-package-releases.mjs',
+    ]) {
+      expect(
+        execFileSync(
+          process.execPath,
+          [fileURLToPath(new URL(script, import.meta.url))],
+          {
+            encoding: 'utf8',
+            env: { PATH: '', RUNNER_TEMP: '', GITHUB_REPOSITORY: '' },
+          },
+        ),
+      ).toBe('');
+    }
   });
 
   it('reports no publish candidates while the allowlist is empty', () => {
@@ -242,28 +670,7 @@ describe('release workflow', () => {
       },
     );
 
-    expect(output).toContain('packages=[]');
-    expect(output).toContain('has_packages=false');
-  });
-
-  it('rejects an explicit package outside the allowlist', () => {
-    const { root } = createRepository({ publishablePackages: [] });
-    const result = spawnSync(
-      process.execPath,
-      [
-        fileURLToPath(
-          new URL('./detect-package-releases.mjs', import.meta.url),
-        ),
-        'packages/core',
-      ],
-      {
-        cwd: root,
-        encoding: 'utf8',
-      },
-    );
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('Package is not declared: packages/core');
+    expect(output).toBe('has_packages=false\nhas_publishable_packages=false\n');
   });
 });
 
@@ -291,6 +698,43 @@ describe('release detection', () => {
 });
 
 describe('package release intent', () => {
+  it('requires dependent bumps when pnpm changes their published workspace ranges', () => {
+    const { root } = createPackageGraph();
+    const base = runGit(root, 'rev-parse', 'HEAD');
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      version: fixtureVersions.later,
+    });
+    writeFile(
+      join(root, 'packages/core/CHANGELOG.md'),
+      '# Changelog\n\n## 1.2.4\n\n- Updated.\n',
+    );
+    expect(() => checkPackageVersions({ base, root })).toThrow(
+      '@fast-link/react changed without a version bump',
+    );
+    expect(() => checkPackageVersions({ base, root })).toThrow(
+      '@fast-link/next changed without a version bump',
+    );
+  });
+
+  it.each([
+    '# Changelog\n',
+    '# Changelog\n\n## 1.2.4\n\n',
+    '# Changelog\n\n## 1.2.5\n\n- Future.\n\n## 1.2.4\n\n- Buried.\n',
+  ])(
+    'rejects a bump without nonempty notes in the top section: %j',
+    (changelog) => {
+      const { root, base } = createRepository();
+      writeJson(join(root, 'packages/core/package.json'), {
+        ...packageManifest,
+        version: fixtureVersions.later,
+      });
+      writeFile(join(root, 'packages/core/CHANGELOG.md'), changelog);
+      expect(() => checkPackageVersions({ base, root })).toThrow(
+        'Missing changelog notes',
+      );
+    },
+  );
   it('accepts an initial version when an existing package enters the allowlist', () => {
     const { root, base } = createRepository({ publishablePackages: [] });
     writeJson(join(root, 'scripts/publishable-packages.json'), [
@@ -301,6 +745,10 @@ describe('package release intent', () => {
       version: fixtureVersions.earlier,
     });
 
+    writeFile(
+      join(root, 'packages/core/CHANGELOG.md'),
+      '# Changelog\n\n## 1.2.2\n\n- Initial.\n',
+    );
     expect(checkPackageVersions({ base, root })).toEqual([
       `Package release requested for @fast-link/core: new package at ${fixtureVersions.earlier}.`,
     ]);
@@ -341,6 +789,10 @@ describe('package release intent', () => {
       version: fixtureVersions.later,
     });
 
+    writeFile(
+      join(root, 'packages/core/CHANGELOG.md'),
+      '# Changelog\n\n## 1.2.4\n\n- Updated source.\n',
+    );
     expect(checkPackageVersions({ base, root })).toEqual([
       `Package release requested for @fast-link/core: ${fixtureVersions.current} -> ${fixtureVersions.later}.`,
     ]);
@@ -422,6 +874,27 @@ describe('package release intent', () => {
 });
 
 describe('packed package verification', () => {
+  it('rejects unresolved workspace ranges and missing exported files', () => {
+    const expected = {
+      ...packageManifest,
+      dependencies: { '@fast-link/react': 'workspace:^' },
+    };
+    const options = {
+      workspace: [{ name: '@fast-link/react', version: '1.2.3' }],
+      files: ['package/package.json'],
+    };
+    expect(() => verifyPackedPackage(expected, expected, options)).toThrow(
+      'Packed dependencies',
+    );
+    expect(() =>
+      verifyPackedPackage(
+        { ...expected, dependencies: { '@fast-link/react': '^1.2.3' } },
+        expected,
+        options,
+      ),
+    ).toThrow('Missing packed export');
+  });
+
   it('accepts the rechecked name and version', () => {
     expect(
       verifyPackedPackage(
@@ -466,13 +939,75 @@ function createPackageGraph() {
       name: `@fast-link/${name}`,
       dependencies: packageDependencies,
     });
+    writeFile(
+      join(root, `packages/${name}/CHANGELOG.md`),
+      `# Changelog\n\n## 1.2.3\n\n- Initial ${name} release.\n\n## 1.2.2\n\n- Older release.\n`,
+    );
   }
   writeJson(join(root, 'scripts/publishable-packages.json'), [
     'packages/next',
     'packages/react',
     'packages/core',
   ]);
+  runGit(root, 'add', '.');
+  runGit(root, 'commit', '--quiet', '-m', 'package graph');
   return { root, packages: readPublishablePackages(root) };
+}
+
+function releaseState(root, commit) {
+  const tags = new Map();
+  const tagObjects = new Map();
+  const releases = [];
+  const writes = [];
+  return {
+    tags,
+    tagObjects,
+    releases,
+    writes,
+    options: {
+      repository: 'example/fast-link',
+      readPublishedVersions: () => [fixtureVersions.current],
+      execute(command, args) {
+        if (command === 'git')
+          return execFileSync(command, args, { cwd: root, encoding: 'utf8' });
+        if (command === 'npm') return JSON.stringify(commit);
+        if (command !== 'gh') throw new Error(`Unexpected command: ${command}`);
+        const endpoint = args.find((value) => value.startsWith('repos/'));
+        if (args.includes('POST')) {
+          const fields = Object.fromEntries(
+            args
+              .filter((_, index) => args[index - 1] === '-f')
+              .map((value) => {
+                const separator = value.indexOf('=');
+                return [value.slice(0, separator), value.slice(separator + 1)];
+              }),
+          );
+          writes.push({ endpoint, fields });
+          if (endpoint.endsWith('/git/refs'))
+            tags.set(fields.ref, { type: 'commit', sha: fields.sha });
+          if (endpoint.endsWith('/releases')) releases.push(fields);
+          return '{}';
+        }
+        if (endpoint.includes('/git/matching-refs/'))
+          return JSON.stringify(
+            [...tags].map(([ref, object]) => ({ ref, object })),
+          );
+        if (endpoint.includes('/git/tags/'))
+          return JSON.stringify({
+            object: tagObjects.get(endpoint.split('/').at(-1)),
+          });
+        if (endpoint.includes('/releases/tags/')) {
+          const tag = decodeURIComponent(endpoint.split('/').at(-1));
+          if (releases.some((release) => release.tag_name === tag))
+            return 'HTTP/2.0 200 OK\r\n\r\n';
+          throw Object.assign(new Error('Not Found'), {
+            stdout: 'HTTP/2.0 404 Not Found\r\n\r\n',
+          });
+        }
+        throw new Error(`Unexpected GitHub endpoint: ${endpoint}`);
+      },
+    },
+  };
 }
 
 function recordingExecutor(
@@ -482,13 +1017,21 @@ function recordingExecutor(
 ) {
   return (command, args) => {
     commands.push({ command, args: [...args] });
-    const stage = args.includes('build')
-      ? 'build'
-      : args.includes('pack')
-        ? 'pack'
-        : args.includes('publish')
-          ? 'publish'
-          : 'verify';
+    if (command === 'tar') {
+      if (args[0] === '-xOf')
+        events.push(`verify:${args[1].split('/').at(-1)}`);
+      return execFileSync(command, args, { encoding: 'utf8' });
+    }
+    const stage =
+      command === 'pnpm' && args.includes('build')
+        ? 'build'
+        : command === 'pnpm' && args.includes('pack')
+          ? 'pack'
+          : command === 'npm' && args[0] === 'publish'
+            ? 'publish'
+            : undefined;
+    if (!stage)
+      throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
     const target =
       stage === 'build'
         ? args.at(-1)
@@ -497,17 +1040,27 @@ function recordingExecutor(
           : args[1];
     events.push(`${stage}:${target.split('/').at(-1)}`);
     if (stage === failure) throw new Error(`${stage} failed`);
-    if (command === 'tar') {
-      const archive = args[1];
+    if (stage === 'pack') {
+      const archive = args[args.indexOf('--out') + 1];
       const entry = packages.find(({ directory }) =>
         archive.endsWith(`${directory.split('/').at(-1)}.tgz`),
       );
-      return JSON.stringify({
+      const root = mkdtempSync(join(tmpdir(), 'fast-link-archive-'));
+      fixtures.push(root, archive);
+      writeJson(join(root, 'package/package.json'), {
         ...entry.manifest,
+        dependencies: Object.fromEntries(
+          Object.keys(entry.manifest.dependencies ?? {}).map((name) => [
+            name,
+            '^1.2.3',
+          ]),
+        ),
         version: changedVersion
           ? fixtureVersions.later
           : entry.manifest.version,
       });
+      writeFile(join(root, 'package/dist/index.js'), 'export {};\n');
+      execFileSync('tar', ['-czf', archive, '-C', root, 'package']);
     }
     return '';
   };
@@ -529,6 +1082,10 @@ function createRepository({ publishablePackages = ['packages/core'] } = {}) {
   writeFile(
     join(root, 'packages/core/tsdown.config.ts'),
     'export default {};\n',
+  );
+  writeFile(
+    join(root, 'packages/core/CHANGELOG.md'),
+    '# Changelog\n\n## 1.2.3\n\n- Initial.\n',
   );
   writeFile(join(root, 'packages/core/README.md'), '# Initial docs\n');
   writeFile(join(root, 'tsconfig.base.json'), '{}\n');
