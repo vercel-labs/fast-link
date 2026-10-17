@@ -12,10 +12,53 @@ permissions:
   contents: read
 
 jobs:
+  paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      lightweight: ${{ steps.changes.outputs.lightweight }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check changed paths
+        id: changes
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          diff_file=$(mktemp "$RUNNER_TEMP/fast-link-paths.XXXXXX")
+          git diff --name-status -z --find-renames "$PR_BASE" "$PR_HEAD" > "$diff_file"
+
+          allowed_path() {
+            [[ "$1" == skills/fast-link/* ]] ||
+              [[ "$1" == docs/*.md ]] ||
+              [[ "$1" == *.md && "$1" != */* ]]
+          }
+
+          changed=0
+          lightweight=true
+          while IFS= read -r -d '' status && IFS= read -r -d '' path; do
+            changed=1
+            if ! allowed_path "$path"; then lightweight=false; fi
+            if [[ "$status" == R* || "$status" == C* ]]; then
+              IFS= read -r -d '' destination
+              if ! allowed_path "$destination"; then lightweight=false; fi
+            fi
+          done < "$diff_file"
+
+          if [[ "$changed" == 0 ]]; then lightweight=false; fi
+          echo "lightweight=$lightweight" >> "$GITHUB_OUTPUT"
+
   validate:
+    needs: paths
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Fail when path detection fails
+        if: ${{ needs.paths.result != 'success' }}
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -30,6 +73,7 @@ jobs:
         run: node scripts/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
 
       - name: Restore Turbo cache
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .turbo
@@ -41,13 +85,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate formatting
+        if: ${{ needs.paths.outputs.lightweight == 'true' }}
+        run: pnpm exec turbo run //#format
+
       - name: Check package boundaries
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
         run: pnpm boundaries
 
       - name: Validate formatting, builds, types, tests, and size
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
         run: pnpm exec turbo run //#format //#lint //#test:root build typecheck test size
 
       - name: Pack and inspect packages
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
         run: |
           for package_dir in packages/core packages/react packages/next; do
             archive="$RUNNER_TEMP/$(basename "$package_dir").tgz"
@@ -57,6 +108,8 @@ jobs:
           done
 
   browser:
+    needs: paths
+    if: ${{ needs.paths.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -86,6 +139,8 @@ jobs:
         run: pnpm exec turbo run test:browser test:fixtures
 
   packed-consumers:
+    needs: paths
+    if: ${{ needs.paths.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
