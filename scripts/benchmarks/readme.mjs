@@ -83,7 +83,26 @@ export function renderTable(report, url) {
     ),
     '',
     '</details>',
+    ...renderMachine(report.environment),
   ].join('\n');
+}
+
+/** Uses saved CPU/OS metadata so regeneration never depends on the publishing machine. */
+function renderMachine({ cpu, platform }) {
+  const os = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' }[platform];
+  if (!os || typeof cpu !== 'string' || !cpu.trim()) return [];
+  const escaped = cpu.trim().replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character],
+  );
+  return ['', `<sub>Measured on ${escaped} (${os}).</sub>`];
 }
 
 /** States the recorded workload and scoring method; rejects incomplete batch summaries. */

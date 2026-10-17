@@ -1,16 +1,13 @@
 /* oxlint-disable no-await-in-loop -- Alternate revisions without overlapping work. */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { combineBatches, summarizeCalibration } from './comparison-results.mjs';
 import { prepareCheckouts } from './prepare.mjs';
-import { runCommand } from './process.mjs';
 import { evaluateGate } from './report.mjs';
+import { createBenchmarkSession } from './session.mjs';
 import { workload } from './workload.mjs';
-
-const runner = fileURLToPath(new URL('./run.mjs', import.meta.url));
 
 /** Resolves checkout and output paths before any build or measurement starts. */
 function readOptions() {
@@ -40,37 +37,26 @@ function readOptions() {
 }
 
 /** Runs one revision's batch and retains its raw JSON, including failed work. */
-async function measureBatch(options, index, batch, side) {
+async function measureBatch(session, options, index, batch, side) {
   const path = resolve(options.output, `${index}-${batch}-${side}.json`);
-  await runCommand(
-    process.execPath,
-    [
-      runner,
-      '--root',
-      options[side],
-      '--output',
-      path,
-      '--case',
-      options.case,
-      '--batch',
-      String(batch),
-    ],
-    options.head,
-  );
-
-  const report = JSON.parse(await readFile(path, 'utf8'));
-  if (report.errors.length) throw new Error(`Failed work in ${path}`);
-  return report;
+  return session.measure({
+    root: options[side],
+    output: path,
+    selected: options.case,
+    batch,
+  });
 }
 
 /** Alternates base/head batches, then saves a complete report for each side. */
-async function measureComparison(options, index, policy) {
+async function measureComparison(session, options, index, policy) {
   const collected = { base: [], head: [] };
 
   for (let batch = 0; batch < workload.batches; batch++) {
     const sides = (batch + index) % 2 ? ['head', 'base'] : ['base', 'head'];
     for (const side of sides) {
-      collected[side].push(await measureBatch(options, index, batch, side));
+      collected[side].push(
+        await measureBatch(session, options, index, batch, side),
+      );
     }
   }
 
@@ -92,12 +78,13 @@ async function measureComparison(options, index, policy) {
 }
 
 /** Repeats only a suspected timing regression; invalid work never requests a repeat. */
-async function evaluateComparisons(options, comparisons, policy) {
+async function evaluateComparisons(session, options, comparisons, policy) {
   const first = comparisons[0];
   const verdict = evaluateGate(first.base, first.head, policy);
   if (verdict.status !== 'repeat') return verdict;
 
   const confirmation = await measureComparison(
+    session,
     options,
     comparisons.length,
     policy,
@@ -119,22 +106,31 @@ async function main() {
   );
   const comparisons = [];
   let verdict;
+  let session;
 
   await mkdir(options.output, { recursive: true });
 
   try {
     await prepareCheckouts(options.base, options.head);
+    session = createBenchmarkSession();
 
     const count = options.calibrate ? policy.calibrationComparisons : 1;
     for (let index = 0; index < count; index++) {
-      comparisons.push(await measureComparison(options, index, policy));
+      comparisons.push(
+        await measureComparison(session, options, index, policy),
+      );
     }
 
     const effectivePolicy =
       options.informational || options.calibrate
         ? { ...policy, metrics: {} }
         : policy;
-    verdict = await evaluateComparisons(options, comparisons, effectivePolicy);
+    verdict = await evaluateComparisons(
+      session,
+      options,
+      comparisons,
+      effectivePolicy,
+    );
 
     if (options.calibrate) {
       await writeJson(
@@ -144,6 +140,12 @@ async function main() {
     }
   } catch (error) {
     verdict = { status: 'fail', error: error.stack };
+  } finally {
+    try {
+      await session?.close();
+    } catch (error) {
+      verdict = { status: 'fail', error: error.stack };
+    }
   }
 
   const summary = {

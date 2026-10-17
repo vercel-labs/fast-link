@@ -56,7 +56,14 @@ export async function prepareCheckouts(base, head) {
     await runCommand('pnpm', ['install', '--frozen-lockfile'], directory);
     await runCommand(
       'pnpm',
-      ['exec', 'turbo', 'run', 'build', '--force'],
+      [
+        'exec',
+        'turbo',
+        'run',
+        'build',
+        '--filter=@fast-link/fixture-next-16...',
+        '--force',
+      ],
       directory,
     );
   }

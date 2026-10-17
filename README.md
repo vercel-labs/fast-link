@@ -171,6 +171,9 @@ Navigation measures mouse press to destination commit. `next/link` waits for rel
 | Unmount 1,000 links            | 0.5 ms                 | 0.9 ms     | 0.5 ms           |
 
 </details>
+
+<sub>Measured on Apple M4 Pro (macOS).</sub>
+
 <!-- benchmarks:end -->
 
 ## Known limitations

@@ -18,15 +18,15 @@ function navigationCorrect(observed, early, historyBefore) {
 async function prepareCache(page, cache, routeRequests) {
   if (cache === 'warm') {
     const prefetched = page.waitForResponse(
-      (response) =>
+      async (response) =>
         new URL(response.url()).pathname === '/docs/benchmark/target' &&
         response.request().headers().rsc === '1' &&
-        response.ok(),
+        response.ok() &&
+        (await response.text()).includes('data-benchmark-destination'),
     );
     await page.evaluate(() => window.benchmark.prefetch());
-    await (await prefetched).finished();
+    await requireCompletedResponse(await prefetched);
   }
-  await page.waitForLoadState('networkidle');
   const beforeRequests = routeRequests.length;
   if (
     (cache === 'cold' && beforeRequests !== 0) ||
@@ -36,8 +36,8 @@ async function prepareCache(page, cache, routeRequests) {
   return beforeRequests;
 }
 
-/** Uses real input and reads the destination layout-effect marker after commit. */
-async function pressAndObserve(page, holdMs) {
+/** Waits for destination commit and the complete press/release/click sequence. */
+async function pressAndWait(page, holdMs) {
   const anchor = page.locator('[data-benchmark-area] a');
   const box = await anchor.boundingBox();
   if (!box) throw new Error('Missing navigation anchor');
@@ -46,15 +46,19 @@ async function pressAndObserve(page, holdMs) {
   await page.waitForTimeout(holdMs);
   await page.mouse.up();
   await page.locator('[data-benchmark-destination]').waitFor();
-  await page.waitForFunction(() => Boolean(window.benchmarkDestination));
-  await page.waitForLoadState('networkidle');
-  const observed = await page.evaluate(() => ({
-    ...window.benchmark.events,
-    destination: window.benchmarkDestination,
-    history: history.length,
-    text: document.querySelector('[data-benchmark-destination]')?.textContent,
-  }));
-  return observed;
+  await page.waitForFunction(
+    () =>
+      Boolean(window.benchmarkDestination) &&
+      window.benchmark.events.release > 0 &&
+      window.benchmark.events.clicks > 0,
+  );
+}
+
+/** Requires a successful, fully received route response before reading cache evidence. */
+async function requireCompletedResponse(response) {
+  if (!response?.ok()) throw new Error('Benchmark route response failed');
+  const error = await response.finished();
+  if (error) throw error;
 }
 
 /** Rejects a navigation whose network activity contradicts its requested cache state. */
@@ -87,7 +91,18 @@ export async function measureNavigation(
     await page.evaluate((v) => window.benchmark.navigation(v), variant);
     const beforeRequests = await prepareCache(page, cache, routeRequests);
     const historyBefore = await page.evaluate(() => history.length);
-    const observed = await pressAndObserve(page, holdMs);
+    await pressAndWait(page, holdMs);
+    await Promise.all(
+      routeRequests.map(async (request) =>
+        requireCompletedResponse(await request.response()),
+      ),
+    );
+    const observed = await page.evaluate(() => ({
+      ...window.benchmark.events,
+      destination: window.benchmarkDestination,
+      history: history.length,
+      text: document.querySelector('[data-benchmark-destination]')?.textContent,
+    }));
     const early = variant !== 'next';
     const correct = navigationCorrect(observed, early, historyBefore);
 

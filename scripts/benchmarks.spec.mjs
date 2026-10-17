@@ -167,8 +167,13 @@ describe('benchmark results', () => {
     ).toBe('pass');
   });
 
-  it('renders medians and workload conditions with provenance behind a durable link', () => {
+  it('renders medians, workload conditions, and recorded machine metadata', () => {
     const input = report(12.345);
+    input.environment = {
+      cpu: 'Apple M4 Pro',
+      platform: 'darwin',
+      browser: 'Chromium',
+    };
     input.metrics = Object.fromEntries(
       scenarioNames().map((name) => [name, metric(12.345)]),
     );
@@ -230,19 +235,25 @@ describe('benchmark results', () => {
     expect(first.indexOf('[Raw results]')).toBeLessThan(
       first.indexOf('<details>'),
     );
-    expect(first).toMatch(/\n<\/details>$/);
+    expect(first).toMatch(
+      /\n<\/details>\n\n<sub>Measured on Apple M4 Pro \(macOS\)\.<\/sub>$/,
+    );
     expect(first).not.toContain('previous release');
     expect(renderTable(input, 'https://example.com/release.json')).toBe(first);
     expect(input).toEqual(original);
     const otherHost = structuredClone(input);
     otherHost.environment = {
-      cpu: 'Different CPU',
+      ...input.environment,
       browser: 'Different browser',
     };
     otherHost.versions.next = '16.3.7';
     otherHost.revision = 'b'.repeat(40);
     expect(renderTable(otherHost, 'https://example.com/release.json')).toBe(
       first,
+    );
+    otherHost.environment.cpu = 'CPU <example> & chips';
+    expect(renderTable(otherHost, 'https://example.com/release.json')).toBe(
+      first.replace('Apple M4 Pro', 'CPU &lt;example&gt; &amp; chips'),
     );
     input.conditions.holdMs = 80;
     expect(renderTable(input, 'https://example.com/release.json')).toContain(
