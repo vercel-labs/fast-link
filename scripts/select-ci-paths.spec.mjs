@@ -38,7 +38,7 @@ describe('select-ci-paths.sh', () => {
     ['workflow', ['.github/workflows/ci.yml'], 'false'],
     ['root config', ['package.json'], 'false'],
     ['other skill', ['skills/other/SKILL.md'], 'false'],
-    ['nested root Markdown', ['notes/README.md'], 'false'],
+    ['Markdown in another directory', ['notes/README.md'], 'false'],
     ['non-Markdown docs', ['docs/image.svg'], 'false'],
     ['filename with spaces', ['docs/start here.md'], 'true'],
   ])('%s selects the expected CI path', (_, paths, expected) => {
