@@ -185,6 +185,11 @@ This is an accessibility limitation under
 [WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
 See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for activation on press without cancellation or reversal.
 
+Chrome may not detect Fast Link's client-side navigations as
+[soft navigations](https://developer.chrome.com/docs/web-platform/soft-navigations).
+Monitoring tools that rely on this detection can attribute subsequent CLS and INP
+to the previous page.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, validation, and package
