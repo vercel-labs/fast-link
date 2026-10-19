@@ -30,7 +30,7 @@ jobs:
 
   validate:
     needs: paths
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
