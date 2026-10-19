@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Only non-empty documentation and Fast Link skill diffs qualify for lighter PR checks.
 diff_file=$(mktemp "$RUNNER_TEMP/fast-link-paths.XXXXXX")
 trap 'rm -f "$diff_file"' EXIT
 git diff --name-status -z --find-renames "$PR_BASE" "$PR_HEAD" > "$diff_file"

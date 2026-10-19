@@ -52,3 +52,16 @@ write token.
 Only directories listed in `scripts/publishable-packages.json` can publish
 through the release workflow. Keep the allowlist empty until npm Trusted
 Publishing is configured.
+
+## CI
+
+- `scripts/select-ci-paths.sh` selects lighter PR checks only for non-empty diffs
+  where every path is root `*.md`, `docs/**/*.md`, or `skills/fast-link/**`.
+- Lightweight PRs run formatting and package release intent. They skip
+  boundaries, lint, builds, types, tests, size, packing, browser, and packed
+  consumers.
+- Other diffs run full CI. Path-detection failure fails validation. Local
+  `pnpm validate` always runs the full checks.
+- Change allowed paths in the script and `scripts/select-ci-paths.spec.mjs`.
+  Change selected checks in `.github/workflows/ci.yml`. After either change,
+  run `pnpm validate` and inspect the PR's GitHub Actions results.
