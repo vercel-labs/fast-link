@@ -39,7 +39,8 @@ When adding tests or changing test/CI configuration, follow
 
 Run commands from the repository root. Before considering a change complete,
 run `pnpm validate` and inspect packed tarballs for every changed public
-package. All commits must be signed.
+package using [the build and archive-preparation procedure](./CONTRIBUTING.md#test-package-installs).
+All commits must be signed.
 
 After the initial release, changes to package source, build configuration,
 shipped package files, or published manifest fields require a version bump and

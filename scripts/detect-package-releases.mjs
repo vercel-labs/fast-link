@@ -10,6 +10,7 @@ export function detectPackageReleases(packages, readPublishedVersions) {
 }
 
 async function run() {
+  // Publish imports the detection helper without workspace dependencies; load the full validator only in this CLI.
   const { readPublishablePackages } =
     await import('./publishable-packages.mjs');
   const declared = readPublishablePackages();
