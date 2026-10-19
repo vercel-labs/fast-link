@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
 import { checkPackageVersions } from './check-package-version.mjs';
-import { createPackageReleases } from './create-package-releases.mjs';
+import { createPackageTags } from './create-package-tags.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
 import { publishPackageReleases } from './publish-package-releases.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
@@ -308,22 +308,20 @@ describe('ordered publishing', () => {
       'npm unavailable',
     );
     expect(attempts).toEqual(['@fast-link/core', '@fast-link/react']);
-    const state = releaseState(root, commit);
+    const state = tagState(root, commit);
     state.options.readPublishedVersions = options.readPublishedVersions;
-    createPackageReleases(packages, state.options);
-    expect(state.releases.map((release) => release.tag_name)).toEqual([
-      '@fast-link/core@1.2.3',
-    ]);
+    createPackageTags(packages, state.options);
+    expect([...state.tags.keys()]).toEqual(['refs/tags/@fast-link/core@1.2.3']);
     fail = false;
     expect(publishPackageReleases(packages, options)).toEqual([
       '@fast-link/react@1.2.3',
       '@fast-link/next@1.2.3',
     ]);
-    createPackageReleases(packages, state.options);
+    createPackageTags(packages, state.options);
     expect(events.filter((event) => event === 'publish:core.tgz')).toHaveLength(
       1,
     );
-    expect(state.releases).toHaveLength(3);
+    expect(state.tags.size).toBe(3);
   });
 
   it.each([
@@ -427,31 +425,8 @@ describe('ordered publishing', () => {
   );
 });
 
-describe('GitHub package releases', () => {
-  it.each([
-    'HTTP/2.0 403 Forbidden\r\n\r\n',
-    'HTTP/2.0 500 Internal Server Error\r\n\r\n',
-    '',
-  ])('makes no writes when exact-tag lookup fails: %j', (stdout) => {
-    const { root, packages } = createPackageGraph();
-    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
-    const execute = state.options.execute;
-    state.options.execute = (command, args) => {
-      if (
-        command === 'gh' &&
-        args.some((arg) => arg.includes('/releases/tags/'))
-      ) {
-        throw Object.assign(new Error('lookup failed'), { stdout });
-      }
-      return execute(command, args);
-    };
-    expect(() =>
-      createPackageReleases(packages.slice(0, 1), state.options),
-    ).toThrow('lookup failed');
-    expect(state.writes).toEqual([]);
-  });
-
-  it("uses the published commit and that version's changelog notes", () => {
+describe('GitHub package tags', () => {
+  it('tags the published commit rather than current HEAD', () => {
     const { root, packages } = createPackageGraph();
     const commit = runGit(root, 'rev-parse', 'HEAD');
     writeFile(
@@ -460,49 +435,28 @@ describe('GitHub package releases', () => {
     );
     runGit(root, 'add', '.');
     runGit(root, 'commit', '--quiet', '-m', 'later changelog edits');
-    const state = releaseState(root, commit);
+    const state = tagState(root, commit);
 
-    createPackageReleases(packages.slice(0, 1), state.options);
+    createPackageTags(packages.slice(0, 1), state.options);
 
-    expect(state.tags.get('refs/tags/@fast-link/core@1.2.3')).toEqual({
-      type: 'commit',
-      sha: commit,
-    });
-    expect(state.releases).toEqual([
+    expect(state.writes).toEqual([
       {
-        tag_name: '@fast-link/core@1.2.3',
-        target_commitish: commit,
-        name: '@fast-link/core@1.2.3',
-        body: '- Initial core release.',
-        make_latest: 'false',
+        endpoint: 'repos/example/fast-link/git/refs',
+        fields: { ref: 'refs/tags/@fast-link/core@1.2.3', sha: commit },
       },
     ]);
   });
 
-  it('leaves completed tags and Releases unchanged on repeat runs', () => {
+  it('leaves matching tags unchanged on repeat runs', () => {
     const { root, packages } = createPackageGraph();
-    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
-    createPackageReleases(packages, state.options);
+    const state = tagState(root, runGit(root, 'rev-parse', 'HEAD'));
+    createPackageTags(packages, state.options);
     state.writes.length = 0;
-    createPackageReleases(packages, state.options);
+    createPackageTags(packages, state.options);
     expect(state.writes).toEqual([]);
   });
 
-  it('recovers a missing Release without recreating its existing tag', () => {
-    const { root, packages } = createPackageGraph();
-    const commit = runGit(root, 'rev-parse', 'HEAD');
-    const state = releaseState(root, commit);
-    state.tags.set('refs/tags/@fast-link/core@1.2.3', {
-      type: 'commit',
-      sha: commit,
-    });
-    createPackageReleases(packages.slice(0, 1), state.options);
-    expect(state.writes.map((write) => write.endpoint)).toEqual([
-      'repos/example/fast-link/releases',
-    ]);
-  });
-
-  it('recovers a Release from an annotated tag at the published commit', () => {
+  it('accepts an annotated tag at the published commit', () => {
     const { root, packages } = createPackageGraph();
     const commit = runGit(root, 'rev-parse', 'HEAD');
     const tag = '@fast-link/core@1.2.3';
@@ -517,23 +471,20 @@ describe('GitHub package releases', () => {
       'Existing release tag',
     );
     const tagObject = runGit(root, 'rev-parse', tag);
-    const state = releaseState(root, commit);
+    const state = tagState(root, commit);
     state.tags.set(`refs/tags/${tag}`, { type: 'tag', sha: tagObject });
     state.tagObjects.set(tagObject, {
       type: 'commit',
       sha: runGit(root, 'rev-parse', `${tag}^{commit}`),
     });
 
-    createPackageReleases(packages.slice(0, 1), state.options);
+    createPackageTags(packages.slice(0, 1), state.options);
 
-    expect(state.writes.map((write) => write.endpoint)).toEqual([
-      'repos/example/fast-link/releases',
-    ]);
+    expect(state.writes).toEqual([]);
     expect(state.tags.get(`refs/tags/${tag}`)).toEqual({
       type: 'tag',
       sha: tagObject,
     });
-    expect(state.releases[0].target_commitish).toBe(commit);
   });
 
   it.each([
@@ -543,7 +494,7 @@ describe('GitHub package releases', () => {
     'rejects an existing %s tag at a different commit without moving it',
     (_, type) => {
       const { root, packages } = createPackageGraph();
-      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      const state = tagState(root, runGit(root, 'rev-parse', 'HEAD'));
       state.tags.set('refs/tags/@fast-link/core@1.2.3', {
         type,
         sha: publishedCommit,
@@ -553,15 +504,15 @@ describe('GitHub package releases', () => {
         sha: publishedCommit,
       });
       expect(() =>
-        createPackageReleases(packages.slice(0, 1), state.options),
+        createPackageTags(packages.slice(0, 1), state.options),
       ).toThrow('Tag @fast-link/core@1.2.3 does not target');
       expect(state.writes).toEqual([]);
     },
   );
 
-  it('preserves other package Releases when one Release fails, then recovers it', () => {
+  it('creates other package tags when one fails, then recovers it', () => {
     const { root, packages } = createPackageGraph();
-    const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+    const state = tagState(root, runGit(root, 'rev-parse', 'HEAD'));
     const execute = state.options.execute;
     let fail = true;
     state.options.execute = (command, args) => {
@@ -569,23 +520,23 @@ describe('GitHub package releases', () => {
         fail &&
         command === 'gh' &&
         args.includes('POST') &&
-        args.includes('tag_name=@fast-link/core@1.2.3')
+        args.includes('ref=refs/tags/@fast-link/core@1.2.3')
       )
         throw new Error('GitHub unavailable');
       return execute(command, args);
     };
-    expect(() => createPackageReleases(packages, state.options)).toThrow(
+    expect(() => createPackageTags(packages, state.options)).toThrow(
       'GitHub unavailable',
     );
-    expect(state.releases.map((release) => release.tag_name)).toEqual([
-      '@fast-link/react@1.2.3',
-      '@fast-link/next@1.2.3',
+    expect([...state.tags.keys()]).toEqual([
+      'refs/tags/@fast-link/react@1.2.3',
+      'refs/tags/@fast-link/next@1.2.3',
     ]);
     fail = false;
     state.writes.length = 0;
-    createPackageReleases(packages, state.options);
-    expect(state.writes.map((write) => write.fields.tag_name)).toEqual([
-      '@fast-link/core@1.2.3',
+    createPackageTags(packages, state.options);
+    expect(state.writes.map((write) => write.fields.ref)).toEqual([
+      'refs/tags/@fast-link/core@1.2.3',
     ]);
   });
 
@@ -593,32 +544,13 @@ describe('GitHub package releases', () => {
     'refuses GitHub writes without an exact published commit: %s',
     (gitHead) => {
       const { root, packages } = createPackageGraph();
-      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
+      const state = tagState(root, runGit(root, 'rev-parse', 'HEAD'));
       const execute = state.options.execute;
       state.options.execute = (command, args) =>
         command === 'npm' ? gitHead : execute(command, args);
-      expect(() => createPackageReleases(packages, state.options)).toThrow(
+      expect(() => createPackageTags(packages, state.options)).toThrow(
         'Missing published commit',
       );
-      expect(state.writes).toEqual([]);
-    },
-  );
-
-  it.each([
-    '# Changelog\n\n## 1.2.2\n\n- Older release.\n',
-    '# Changelog\n\n## 1.2.3',
-    '# Changelog\n\n## 1.2.3\n\n',
-  ])(
-    'refuses GitHub writes when the published commit has no notes: %j',
-    (changelog) => {
-      const { root, packages } = createPackageGraph();
-      writeFile(join(root, 'packages/core/CHANGELOG.md'), changelog);
-      runGit(root, 'add', '.');
-      runGit(root, 'commit', '--quiet', '-m', 'missing release notes');
-      const state = releaseState(root, runGit(root, 'rev-parse', 'HEAD'));
-      expect(() =>
-        createPackageReleases(packages.slice(0, 1), state.options),
-      ).toThrow('Missing changelog notes');
       expect(state.writes).toEqual([]);
     },
   );
@@ -707,7 +639,7 @@ describe('release workflow', () => {
     );
   });
 
-  it('separates npm publishing permissions from GitHub release permissions', () => {
+  it('separates npm publishing permissions from GitHub tag permissions', () => {
     const { permissions, jobs } = parse(workflow);
     expect(permissions).toEqual({ contents: 'read' });
     expect(jobs.publish.permissions).toEqual({
@@ -725,7 +657,7 @@ describe('release workflow', () => {
     ]);
     expect(
       jobs.release.steps.find(
-        (step) => step.run === 'node scripts/create-package-releases.mjs',
+        (step) => step.run === 'node scripts/create-package-tags.mjs',
       ).env.GH_TOKEN,
     ).toBe('${{ github.token }}');
     expect(jobs.release.steps[0].with['fetch-depth']).toBe(0);
@@ -742,7 +674,7 @@ describe('release workflow', () => {
     ['without allowlisted packages', { allowlisted: 'false' }, false],
     ['off main', { ref: 'refs/heads/other' }, false],
     ['after cancellation', { cancelled: true }, false],
-  ])('gates Release recovery %s', (_, overrides, expected) => {
+  ])('gates tag recovery %s', (_, overrides, expected) => {
     const state = {
       validate: 'success',
       browser: 'success',
@@ -786,10 +718,10 @@ describe('release workflow', () => {
     };
     const options = { readPublishedVersions: unexpected, execute: unexpected };
     expect(publishPackageReleases([], options)).toEqual([]);
-    createPackageReleases([], options);
+    createPackageTags([], options);
     for (const script of [
       'publish-package-releases.mjs',
-      'create-package-releases.mjs',
+      'create-package-tags.mjs',
     ]) {
       expect(
         execFileSync(
@@ -1097,15 +1029,13 @@ function createPackageGraph() {
   return { root, packages };
 }
 
-function releaseState(root, commit) {
+function tagState(root, commit) {
   const tags = new Map();
   const tagObjects = new Map();
-  const releases = [];
   const writes = [];
   return {
     tags,
     tagObjects,
-    releases,
     writes,
     options: {
       repository: 'example/fast-link',
@@ -1117,6 +1047,8 @@ function releaseState(root, commit) {
         if (command !== 'gh') throw new Error(`Unexpected command: ${command}`);
         const endpoint = args.find((value) => value.startsWith('repos/'));
         if (args.includes('POST')) {
+          if (endpoint !== 'repos/example/fast-link/git/refs')
+            throw new Error(`Unexpected GitHub write: ${endpoint}`);
           const fields = Object.fromEntries(
             args
               .filter((_, index) => args[index - 1] === '-f')
@@ -1126,9 +1058,7 @@ function releaseState(root, commit) {
               }),
           );
           writes.push({ endpoint, fields });
-          if (endpoint.endsWith('/git/refs'))
-            tags.set(fields.ref, { type: 'commit', sha: fields.sha });
-          if (endpoint.endsWith('/releases')) releases.push(fields);
+          tags.set(fields.ref, { type: 'commit', sha: fields.sha });
           return '{}';
         }
         if (endpoint.includes('/git/matching-refs/'))
@@ -1139,14 +1069,6 @@ function releaseState(root, commit) {
           return JSON.stringify({
             object: tagObjects.get(endpoint.split('/').at(-1)),
           });
-        if (endpoint.includes('/releases/tags/')) {
-          const tag = decodeURIComponent(endpoint.split('/').at(-1));
-          if (releases.some((release) => release.tag_name === tag))
-            return 'HTTP/2.0 200 OK\r\n\r\n';
-          throw Object.assign(new Error('Not Found'), {
-            stdout: 'HTTP/2.0 404 Not Found\r\n\r\n',
-          });
-        }
         throw new Error(`Unexpected GitHub endpoint: ${endpoint}`);
       },
     },

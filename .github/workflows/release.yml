@@ -162,8 +162,8 @@ jobs:
           node-version: "24"
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile
-      - name: Recover package tags and GitHub Releases
-        run: node scripts/create-package-releases.mjs
+      - name: Recover package tags
+        run: node scripts/create-package-tags.mjs
         env:
           GH_TOKEN: ${{ github.token }}
 
