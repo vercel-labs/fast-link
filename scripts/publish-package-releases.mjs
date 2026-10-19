@@ -1,15 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { checkPackageChangelog } from './changelog.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
 import { getPublishedVersions, NPM_REGISTRY_ARGS } from './npm-registry.mjs';
-import {
-  PACKAGE_DIRECTORIES,
-  verifyReleaseArtifacts,
-} from './release-artifacts.mjs';
+import { verifyReleaseArtifacts } from './release-artifacts.mjs';
+import { readReleaseSelection } from './release-selection.mjs';
 import { verifyPackageIdentity } from './verify-packed-package.mjs';
 
 /**
@@ -66,23 +62,8 @@ export function publishPackageReleases(
 }
 
 function run() {
-  const declared = JSON.parse(
-    readFileSync('scripts/publishable-packages.json', 'utf8'),
-  );
-  if (
-    !Array.isArray(declared) ||
-    new Set(declared).size !== declared.length ||
-    declared.some((directory) => !PACKAGE_DIRECTORIES.includes(directory))
-  ) {
-    throw new Error('Invalid publication allowlist');
-  }
-  if (declared.length === 0) return;
-  const packages = PACKAGE_DIRECTORIES.filter((directory) =>
-    declared.includes(directory),
-  ).map((directory) => ({
-    directory,
-    manifest: JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')),
-  }));
+  const packages = readReleaseSelection();
+  if (packages.length === 0) return;
   const archiveDirectory = process.argv[2];
   if (!archiveDirectory) throw new Error('Pass the verified archive directory');
 

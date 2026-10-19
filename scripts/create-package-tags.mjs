@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { getPublishedCommit, getPublishedVersions } from './npm-registry.mjs';
-import { readPublishablePackages } from './publishable-packages.mjs';
+import { readReleaseSelection } from './release-selection.mjs';
 import { verifyPackageIdentity } from './verify-packed-package.mjs';
 
 /**
@@ -84,7 +84,7 @@ function verifyTagTarget(object, { tag, commit }, api, execute) {
 }
 
 function run() {
-  const packages = readPublishablePackages();
+  const packages = readReleaseSelection();
   if (packages.length === 0) return;
   const repository = process.env.GITHUB_REPOSITORY;
   if (!repository) throw new Error('GITHUB_REPOSITORY is required');
