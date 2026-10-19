@@ -26,9 +26,6 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Check package release intent
-        run: node scripts/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
-
       - name: Restore Turbo cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
@@ -41,20 +38,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check package release intent
+        run: node scripts/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
+
       - name: Check package boundaries
         run: pnpm boundaries
 
       - name: Validate formatting, builds, types, tests, and size
         run: pnpm exec turbo run //#format //#lint //#test:root build typecheck test size
 
-      - name: Pack and inspect packages
-        run: |
-          for package_dir in packages/core packages/react packages/next; do
-            archive="$RUNNER_TEMP/$(basename "$package_dir").tgz"
-            pnpm --dir "$package_dir" pack --out "$archive"
-            node scripts/verify-packed-package.mjs "$archive" "$package_dir"
-            tar -tf "$archive"
-          done
+      - name: Prepare and inspect release archives
+        run: node scripts/prepare-package-artifacts.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fast-link-packed
+          path: ${{ runner.temp }}/fast-link-packed
+          if-no-files-found: error
+          retention-days: 7
 
   browser:
     runs-on: ubuntu-latest
@@ -86,6 +86,7 @@ jobs:
         run: pnpm exec turbo run test:browser test:fixtures
 
   packed-consumers:
+    needs: [validate]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -93,29 +94,14 @@ jobs:
         node: [22, 24, 26]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
-        with:
-          node-version: "24"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Restore Turbo cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ matrix.node }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-${{ github.job }}-${{ matrix.node }}-
-      - name: Build and pack on Node.js 24
-        run: |
-          pnpm exec turbo run build --filter=@fast-link/core --filter=@fast-link/react --filter=@fast-link/next
-          mkdir -p "$RUNNER_TEMP/fast-link-packed"
-          for package_dir in packages/core packages/react packages/next; do
-            pnpm --dir "$package_dir" pack --out "$RUNNER_TEMP/fast-link-packed/$(basename "$package_dir").tgz"
-          done
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: ${{ matrix.node }}
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: fast-link-packed
+          path: ${{ runner.temp }}/fast-link-packed
       - name: Verify isolated packed consumers
-        run: node scripts/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed"
+        run: node scripts/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"

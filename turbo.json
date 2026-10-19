@@ -61,6 +61,7 @@
     "//#test:root": {
       "inputs": [
         "scripts/**",
+        ".pnpmfile.cjs",
         ".github/workflows/**",
         "package.json",
         "pnpm-lock.yaml"
