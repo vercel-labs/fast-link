@@ -14,7 +14,7 @@ import { verifyPackageIdentity } from './verify-packed-package.mjs';
 
 /**
  * Publishes unchanged verified archives in dependency order, rechecking npm first.
- * Rejects the entire handoff before registry calls; a publish failure stops dependents.
+ * Rejects invalid artifacts before registry calls; a publish failure stops subsequent packages.
  */
 export function publishPackageReleases(
   packages,

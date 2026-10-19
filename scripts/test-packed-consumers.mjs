@@ -18,7 +18,7 @@ import { verifyReleaseArtifacts } from './release-artifacts.mjs';
 const [archiveDirectory, commit] = process.argv.slice(2);
 if (!archiveDirectory) {
   throw new Error(
-    'Pass the directory containing core.tgz, react.tgz, and next.tgz',
+    'Usage: test-packed-consumers.mjs <directory> <full-commit-sha>',
   );
 }
 const artifacts = verifyReleaseArtifacts({
