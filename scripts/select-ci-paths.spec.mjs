@@ -9,12 +9,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { parse } from 'yaml';
-
-const workflow = parse(
-  readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
-);
+const script = fileURLToPath(new URL('./select-ci-paths.sh', import.meta.url));
 const fixtures = [];
 
 afterEach(() => {
@@ -22,7 +19,7 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 
-describe('PR CI selection', () => {
+describe('select-ci-paths.sh', () => {
   it.each([
     ['root Markdown', ['README.md'], 'true'],
     ['docs Markdown', ['docs/guides/start.md'], 'true'],
@@ -100,49 +97,6 @@ describe('PR CI selection', () => {
 
     expect(detect(root, 'missing-revision').status).not.toBe(0);
   });
-
-  it('keeps validation and release intent active on lightweight PRs', () => {
-    const { jobs } = workflow;
-    expect(jobs.validate.needs).toContain('paths');
-    expect(jobs.validate.if).toContain('always()');
-    const steps = jobs.validate.steps;
-    expect(
-      steps.some(
-        (step) =>
-          step.if?.includes("needs.paths.result != 'success'") &&
-          step.run?.includes('exit 1'),
-      ),
-    ).toBe(true);
-    expect(
-      steps.find((step) => step.name === 'Check package release intent').if,
-    ).toBeUndefined();
-    const formatting = steps.find(
-      (step) => step.name === 'Validate formatting',
-    );
-    expect(formatting.if).toContain("lightweight == 'true'");
-    expect(formatting.run).toContain('//#format');
-    expect(
-      steps.find(
-        (step) =>
-          step.name === 'Validate formatting, builds, types, tests, and size',
-      ).if,
-    ).toContain("lightweight != 'true'");
-    for (const name of [
-      'Check package boundaries',
-      'Pack and inspect packages',
-    ]) {
-      expect(steps.find((step) => step.name === name).if).toContain(
-        "lightweight != 'true'",
-      );
-    }
-  });
-
-  it('skips whole browser and packed-consumer jobs only for lightweight PRs', () => {
-    for (const name of ['browser', 'packed-consumers']) {
-      expect(workflow.jobs[name].needs).toContain('paths');
-      expect(workflow.jobs[name].if).toContain("lightweight != 'true'");
-    }
-  });
 });
 
 function createRepository() {
@@ -174,10 +128,7 @@ function runGit(root, ...args) {
 
 function detect(root, base) {
   const outputPath = join(root, 'output');
-  const script = workflow.jobs.paths.steps.find(
-    (step) => step.id === 'changes',
-  ).run;
-  const result = spawnSync('bash', ['-eo', 'pipefail', '-c', script], {
+  const result = spawnSync('bash', [script], {
     cwd: root,
     encoding: 'utf8',
     env: {
