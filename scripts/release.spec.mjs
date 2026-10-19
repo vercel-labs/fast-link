@@ -5,6 +5,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   mkdirSync,
   mkdtempSync,
@@ -48,6 +49,8 @@ describe('publishable packages', () => {
       { name: 'Not A Package' },
       'valid npm name and canonical stable version',
     ],
+    ['reserved name', { name: 'node_modules' }, 'valid npm name'],
+    ['builtin name', { name: 'http' }, 'valid npm name'],
     [
       'invalid version',
       { version: '1.02.3' },
@@ -131,6 +134,28 @@ describe('publishable packages', () => {
 });
 
 describe('ordered publishing', () => {
+  it.each(['reordered', 'duplicate'])(
+    'rejects a %s publication selection before registry calls',
+    (kind) => {
+      const { root, packages } = createPackageGraph();
+      const selection =
+        kind === 'reordered'
+          ? packages.toReversed()
+          : [packages[0], packages[0]];
+      expect(() =>
+        publishPackageReleases(selection, {
+          archiveDirectory: root,
+          root,
+          commit: publishedCommit,
+          readPublishedVersions() {
+            throw new Error('Unexpected registry call');
+          },
+          execute: recordingExecutor([]),
+        }),
+      ).toThrow('Publication package order or membership changed');
+    },
+  );
+
   it('checks every pending changelog before publishing any package', () => {
     const { root, packages } = createPackageGraph();
     writeFile(
@@ -144,51 +169,39 @@ describe('ordered publishing', () => {
         root,
         commit: publishedCommit,
         readPublishedVersions: () => null,
-        execute: recordingExecutor(packages, events),
+        execute: recordingExecutor(events),
       }),
     ).toThrow('Missing changelog notes');
-    expect(events).toEqual([]);
+    expect(events.filter((event) => event.startsWith('publish:'))).toEqual([]);
   });
-  it('records the published commit in the archive metadata', () => {
+  it('refuses a missing verified archive before any registry or npm call', () => {
     const { root, packages } = createPackageGraph();
-    const commit = runGit(root, 'rev-parse', 'HEAD');
-    publishPackageReleases(packages.slice(0, 1), {
-      archiveDirectory: root,
-      root,
-      commit,
-      readPublishedVersions: () => null,
-      execute(command, args) {
-        if (command === 'pnpm' && args.includes('pack')) {
-          writeJson(join(root, 'package/package.json'), packages[0].manifest);
-          writeFile(join(root, 'package/dist/index.js'), 'export {};\n');
-          execFileSync('tar', [
-            '-czf',
-            join(root, 'core.tgz'),
-            '-C',
-            root,
-            'package',
-          ]);
-        }
-        if (command === 'tar')
-          return execFileSync(command, args, { encoding: 'utf8' });
-        return '';
-      },
-    });
-    const packed = JSON.parse(
-      execFileSync(
-        'tar',
-        ['-xOf', join(root, 'core.tgz'), 'package/package.json'],
-        { encoding: 'utf8' },
+    rmSync(join(root, 'core.tgz'));
+    const events = [];
+    expect(() =>
+      publishPackageReleases(packages, {
+        archiveDirectory: root,
+        root,
+        commit: publishedCommit,
+        readPublishedVersions() {
+          events.push('registry');
+          return null;
+        },
+        execute: recordingExecutor(events),
+      }),
+    ).toThrow();
+    expect(
+      events.filter(
+        (event) => event === 'registry' || event.startsWith('publish:'),
       ),
-    );
-    expect(packed.gitHead).toBe(commit);
+    ).toEqual([]);
   });
 
   it('rechecks each version and finishes dependencies before their dependents', () => {
     const { root, packages } = createPackageGraph();
     const events = [];
     const commands = [];
-    const execute = recordingExecutor(packages, events, { commands });
+    const execute = recordingExecutor(events, { commands });
 
     const published = publishPackageReleases(packages, {
       archiveDirectory: root,
@@ -207,23 +220,17 @@ describe('ordered publishing', () => {
       '@fast-link/next@1.2.3',
     ]);
     expect(events).toEqual([
+      'verify:core.tgz',
+      'verify:react.tgz',
+      'verify:next.tgz',
       'recheck:@fast-link/core',
       'recheck:@fast-link/react',
       'recheck:@fast-link/next',
       'recheck:@fast-link/core',
-      'build:core',
-      'pack:core.tgz',
-      'verify:core.tgz',
       'publish:core.tgz',
       'recheck:@fast-link/react',
-      'build:react',
-      'pack:react.tgz',
-      'verify:react.tgz',
       'publish:react.tgz',
       'recheck:@fast-link/next',
-      'build:next',
-      'pack:next.tgz',
-      'verify:next.tgz',
       'publish:next.tgz',
     ]);
     expect(commands.filter(({ command }) => command === 'npm')).toEqual(
@@ -235,6 +242,7 @@ describe('ordered publishing', () => {
           '--access',
           'public',
           '--provenance',
+          '--ignore-scripts',
           '--registry=https://registry.npmjs.org',
           '--@fast-link:registry=https://registry.npmjs.org',
         ],
@@ -250,19 +258,20 @@ describe('ordered publishing', () => {
       root,
       commit: publishedCommit,
       readPublishedVersions: () => [fixtureVersions.current],
-      execute: recordingExecutor(packages, events),
+      execute: recordingExecutor(events),
     });
 
     expect(published).toEqual([]);
-    expect(events).toEqual([]);
+    expect(events.filter((event) => event.startsWith('publish:'))).toEqual([]);
   });
 
   it('recovers a successful dependency after a later npm publish fails without republishing it', () => {
     const { root, packages } = createPackageGraph();
     const commit = runGit(root, 'rev-parse', 'HEAD');
+    createArtifacts(root, packages, commit);
     const versions = new Map();
     const events = [];
-    const execute = recordingExecutor(packages, events);
+    const execute = recordingExecutor(events);
     let fail = true;
     const options = {
       archiveDirectory: root,
@@ -302,12 +311,12 @@ describe('ordered publishing', () => {
     expect(state.releases).toHaveLength(3);
   });
 
-  it.each(['build', 'pack', 'publish'])(
+  it.each(['publish'])(
     'does not attempt a dependent after %s fails',
     (failure) => {
       const { root, packages } = createPackageGraph();
       const events = [];
-      const execute = recordingExecutor(packages, events, { failure });
+      const execute = recordingExecutor(events, { failure });
 
       expect(() =>
         publishPackageReleases(packages, {
@@ -321,25 +330,128 @@ describe('ordered publishing', () => {
           execute,
         }),
       ).toThrow(`${failure} failed`);
-      expect(events).not.toContain('build:react');
-      expect(events).not.toContain('publish:next.tgz');
+      expect(events.filter((event) => event.startsWith('publish:'))).toEqual([
+        'publish:core.tgz',
+      ]);
     },
   );
 
-  it('rejects a packed identity change before publishing any package', () => {
-    const { root, packages } = createPackageGraph();
-    const events = [];
+  it.each([
+    [
+      'commit',
+      (metadata) => {
+        metadata.commit = 'b'.repeat(40);
+      },
+      'Artifact commit mismatch',
+    ],
+    [
+      'identity',
+      (metadata) => {
+        metadata.packages[0].name = '@fast-link/other';
+      },
+      'Artifact identity mismatch',
+    ],
+    [
+      'digest',
+      (metadata) => {
+        metadata.packages[0].sha256 = '0'.repeat(64);
+      },
+      'Artifact digest mismatch',
+    ],
+    [
+      'order',
+      (metadata) => {
+        metadata.packages.reverse();
+      },
+      'Artifact package order',
+    ],
+    [
+      'membership',
+      (metadata) => {
+        metadata.packages.pop();
+      },
+      'Artifact package order',
+    ],
+  ])(
+    'rejects changed artifact %s before registry access',
+    (_, mutate, message) => {
+      const { root, packages } = createPackageGraph();
+      const path = join(root, 'release-artifacts.json');
+      const metadata = JSON.parse(readFileSync(path, 'utf8'));
+      mutate(metadata);
+      writeJson(path, metadata);
+      const events = [];
+      expect(() =>
+        publishPackageReleases(packages, {
+          archiveDirectory: root,
+          root,
+          commit: publishedCommit,
+          readPublishedVersions() {
+            events.push('registry');
+            return null;
+          },
+          execute: recordingExecutor(events),
+        }),
+      ).toThrow(message);
+      expect(events).not.toContain('registry');
+      expect(events.some((event) => event.startsWith('publish:'))).toBe(false);
+    },
+  );
 
-    expect(() =>
-      publishPackageReleases(packages, {
-        archiveDirectory: root,
+  it.each(['commit', 'identity'])(
+    'rejects an archive with the wrong %s even when its digest matches',
+    (field) => {
+      const { root, packages } = createPackageGraph();
+      createArtifacts(
         root,
-        commit: publishedCommit,
-        readPublishedVersions: () => null,
-        execute: recordingExecutor(packages, events, { changedVersion: true }),
-      }),
-    ).toThrow('Packed package changed');
-    expect(events).toEqual(['build:core', 'pack:core.tgz', 'verify:core.tgz']);
+        field === 'identity'
+          ? packages.map((entry) => ({
+              ...entry,
+              manifest: { ...entry.manifest, version: '1.2.4' },
+            }))
+          : packages,
+        'b'.repeat(40),
+      );
+      const path = join(root, 'release-artifacts.json');
+      const metadata = JSON.parse(readFileSync(path, 'utf8'));
+      metadata.commit = publishedCommit;
+      for (const entry of metadata.packages) entry.version = '1.2.3';
+      writeJson(path, metadata);
+      const events = [];
+      expect(() =>
+        publishPackageReleases(packages, {
+          archiveDirectory: root,
+          root,
+          commit: publishedCommit,
+          readPublishedVersions() {
+            events.push('registry');
+            return null;
+          },
+          execute: recordingExecutor(events),
+        }),
+      ).toThrow(
+        field === 'commit' ? 'Packed commit changed' : 'Packed package changed',
+      );
+      expect(events).not.toContain('registry');
+    },
+  );
+
+  it('publishes the exact archive bytes that were verified', () => {
+    const { root, packages } = createPackageGraph();
+    const before = readFileSync(join(root, 'core.tgz'));
+    const events = [];
+    const execute = recordingExecutor(events);
+    publishPackageReleases(packages.slice(0, 1), {
+      archiveDirectory: root,
+      root,
+      commit: publishedCommit,
+      readPublishedVersions: () => null,
+      execute(command, args) {
+        if (command === 'npm') expect(readFileSync(args[1])).toEqual(before);
+        return execute(command, args);
+      },
+    });
+    expect(readFileSync(join(root, 'core.tgz'))).toEqual(before);
   });
 });
 
@@ -541,6 +653,60 @@ describe('GitHub package releases', () => {
 });
 
 describe('release workflow', () => {
+  it.each(['ci', 'release'])(
+    'verifies one artifact set across the %s consumer matrix',
+    (name) => {
+      const { jobs } = parse(
+        readFileSync(
+          new URL(`../.github/workflows/${name}.yml`, import.meta.url),
+          'utf8',
+        ),
+      );
+      expect(jobs['packed-consumers'].needs).toContain('validate');
+      expect(jobs['packed-consumers'].strategy.matrix.node).toEqual([
+        22, 24, 26,
+      ]);
+      expect(
+        jobs.validate.steps.filter((step) =>
+          step.run?.includes('prepare-package-artifacts.mjs'),
+        ),
+      ).toHaveLength(1);
+      expect(
+        jobs['packed-consumers'].steps.some((step) =>
+          step.uses?.startsWith('actions/download-artifact@'),
+        ),
+      ).toBe(true);
+      expect(
+        jobs['packed-consumers'].steps.some((step) =>
+          /pnpm install|pnpm .*pack|turbo run build/.test(step.run ?? ''),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it('keeps workspace installation and packing out of the OIDC job', () => {
+    const { jobs } = parse(workflow);
+    expect(jobs.publish.needs).toContain('packed-consumers');
+    expect(jobs.publish.environment).toBe('release');
+    expect(
+      jobs.publish.steps.some((step) =>
+        /pnpm install|prepare-package-artifacts|turbo run build/.test(
+          step.run ?? '',
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      jobs.publish.steps.some((step) =>
+        step.uses?.startsWith('pnpm/action-setup@'),
+      ),
+    ).toBe(false);
+    expect(
+      jobs.publish.steps.some((step) =>
+        step.uses?.startsWith('actions/download-artifact@'),
+      ),
+    ).toBe(true);
+  });
+
   it('reruns CI when a pull request is retargeted to a different base', () => {
     const ci = parse(
       readFileSync(
@@ -561,7 +727,12 @@ describe('release workflow', () => {
     const publish = parse(workflow).jobs.publish;
     expect(publish.if, 'publish condition').toBe(`\${{ ${condition} }}`);
     expect(publish.needs, 'publish dependencies').toEqual(
-      expect.arrayContaining(['detect', 'validate', 'browser']),
+      expect.arrayContaining([
+        'detect',
+        'validate',
+        'browser',
+        'packed-consumers',
+      ]),
     );
   });
 
@@ -578,6 +749,7 @@ describe('release workflow', () => {
       'detect',
       'validate',
       'browser',
+      'packed-consumers',
       'publish',
     ]);
     expect(
@@ -614,9 +786,17 @@ describe('release workflow', () => {
         validate: { result: validate },
         browser: { result: browser },
         publish: { result: publish },
+        'packed-consumers': { result: 'success' },
       };
       expect(evaluate({ ref }, needs, () => false)).toBe(expected);
       expect(evaluate({ ref }, needs, () => true)).toBe(false);
+      expect(
+        evaluate(
+          { ref },
+          { ...needs, 'packed-consumers': { result: 'failure' } },
+          () => false,
+        ),
+      ).toBe(false);
       expect(
         evaluate(
           { ref },
@@ -874,25 +1054,35 @@ describe('package release intent', () => {
 });
 
 describe('packed package verification', () => {
-  it('rejects unresolved workspace ranges and missing exported files', () => {
+  it('accepts dependency maps regardless of key order', () => {
+    const expected = {
+      ...packageManifest,
+      dependencies: {
+        '@fast-link/core': '^1.2.3',
+        '@fast-link/react': '^1.2.3',
+      },
+    };
+    const packed = {
+      ...expected,
+      dependencies: {
+        '@fast-link/react': '^1.2.3',
+        '@fast-link/core': '^1.2.3',
+      },
+    };
+    expect(verifyPackedPackage(packed, expected)).toBe('@fast-link/core@1.2.3');
+  });
+
+  it('rejects unresolved workspace ranges', () => {
     const expected = {
       ...packageManifest,
       dependencies: { '@fast-link/react': 'workspace:^' },
     };
     const options = {
       workspace: [{ name: '@fast-link/react', version: '1.2.3' }],
-      files: ['package/package.json'],
     };
     expect(() => verifyPackedPackage(expected, expected, options)).toThrow(
       'Packed dependencies',
     );
-    expect(() =>
-      verifyPackedPackage(
-        { ...expected, dependencies: { '@fast-link/react': '^1.2.3' } },
-        expected,
-        options,
-      ),
-    ).toThrow('Missing packed export');
   });
 
   it('accepts the rechecked name and version', () => {
@@ -951,7 +1141,9 @@ function createPackageGraph() {
   ]);
   runGit(root, 'add', '.');
   runGit(root, 'commit', '--quiet', '-m', 'package graph');
-  return { root, packages: readPublishablePackages(root) };
+  const packages = readPublishablePackages(root);
+  createArtifacts(root, packages);
+  return { root, packages };
 }
 
 function releaseState(root, commit) {
@@ -1010,11 +1202,35 @@ function releaseState(root, commit) {
   };
 }
 
-function recordingExecutor(
-  packages,
-  events,
-  { failure, changedVersion, commands = [] } = {},
-) {
+function createArtifacts(root, packages, commit = publishedCommit) {
+  const entries = packages.map(({ directory, manifest }) => {
+    writeJson(join(root, 'package/package.json'), {
+      ...manifest,
+      gitHead: commit,
+      dependencies: Object.fromEntries(
+        Object.keys(manifest.dependencies ?? {}).map((name) => [
+          name,
+          '^1.2.3',
+        ]),
+      ),
+    });
+    writeFile(join(root, 'package/dist/index.js'), 'export {};\n');
+    const archive = join(root, `${directory.split('/').at(-1)}.tgz`);
+    execFileSync('tar', ['-czf', archive, '-C', root, 'package']);
+    return {
+      directory,
+      name: manifest.name,
+      version: manifest.version,
+      sha256: createHash('sha256').update(readFileSync(archive)).digest('hex'),
+    };
+  });
+  writeJson(join(root, 'release-artifacts.json'), {
+    commit,
+    packages: entries,
+  });
+}
+
+function recordingExecutor(events, { failure, commands = [] } = {}) {
   return (command, args) => {
     commands.push({ command, args: [...args] });
     if (command === 'tar') {
@@ -1022,46 +1238,10 @@ function recordingExecutor(
         events.push(`verify:${args[1].split('/').at(-1)}`);
       return execFileSync(command, args, { encoding: 'utf8' });
     }
-    const stage =
-      command === 'pnpm' && args.includes('build')
-        ? 'build'
-        : command === 'pnpm' && args.includes('pack')
-          ? 'pack'
-          : command === 'npm' && args[0] === 'publish'
-            ? 'publish'
-            : undefined;
-    if (!stage)
-      throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
-    const target =
-      stage === 'build'
-        ? args.at(-1)
-        : stage === 'pack'
-          ? args[args.indexOf('--out') + 1]
-          : args[1];
-    events.push(`${stage}:${target.split('/').at(-1)}`);
-    if (stage === failure) throw new Error(`${stage} failed`);
-    if (stage === 'pack') {
-      const archive = args[args.indexOf('--out') + 1];
-      const entry = packages.find(({ directory }) =>
-        archive.endsWith(`${directory.split('/').at(-1)}.tgz`),
-      );
-      const root = mkdtempSync(join(tmpdir(), 'fast-link-archive-'));
-      fixtures.push(root, archive);
-      writeJson(join(root, 'package/package.json'), {
-        ...entry.manifest,
-        dependencies: Object.fromEntries(
-          Object.keys(entry.manifest.dependencies ?? {}).map((name) => [
-            name,
-            '^1.2.3',
-          ]),
-        ),
-        version: changedVersion
-          ? fixtureVersions.later
-          : entry.manifest.version,
-      });
-      writeFile(join(root, 'package/dist/index.js'), 'export {};\n');
-      execFileSync('tar', ['-czf', archive, '-C', root, 'package']);
-    }
+    if (command !== 'npm' || args[0] !== 'publish')
+      throw new Error(`Unexpected command: ${command}`);
+    events.push(`publish:${args[1].split('/').at(-1)}`);
+    if (failure === 'publish') throw new Error('publish failed');
     return '';
   };
 }

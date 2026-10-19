@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { isSemanticVersion } from './semantic-version.mjs';
+import validatePackageName from 'validate-npm-package-name';
 
-const NPM_PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/;
+import { isSemanticVersion } from './semantic-version.mjs';
 
 /** Reads the allowlist in dependency-first order; rejects dependency cycles. */
 export function readPublishablePackages(root = process.cwd()) {
@@ -35,9 +35,7 @@ export function readPublishablePackages(root = process.cwd()) {
       throw new Error(`Publishable package ${directory} must not be private`);
     }
     if (
-      typeof manifest.name !== 'string' ||
-      manifest.name.length > 214 ||
-      !NPM_PACKAGE_NAME.test(manifest.name) ||
+      !validatePackageName(manifest.name).validForNewPackages ||
       !isSemanticVersion(manifest.version) ||
       /[-+]/.test(manifest.version)
     ) {

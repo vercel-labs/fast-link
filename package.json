@@ -27,7 +27,10 @@
     "oxfmt": "0.44.0",
     "oxlint": "1.59.0",
     "playwright": "1.59.0",
+    "publint": "0.3.25",
+    "semver": "7.8.5",
     "turbo": "2.11.8",
+    "validate-npm-package-name": "7.0.2",
     "vitest": "4.1.11",
     "yaml": "2.8.2"
   },

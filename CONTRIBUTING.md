@@ -68,6 +68,17 @@ workspace links can hide.
 CI builds and packs on Node.js 24, then checks strict-engine installs, core and
 React imports, public types, and a production Next.js build on Node.js 22, 24, and 26.
 
-To check locally, run `node scripts/test-packed-consumers.mjs <directory>` under
-the consumer Node.js version. The directory must contain `core.tgz`, `react.tgz`,
-and `next.tgz` from a completed Node.js 24 build.
+To check locally, build on Node.js 24, then prepare one archive set with the full
+commit SHA to record as `gitHead`:
+
+```sh
+pnpm build
+node scripts/prepare-package-artifacts.mjs <directory> <full-commit-sha>
+node scripts/test-packed-consumers.mjs <directory> <full-commit-sha>
+```
+
+Run the consumer command under each supported Node.js version against that same
+directory. Preparation packs each public package once, runs publint and repository
+checks, and writes archive identities and SHA-256 digests to `release-artifacts.json`.
+Consumers and publication verify this handoff before using the archives.
+The release workflow performs these checks even while publication is disabled.

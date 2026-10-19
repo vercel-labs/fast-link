@@ -7,19 +7,26 @@
 
 /* oxlint-disable no-await-in-loop -- Consumer checks run in dependency order. */
 
-import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const archiveDirectory = process.argv[2];
+import { verifyReleaseArtifacts } from './release-artifacts.mjs';
+
+const [archiveDirectory, commit] = process.argv.slice(2);
 if (!archiveDirectory) {
   throw new Error(
     'Pass the directory containing core.tgz, react.tgz, and next.tgz',
   );
 }
+const artifacts = verifyReleaseArtifacts({
+  archiveDirectory,
+  commit,
+  root: process.cwd(),
+  execute: (command, args) => execFileSync(command, args, { encoding: 'utf8' }),
+});
 const fixture = fileURLToPath(new URL('../fixtures/next-16/', import.meta.url));
 const fixtureManifest = JSON.parse(
   await readFile(join(fixture, 'package.json'), 'utf8'),
@@ -34,18 +41,8 @@ const run = (command, args) =>
 
 try {
   const dependencies = { ...fixtureManifest.dependencies };
-  for (const name of ['core', 'react', 'next']) {
-    const archive = resolve(archiveDirectory, `${name}.tgz`);
-    const manifest = JSON.parse(
-      execFileSync('tar', ['-xOf', archive, 'package/package.json'], {
-        encoding: 'utf8',
-      }),
-    );
-    assert.equal(manifest.name, `@fast-link/${name}`);
-    assert.equal(manifest.packageManager, undefined);
-    assert.ok(!JSON.stringify(manifest).includes('workspace:'));
+  for (const { manifest, archive } of artifacts) {
     dependencies[manifest.name] = `file:${archive}`;
-    console.log(`Inspected ${manifest.name}@${manifest.version}`);
   }
   await writeFile(
     join(consumer, 'package.json'),
