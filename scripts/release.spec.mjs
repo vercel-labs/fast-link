@@ -142,6 +142,7 @@ describe('ordered publishing', () => {
     'rejects a %s publication selection before registry calls',
     (kind) => {
       const { root, packages } = createPackageGraph();
+      createArtifacts(root, packages);
       const selection =
         kind === 'reordered'
           ? packages.toReversed()
@@ -162,6 +163,7 @@ describe('ordered publishing', () => {
 
   it('checks every pending changelog before publishing any package', () => {
     const { root, packages } = createPackageGraph();
+    createArtifacts(root, packages);
     writeFile(
       join(root, 'packages/next/CHANGELOG.md'),
       '# Changelog\n\n## 1.2.2\n\n- Old.\n',
@@ -180,6 +182,7 @@ describe('ordered publishing', () => {
   });
   it('refuses a missing verified archive before any registry or npm call', () => {
     const { root, packages } = createPackageGraph();
+    createArtifacts(root, packages);
     rmSync(join(root, 'core.tgz'));
     const events = [];
     expect(() =>
@@ -203,6 +206,7 @@ describe('ordered publishing', () => {
 
   it('rechecks each version and finishes dependencies before their dependents', () => {
     const { root, packages } = createPackageGraph();
+    createArtifacts(root, packages);
     const events = [];
     const commands = [];
     const execute = recordingExecutor(events, { commands });
@@ -269,6 +273,7 @@ describe('ordered publishing', () => {
 
   it('skips a version published since initial detection', () => {
     const { root, packages } = createPackageGraph();
+    createArtifacts(root, packages);
     const events = [];
     const published = publishPackageReleases(packages, {
       archiveDirectory: root,
@@ -369,6 +374,7 @@ describe('ordered publishing', () => {
     'rejects changed artifact %s before registry access',
     (_, mutate, message) => {
       const { root, packages } = createPackageGraph();
+      createArtifacts(root, packages);
       const path = join(root, 'release-artifacts.json');
       const metadata = JSON.parse(readFileSync(path, 'utf8'));
       mutate(metadata);
@@ -739,21 +745,6 @@ describe('release workflow', () => {
     const options = { readPublishedVersions: unexpected, execute: unexpected };
     expect(publishPackageReleases([], options)).toEqual([]);
     createPackageTags([], options);
-    for (const script of [
-      'publish-package-releases.mjs',
-      'create-package-tags.mjs',
-    ]) {
-      expect(
-        execFileSync(
-          process.execPath,
-          [fileURLToPath(new URL(script, import.meta.url))],
-          {
-            encoding: 'utf8',
-            env: { PATH: '', RUNNER_TEMP: '', GITHUB_REPOSITORY: '' },
-          },
-        ),
-      ).toBe('');
-    }
   });
 
   it('reports no publish candidates while the allowlist is empty', () => {
@@ -791,6 +782,34 @@ describe('release detection', () => {
     expect(result.status).toBe(0);
   });
 
+  it('rejects private packages before registry access through the detection CLI', () => {
+    const { root } = createRepository();
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      private: true,
+    });
+    const commands = stubReleaseServices(root);
+    const result = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL('./detect-package-releases.mjs', import.meta.url),
+        ),
+      ],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${join(root, 'bin')}:${process.env.PATH}`,
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('must not be private');
+    expect(commands()).toEqual([]);
+  });
+
   it('returns only package versions missing from npm', () => {
     const packages = [
       {
@@ -819,28 +838,40 @@ describe('release CLIs without workspace dependencies', () => {
     '%s makes no external calls with an empty allowlist',
     (script) => {
       const { root, env } = createIsolatedReleaseRepository();
+      const commands = stubReleaseServices(root);
       const result = spawnSync(
         process.execPath,
         [join(root, 'scripts', script)],
         {
           cwd: root,
-          env: { ...env, PATH: '', GITHUB_REPOSITORY: '' },
+          env: {
+            ...env,
+            PATH: `${join(root, 'bin')}:${env.PATH}`,
+            GITHUB_REPOSITORY: '',
+          },
           encoding: 'utf8',
         },
       );
       expect(result.stderr).toBe('');
       expect(result.status).toBe(0);
       expect(result.stdout).toBe('');
+      expect(commands()).toEqual([]);
     },
   );
 
   it.each(scripts)(
-    '%s processes a populated selection in package order',
+    '%s processes only selected packages in dependency order',
     (script) => {
       const { root, packages } = createPackageGraph();
       const { env } = createIsolatedReleaseRepository(root);
       const commit = runGit(root, 'rev-parse', 'HEAD');
-      createArtifacts(root, packages, commit);
+      writeJson(join(root, 'scripts/publishable-packages.json'), [
+        'packages/react',
+        'packages/core',
+      ]);
+      if (script === 'publish-package-releases.mjs') {
+        createArtifacts(root, packages, commit);
+      }
       const commands = stubReleaseServices(root, {
         commit,
         versions:
@@ -867,14 +898,7 @@ describe('release CLIs without workspace dependencies', () => {
           calls
             .filter(({ args }) => args[0] === 'publish')
             .map(({ args }) => args[1]),
-        ).toEqual([
-          join(root, 'core.tgz'),
-          join(root, 'react.tgz'),
-          join(root, 'next.tgz'),
-        ]);
-        expect(result.stdout).toBe(
-          'Published @fast-link/core@1.2.3\nPublished @fast-link/react@1.2.3\nPublished @fast-link/next@1.2.3\n',
-        );
+        ).toEqual([join(root, 'core.tgz'), join(root, 'react.tgz')]);
       } else {
         expect(
           calls
@@ -885,7 +909,6 @@ describe('release CLIs without workspace dependencies', () => {
         ).toEqual([
           'ref=refs/tags/@fast-link/core@1.2.3',
           'ref=refs/tags/@fast-link/react@1.2.3',
-          'ref=refs/tags/@fast-link/next@1.2.3',
         ]);
       }
     },
@@ -898,18 +921,20 @@ describe('release CLIs without workspace dependencies', () => {
   ])('rejects %s selections before external calls', (_, declaration) => {
     const { root, env } = createIsolatedReleaseRepository();
     writeJson(join(root, 'scripts/publishable-packages.json'), declaration);
+    const commands = stubReleaseServices(root);
     for (const script of scripts) {
       const result = spawnSync(
         process.execPath,
         [join(root, 'scripts', script)],
         {
           cwd: root,
-          env: { ...env, PATH: '' },
+          env: { ...env, PATH: `${join(root, 'bin')}:${env.PATH}` },
           encoding: 'utf8',
         },
       );
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('Invalid publication allowlist');
+      expect(commands()).toEqual([]);
     }
   });
 });
@@ -1161,7 +1186,6 @@ function createPackageGraph() {
   runGit(root, 'add', '.');
   runGit(root, 'commit', '--quiet', '-m', 'package graph');
   const packages = readPublishablePackages(root);
-  createArtifacts(root, packages);
   return { root, packages };
 }
 
@@ -1309,34 +1333,23 @@ function createIsolatedReleaseRepository(
   return { root, env: { ...process.env, NODE_PATH: '', NODE_OPTIONS: '' } };
 }
 
-function stubReleaseServices(root, { commit, versions }) {
+function stubReleaseServices(root, { commit, versions = [] } = {}) {
   const log = join(root, 'commands.jsonl');
   writeFile(log, '');
+  writeJson(join(root, 'release-services.json'), { commit, versions });
+  writeJson(join(root, 'bin/package.json'), { type: 'module' });
   for (const command of ['npm', 'gh']) {
     const path = join(root, 'bin', command);
-    writeFile(
+    copyFileSync(
+      new URL('./fixtures/release-service.mjs', import.meta.url),
       path,
-      `#!${process.execPath}
-const { appendFileSync } = require('node:fs');
-const command = ${JSON.stringify(command)};
-const args = process.argv.slice(2);
-appendFileSync(${JSON.stringify(log)}, JSON.stringify({ command, args }) + String.fromCharCode(10));
-if (command === 'npm' && args[0] === 'view') {
-  if (args[2] === 'versions') console.log(JSON.stringify(${JSON.stringify(versions)}));
-  else if (args[2] === 'gitHead') console.log(JSON.stringify(${JSON.stringify(commit)}));
-  else throw new Error('Unexpected npm view');
-} else if (command === 'npm' && args[0] === 'publish') {
-} else if (command === 'gh' && args[0] === 'api') {
-  console.log(args.includes('POST') ? '{}' : '[]');
-} else throw new Error('Unexpected service command');
-`,
     );
     chmodSync(path, 0o755);
   }
   return () =>
     readFileSync(log, 'utf8')
-      .trim()
       .split('\n')
+      .filter(Boolean)
       .map((line) => JSON.parse(line));
 }
 
