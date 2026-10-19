@@ -38,6 +38,7 @@ describe('select-ci-paths.sh', () => {
     ['workflow', ['.github/workflows/ci.yml'], 'false'],
     ['root config', ['package.json'], 'false'],
     ['other skill', ['skills/other/SKILL.md'], 'false'],
+    ['testing skill', ['.agents/skills/testing/SKILL.md'], 'false'],
     ['Markdown in another directory', ['notes/README.md'], 'false'],
     ['non-Markdown docs', ['docs/image.svg'], 'false'],
     ['filename with spaces', ['docs/start here.md'], 'true'],
@@ -53,6 +54,43 @@ describe('select-ci-paths.sh', () => {
     const { root, base } = createRepository();
 
     expect(detect(root, base).output).toContain('lightweight=false\n');
+  });
+
+  it('selects lightweight CI for a docs-only branch after main advances on code', () => {
+    const { root, base } = createRepository();
+    writeFile(root, 'packages/core/src/index.ts', 'export {};\n');
+    commit(root);
+    const main = runGit(root, 'rev-parse', 'HEAD');
+    runGit(root, 'checkout', '--quiet', '--detach', base);
+    writeFile(root, 'docs/guide.md', 'guide\n');
+    commit(root);
+
+    expect(detect(root, main).output).toBe('lightweight=true\n');
+  });
+
+  it('keeps full CI for a mixed branch after main advances on code', () => {
+    const { root, base } = createRepository();
+    writeFile(root, 'packages/core/src/index.ts', 'export {};\n');
+    commit(root);
+    const main = runGit(root, 'rev-parse', 'HEAD');
+    runGit(root, 'checkout', '--quiet', '--detach', base);
+    writeFile(root, 'docs/guide.md', 'guide\n');
+    writeFile(root, 'packages/react/src/index.ts', 'export {};\n');
+    commit(root);
+
+    expect(detect(root, main).output).toBe('lightweight=false\n');
+  });
+
+  it('fails without output when the revisions have no merge base', () => {
+    const { root, base } = createRepository();
+    runGit(root, 'checkout', '--quiet', '--orphan', 'unrelated');
+    runGit(root, 'rm', '-rf', '.');
+    writeFile(root, 'docs/guide.md', 'guide\n');
+    commit(root);
+
+    const result = detect(root, base);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toBe('');
   });
 
   it('accepts a deletion inside the allowed paths', () => {
@@ -81,6 +119,18 @@ describe('select-ci-paths.sh', () => {
     expect(detect(root, base).output).toContain('lightweight=true\n');
   });
 
+  it('keeps full CI when a rename moves an outside path into docs', () => {
+    const { root } = createRepository();
+    writeFile(root, 'packages/core/README.md', 'package\n');
+    commit(root);
+    const base = runGit(root, 'rev-parse', 'HEAD');
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    runGit(root, 'mv', 'packages/core/README.md', 'docs/core.md');
+    commit(root);
+
+    expect(detect(root, base).output).toBe('lightweight=false\n');
+  });
+
   it('keeps full CI when an outside path is deleted', () => {
     const { root } = createRepository();
     writeFile(root, 'package.json', '{}\n');
@@ -95,7 +145,9 @@ describe('select-ci-paths.sh', () => {
   it('fails when Git cannot compare the revisions', () => {
     const { root } = createRepository();
 
-    expect(detect(root, 'missing-revision').status).not.toBe(0);
+    const result = detect(root, 'missing-revision');
+    expect(result.status).not.toBe(0);
+    expect(result.output).toBe('');
   });
 });
 
