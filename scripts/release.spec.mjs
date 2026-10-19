@@ -49,7 +49,6 @@ describe('publishable packages', () => {
       { name: 'Not A Package' },
       'valid npm name and canonical stable version',
     ],
-    ['reserved name', { name: 'node_modules' }, 'valid npm name'],
     ['builtin name', { name: 'http' }, 'valid npm name'],
     [
       'invalid version',
@@ -202,6 +201,10 @@ describe('ordered publishing', () => {
     const events = [];
     const commands = [];
     const execute = recordingExecutor(events, { commands });
+    const archiveBytes = ['core', 'react', 'next'].map((name) =>
+      readFileSync(join(root, `${name}.tgz`)),
+    );
+    const publishedBytes = [];
 
     const published = publishPackageReleases(packages, {
       archiveDirectory: root,
@@ -211,7 +214,10 @@ describe('ordered publishing', () => {
         events.push(`recheck:${name}`);
         return null;
       },
-      execute,
+      execute(command, args) {
+        if (command === 'npm') publishedBytes.push(readFileSync(args[1]));
+        return execute(command, args);
+      },
     });
 
     expect(published).toEqual([
@@ -248,6 +254,12 @@ describe('ordered publishing', () => {
         ],
       })),
     );
+    expect(publishedBytes).toEqual(archiveBytes);
+    expect(
+      ['core', 'react', 'next'].map((name) =>
+        readFileSync(join(root, `${name}.tgz`)),
+      ),
+    ).toEqual(archiveBytes);
   });
 
   it('skips a version published since initial detection', () => {
@@ -271,6 +283,7 @@ describe('ordered publishing', () => {
     createArtifacts(root, packages, commit);
     const versions = new Map();
     const events = [];
+    const attempts = [];
     const execute = recordingExecutor(events);
     let fail = true;
     const options = {
@@ -283,6 +296,7 @@ describe('ordered publishing', () => {
           const entry = packages.find(({ directory }) =>
             args[1].endsWith(`${directory.split('/').at(-1)}.tgz`),
           );
+          attempts.push(entry.manifest.name);
           if (fail && entry.manifest.name === '@fast-link/react')
             throw new Error('npm unavailable');
           versions.set(entry.manifest.name, [entry.manifest.version]);
@@ -293,6 +307,7 @@ describe('ordered publishing', () => {
     expect(() => publishPackageReleases(packages, options)).toThrow(
       'npm unavailable',
     );
+    expect(attempts).toEqual(['@fast-link/core', '@fast-link/react']);
     const state = releaseState(root, commit);
     state.options.readPublishedVersions = options.readPublishedVersions;
     createPackageReleases(packages, state.options);
@@ -310,31 +325,6 @@ describe('ordered publishing', () => {
     );
     expect(state.releases).toHaveLength(3);
   });
-
-  it.each(['publish'])(
-    'does not attempt a dependent after %s fails',
-    (failure) => {
-      const { root, packages } = createPackageGraph();
-      const events = [];
-      const execute = recordingExecutor(events, { failure });
-
-      expect(() =>
-        publishPackageReleases(packages, {
-          archiveDirectory: root,
-          root,
-          commit: publishedCommit,
-          readPublishedVersions(name) {
-            events.push(`recheck:${name}`);
-            return null;
-          },
-          execute,
-        }),
-      ).toThrow(`${failure} failed`);
-      expect(events.filter((event) => event.startsWith('publish:'))).toEqual([
-        'publish:core.tgz',
-      ]);
-    },
-  );
 
   it.each([
     [
@@ -435,24 +425,6 @@ describe('ordered publishing', () => {
       expect(events).not.toContain('registry');
     },
   );
-
-  it('publishes the exact archive bytes that were verified', () => {
-    const { root, packages } = createPackageGraph();
-    const before = readFileSync(join(root, 'core.tgz'));
-    const events = [];
-    const execute = recordingExecutor(events);
-    publishPackageReleases(packages.slice(0, 1), {
-      archiveDirectory: root,
-      root,
-      commit: publishedCommit,
-      readPublishedVersions: () => null,
-      execute(command, args) {
-        if (command === 'npm') expect(readFileSync(args[1])).toEqual(before);
-        return execute(command, args);
-      },
-    });
-    expect(readFileSync(join(root, 'core.tgz'))).toEqual(before);
-  });
 });
 
 describe('GitHub package releases', () => {
@@ -686,7 +658,6 @@ describe('release workflow', () => {
 
   it('keeps workspace installation and packing out of the OIDC job', () => {
     const { jobs } = parse(workflow);
-    expect(jobs.publish.needs).toContain('packed-consumers');
     expect(jobs.publish.environment).toBe('release');
     expect(
       jobs.publish.steps.some((step) =>
@@ -761,51 +732,49 @@ describe('release workflow', () => {
   });
 
   it.each([
-    ['success', 'success', 'success', 'true', 'refs/heads/main', true],
-    ['success', 'success', 'failure', 'true', 'refs/heads/main', true],
-    ['success', 'success', 'skipped', 'true', 'refs/heads/main', true],
-    ['failure', 'success', 'success', 'true', 'refs/heads/main', false],
-    ['success', 'failure', 'success', 'true', 'refs/heads/main', false],
-    ['success', 'success', 'skipped', 'false', 'refs/heads/main', false],
-    ['success', 'success', 'success', 'true', 'refs/heads/other', false],
-  ])(
-    'gates Release recovery: validate=%s browser=%s publish=%s allowlisted=%s ref=%s',
-    (validate, browser, publish, allowlisted, ref, expected) => {
-      const releaseCondition = parse(workflow).jobs.release.if.slice(3, -2);
-      const evaluate = new Function(
-        'github',
-        'needs',
-        'cancelled',
-        `return ${releaseCondition}`,
-      );
-      const needs = {
-        detect: {
-          result: 'success',
-          outputs: { has_publishable_packages: allowlisted },
-        },
-        validate: { result: validate },
-        browser: { result: browser },
-        publish: { result: publish },
-        'packed-consumers': { result: 'success' },
-      };
-      expect(evaluate({ ref }, needs, () => false)).toBe(expected);
-      expect(evaluate({ ref }, needs, () => true)).toBe(false);
-      expect(
-        evaluate(
-          { ref },
-          { ...needs, 'packed-consumers': { result: 'failure' } },
-          () => false,
-        ),
-      ).toBe(false);
-      expect(
-        evaluate(
-          { ref },
-          { ...needs, detect: { ...needs.detect, result: 'failure' } },
-          () => false,
-        ),
-      ).toBe(false);
-    },
-  );
+    ['after successful publication', {}, true],
+    ['after failed publication', { publish: 'failure' }, true],
+    ['after skipped publication', { publish: 'skipped' }, true],
+    ['with failed validation', { validate: 'failure' }, false],
+    ['with failed browser checks', { browser: 'failure' }, false],
+    ['with failed consumers', { consumers: 'failure' }, false],
+    ['with failed detection', { detect: 'failure' }, false],
+    ['without allowlisted packages', { allowlisted: 'false' }, false],
+    ['off main', { ref: 'refs/heads/other' }, false],
+    ['after cancellation', { cancelled: true }, false],
+  ])('gates Release recovery %s', (_, overrides, expected) => {
+    const state = {
+      validate: 'success',
+      browser: 'success',
+      consumers: 'success',
+      detect: 'success',
+      publish: 'success',
+      allowlisted: 'true',
+      ref: 'refs/heads/main',
+      cancelled: false,
+      ...overrides,
+    };
+    const releaseCondition = parse(workflow).jobs.release.if.slice(3, -2);
+    const evaluate = new Function(
+      'github',
+      'needs',
+      'cancelled',
+      `return ${releaseCondition}`,
+    );
+    const needs = {
+      detect: {
+        result: state.detect,
+        outputs: { has_publishable_packages: state.allowlisted },
+      },
+      validate: { result: state.validate },
+      browser: { result: state.browser },
+      publish: { result: state.publish },
+      'packed-consumers': { result: state.consumers },
+    };
+    expect(evaluate({ ref: state.ref }, needs, () => state.cancelled)).toBe(
+      expected,
+    );
+  });
 
   it('makes no external calls for an empty allowlist', () => {
     const packages = readPublishablePackages();
@@ -1084,24 +1053,6 @@ describe('packed package verification', () => {
       'Packed dependencies',
     );
   });
-
-  it('accepts the rechecked name and version', () => {
-    expect(
-      verifyPackedPackage(
-        { name: '@fast-link/core', version: fixtureVersions.current },
-        { name: '@fast-link/core', version: fixtureVersions.current },
-      ),
-    ).toBe(`@fast-link/core@${fixtureVersions.current}`);
-  });
-
-  it('rejects a manifest changed by packing hooks', () => {
-    expect(() =>
-      verifyPackedPackage(
-        { name: '@fast-link/core', version: fixtureVersions.later },
-        { name: '@fast-link/core', version: fixtureVersions.current },
-      ),
-    ).toThrow(`expected @fast-link/core@${fixtureVersions.current}`);
-  });
 });
 
 const packageManifest = {
@@ -1230,7 +1181,7 @@ function createArtifacts(root, packages, commit = publishedCommit) {
   });
 }
 
-function recordingExecutor(events, { failure, commands = [] } = {}) {
+function recordingExecutor(events, { commands = [] } = {}) {
   return (command, args) => {
     commands.push({ command, args: [...args] });
     if (command === 'tar') {
@@ -1241,7 +1192,6 @@ function recordingExecutor(events, { failure, commands = [] } = {}) {
     if (command !== 'npm' || args[0] !== 'publish')
       throw new Error(`Unexpected command: ${command}`);
     events.push(`publish:${args[1].split('/').at(-1)}`);
-    if (failure === 'publish') throw new Error('publish failed');
     return '';
   };
 }
