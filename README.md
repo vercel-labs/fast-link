@@ -108,25 +108,18 @@ More in the [`@fast-link/next` README](./packages/next/README.md):
 
 ## How Fast Link handles input
 
-Fast Link accepts only a primary mouse `pointerdown` on an eligible same-origin
-link. It leaves these interactions to the browser:
-
-- Touch and pen input
-- Middle, right, and modified clicks
-- Links with a `target` other than `_self`
-- Downloads, external URLs, and hash-only links
-- Presses that start on nested controls
-- Keyboard activation
-- An anchor or descendant with `data-no-fast-link`
+Fast Link accepts unmodified primary-mouse `pointerdown` on eligible same-origin
+HTML links. Touch, pen, keyboard, middle, and right clicks keep normal behavior.
+Downloads, external or hash-only URLs, non-`_self` targets, nested controls, and
+`data-no-fast-link` opt-outs remain native. See core's
+[eligibility rules](./packages/core/README.md#know-which-interactions-fast-link-accepts).
 
 After accepted navigation, Fast Link prevents the matching pointer-generated
 click's default action without stopping propagation. Link and ancestor click
 handlers still run if their elements remain mounted until release. A drag away
 from the link can navigate without producing a click.
 
-Attach Fast Link to the narrowest navigation region that shares one policy. In
-Next.js, use `FastLinkRegion` for a group of links and `FastLink` for per-link
-behavior.
+Attach Fast Link to the narrowest navigation region that shares one policy.
 
 ## Build another framework adapter
 
