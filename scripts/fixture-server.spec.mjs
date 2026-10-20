@@ -5,22 +5,23 @@ import { join } from 'node:path';
 
 import { startFixture } from './fixture-server.mjs';
 
-// Exercise the real spawn and HTTP interfaces without building Next for failures.
-async function fixtureRoot(source) {
+// Setup runs in a child: use its arguments and Node globals, not parent closures.
+async function fixtureRoot(setup) {
   const root = await mkdtemp(join(tmpdir(), 'fast-link-lifecycle-'));
   const cli = join(root, 'fixtures/next-16/node_modules/next/dist/bin');
   await mkdir(cli, { recursive: true });
   await writeFile(
     join(cli, 'next'),
-    `const { createServer } = require('node:http');
-     const port = Number(process.argv.at(-1));
-     ${source}`,
+    `(${setup.toString()})(
+      require('node:http').createServer,
+      Number(process.argv.at(-1)),
+    );`,
   );
   return root;
 }
 
-async function fixture(source, run, readinessPath = '/docs') {
-  const root = await fixtureRoot(source);
+async function fixture(setup, run, readinessPath = '/docs') {
+  const root = await fixtureRoot(setup);
   let server;
   try {
     server = await startFixture(root, readinessPath);
@@ -38,11 +39,13 @@ it.each(['/docs', '/docs/benchmark'])(
   'waits for %s and confirms exit on close',
   async (readinessPath) => {
     await fixture(
-      `let requested;
-     createServer((request, response) => {
-       response.end(JSON.stringify({ requested, pid: process.pid }));
-       requested = request.url;
-     }).listen(port, '127.0.0.1');`,
+      (createServer, port) => {
+        let requested;
+        createServer((request, response) => {
+          response.end(JSON.stringify({ requested, pid: process.pid }));
+          requested = request.url;
+        }).listen(port, '127.0.0.1');
+      },
       async (server) => {
         await server.waitUntilReady();
         const { requested, pid } = await fetch(server.origin).then((r) =>
@@ -62,18 +65,22 @@ it.each(['/docs', '/docs/benchmark'])(
 
 it('retries a stalled readiness request and cancels successful response bodies', async () => {
   await fixture(
-    `let attempts = 0;
-     let cancelled = false;
-     createServer((request, response) => {
-       if (request.url === '/state') {
-         response.end(JSON.stringify({ attempts, cancelled }));
-         return;
-       }
-       if (++attempts === 1) return;
-       response.writeHead(200);
-       response.write('ready');
-       response.on('close', () => { cancelled = true; });
-     }).listen(port, '127.0.0.1');`,
+    (createServer, port) => {
+      let attempts = 0;
+      let cancelled = false;
+      createServer((request, response) => {
+        if (request.url === '/state') {
+          response.end(JSON.stringify({ attempts, cancelled }));
+          return;
+        }
+        if (++attempts === 1) return;
+        response.writeHead(200);
+        response.write('ready');
+        response.on('close', () => {
+          cancelled = true;
+        });
+      }).listen(port, '127.0.0.1');
+    },
     async (server) => {
       await server.waitUntilReady();
       await expect
@@ -84,24 +91,36 @@ it('retries a stalled readiness request and cancels successful response bodies',
 }, 5000);
 
 it.each([
-  ['normal exit', 'process.exit(17)', '17'],
-  ['signal termination', "process.kill(process.pid, 'SIGTERM')", 'SIGTERM'],
+  [
+    'normal exit',
+    () => {
+      console.log('startup output');
+      console.error('startup error');
+      // oxlint-disable-next-line no-process-exit -- The child must exit with a known failure status.
+      process.exit(17);
+    },
+    '17',
+  ],
+  [
+    'signal termination',
+    () => {
+      console.log('startup output');
+      console.error('startup error');
+      process.kill(process.pid, 'SIGTERM');
+    },
+    'SIGTERM',
+  ],
 ])(
   'retains both output streams after %s and closes an exited child',
   async (_name, terminate, status) => {
-    await fixture(
-      `console.log('startup output');
-     console.error('startup error');
-     ${terminate};`,
-      async (server) => {
-        const error = await server.waitUntilReady().catch((failure) => failure);
-        expect(error).toBeInstanceOf(Error);
-        expect(error.message).toContain(`server exited (${status})`);
-        expect(error.message).toContain('startup output');
-        expect(error.message).toContain('startup error');
-        await server.close();
-      },
-    );
+    await fixture(terminate, async (server) => {
+      const error = await server.waitUntilReady().catch((failure) => failure);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toContain(`server exited (${status})`);
+      expect(error.message).toContain('startup output');
+      expect(error.message).toContain('startup error');
+      await server.close();
+    });
   },
 );
 
@@ -120,10 +139,14 @@ it('reports spawn failure without an unhandled error or cleanup hang', async () 
 
 it('forces exit after a child ignores graceful shutdown', async () => {
   await fixture(
-    `process.on('SIGTERM', () => {});
-     createServer((request, response) => {
-       response.end(String(process.pid));
-     }).listen(port, '127.0.0.1');`,
+    (createServer, port) => {
+      process.on('SIGTERM', () => {
+        // Ignore graceful shutdown to exercise forced termination.
+      });
+      createServer((request, response) => {
+        response.end(String(process.pid));
+      }).listen(port, '127.0.0.1');
+    },
     async (server) => {
       await server.waitUntilReady();
       const pid = Number(await fetch(server.origin).then((r) => r.text()));
@@ -146,13 +169,15 @@ it('forces exit after a child ignores graceful shutdown', async () => {
 
 it('bounds startup even when every readiness request stalls and closes the child', async () => {
   await fixture(
-    `process.on('SIGTERM', () => {
-       console.error('stalled child stopped');
-       process.exit(0);
-     });
-     createServer((request, response) => {
-       if (request.url === '/pid') response.end(String(process.pid));
-     }).listen(port, '127.0.0.1');`,
+    (createServer, port) => {
+      process.on('SIGTERM', () => {
+        console.error('stalled child stopped');
+        process.exit(0);
+      });
+      createServer((request, response) => {
+        if (request.url === '/pid') response.end(String(process.pid));
+      }).listen(port, '127.0.0.1');
+    },
     async (server) => {
       let pid;
       await expect
@@ -183,12 +208,12 @@ it('bounds startup even when every readiness request stalls and closes the child
 });
 
 it('rejects cleanup with diagnostics when signals cannot stop the child', async () => {
-  const root = await fixtureRoot(
-    `console.error('shutdown diagnostics');
-     createServer((request, response) => {
-       response.end(String(process.pid));
-     }).listen(port, '127.0.0.1');`,
-  );
+  const root = await fixtureRoot((createServer, port) => {
+    console.error('shutdown diagnostics');
+    createServer((request, response) => {
+      response.end(String(process.pid));
+    }).listen(port, '127.0.0.1');
+  });
   let server;
   let pid;
   let kill;
