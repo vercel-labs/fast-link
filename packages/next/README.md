@@ -32,10 +32,6 @@ npm install @fast-link/next
 | `FastLinkRegion` | Existing links sharing one navigation policy  |
 | `useFastLink`    | A custom component that renders the anchor    |
 
-`FastLinkRegion` wraps a group once, so you do not need to replace its links or
-manage refs. `FastLink` renders `next/link`, preserving Link prefetching and
-native activation.
-
 ## Configure one link
 
 Use `FastLink` when one link needs its own Next.js behavior:
@@ -53,6 +49,7 @@ export function AccountLink() {
 ```
 
 - Supports [Next Link options](#fastlink), including object `href`.
+- Preserves Next Link prefetching and native activation.
 - Keeps its own options and policy inside a `FastLinkRegion`, even when disabled.
 
 ## Add Fast Link to a navigation region
@@ -79,11 +76,9 @@ export default function Navigation() {
   a region.
 - Regions cannot read Next Link options from ordinary rendered anchors.
 
-Primary mouse navigation now starts on `pointerdown`. A Server Component can
-pass the link subtree as children.
-
-`FastLinkRegion` renders a `display: contents` `div`. Keep a semantic element,
-such as `nav`, inside the region. The wrapper has no layout box.
+- Server Components can pass the link subtree as children.
+- The wrapper is a `display: contents` div, with no layout box.
+  Keep a semantic element such as `nav` inside it.
 
 ### Configure a Next.js base path
 
@@ -129,12 +124,10 @@ export function AccountLink() {
 }
 ```
 
-Use this opt-out for an ordinary link with `onNavigate`, an `onClick` guard,
-`replace`, `scroll`, or other behavior that the region cannot read from the
-rendered anchor. A descendant React `onPointerDownCapture` can stop or prevent
-the press before the region's native listener runs. Descendant bubble handlers
-run after early navigation and cannot cancel it. Define callback props in a
-Client Component.
+- Opt out for click-time guards or Link options the region cannot read.
+- Descendant `onPointerDownCapture` can prevent or stop the press before the
+  region listener. Bubble handlers run too late to cancel early navigation.
+- Define callbacks in a Client Component.
 
 ## Understand navigation and click behavior
 
@@ -166,11 +159,14 @@ callback.
   `onNavigate` cancellation for press-time validation; opt out for release-time
   validation.
 
-Touch, pen, keyboard, and modified or non-primary clicks keep normal Link or
-browser behavior. Core also leaves downloads, external or hash-only URLs,
-non-`_self` targets, nested controls, and `data-no-fast-link` opt-outs native; see
-[eligibility rules](https://github.com/vercel-labs/fast-link/tree/main/packages/core#know-which-interactions-fast-link-accepts).
-`enabled={false}` disables that component's early navigation.
+Native behavior remains for:
+
+- Touch, pen, keyboard, modified and non-primary clicks.
+- Downloads, external or hash-only URLs, non-`_self` targets, nested controls,
+  and `data-no-fast-link` opt-outs.
+
+See core's [eligibility rules](https://github.com/vercel-labs/fast-link/tree/main/packages/core#know-which-interactions-fast-link-accepts).
+Use `enabled={false}` to disable a component's early navigation.
 
 Other integration rules:
 

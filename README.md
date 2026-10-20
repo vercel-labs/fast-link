@@ -108,16 +108,16 @@ More in the [`@fast-link/next` README](./packages/next/README.md):
 
 ## How Fast Link handles input
 
-Fast Link accepts unmodified primary-mouse `pointerdown` on eligible same-origin
-HTML links. Touch, pen, keyboard, middle, and right clicks keep normal behavior.
-Downloads, external or hash-only URLs, non-`_self` targets, nested controls, and
-`data-no-fast-link` opt-outs remain native. See core's
-[eligibility rules](./packages/core/README.md#know-which-interactions-fast-link-accepts).
+Fast Link accepts unmodified primary-mouse `pointerdown` on eligible same-origin links.
 
-After accepted navigation, Fast Link prevents the matching pointer-generated
-click's default action without stopping propagation. Link and ancestor click
-handlers still run if their elements remain mounted until release. A drag away
-from the link can navigate without producing a click.
+- Native behavior: touch, pen, keyboard, middle, right, and modified clicks.
+- Also native: downloads, external or hash-only URLs, non-`_self` targets,
+  nested controls, and `data-no-fast-link` opt-outs.
+- After accepted navigation: the matching click is default-prevented but still
+  propagates. Handlers run if still mounted at release.
+- Dragging away can navigate without producing a click.
+
+See core's [eligibility rules](./packages/core/README.md#know-which-interactions-fast-link-accepts).
 
 Attach Fast Link to the narrowest navigation region that shares one policy.
 
@@ -212,8 +212,7 @@ to the previous page.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, validation, and package
-boundaries.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup and contribution guidelines.
 
 ## License
 
