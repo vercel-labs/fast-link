@@ -44,9 +44,23 @@ A single script unrelated to existing groups may stay directly under `scripts/`.
 - Core marks accepted native events so nested roots and separately bundled core
   copies navigate once. Preserve both the symbol marker and local fallback.
 
+## Verification
+
 Run commands from the repository root. Before considering a change complete,
-run `pnpm validate` and inspect packed tarballs for every changed public
-package using [the build and archive-preparation procedure](./CONTRIBUTING.md#test-package-installs).
+run `pnpm validate`. For every changed public package, build on Node.js 24 and
+inspect its packed tarball:
+
+```sh
+pnpm build
+node scripts/packaging/prepare-package-artifacts.mjs <directory> <full-commit-sha>
+node scripts/packaging/test-packed-consumers.mjs <directory> <full-commit-sha>
+```
+
+Use the full commit SHA as `gitHead`. Preparation inspects package contents and
+writes archive identities and SHA-256 digests to `release-artifacts.json`.
+Run the consumer command under each supported Node.js version against that same
+archive directory.
+
 All commits must be signed.
 
 After the initial release, changes to package source, build configuration,
