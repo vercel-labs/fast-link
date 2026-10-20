@@ -105,18 +105,26 @@ describe('resolveFastLink', () => {
     expect(resolveFastLink(createPointerEvent(), anchor)).toBeNull();
   });
 
-  it.each(['anchor', 'descendant'])(
-    'leaves a button-role %s native',
-    (targetKind) => {
-      const anchor = createAnchor({ href: '/menu', role: 'button' });
-      const label = anchor.appendChild(document.createElement('span'));
-      const target = targetKind === 'anchor' ? anchor : label;
+  it.each([
+    ['button', 'anchor'],
+    ['button', 'descendant'],
+    [' button ', 'anchor'],
+    [' button ', 'descendant'],
+    ['button link', 'anchor'],
+    ['button link', 'descendant'],
+  ])('leaves role=%j native for a press on the %s', (role, targetKind) => {
+    const anchor = createAnchor({ href: '/menu', role });
+    const label = anchor.appendChild(document.createElement('span'));
+    const target = targetKind === 'anchor' ? anchor : label;
 
-      expect(
-        resolveFastLink(createPointerEvent({ target }), anchor),
-      ).toBeNull();
-    },
-  );
+    expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
+  });
+
+  it('accepts a link role with button as a fallback', () => {
+    const anchor = createAnchor({ href: '/menu', role: 'link button' });
+
+    expect(resolveFastLink(createPointerEvent(), anchor)).not.toBeNull();
+  });
 
   it('allows target="_self"', () => {
     const anchor = createAnchor({ href: '/pricing', target: '_self' });
@@ -132,6 +140,11 @@ describe('resolveFastLink', () => {
     ['summary', '<summary><span>Details</span></summary>'],
     ['textarea', '<textarea></textarea>'],
     ['button role', '<div role="button"><span>Menu</span></div>'],
+    ['padded button role', '<div role=" button "><span>Menu</span></div>'],
+    [
+      'button with fallback role',
+      '<div role="button link"><span>Menu</span></div>',
+    ],
     [
       'opted-out descendant',
       '<span data-no-fast-link><span>Handle</span></span>',

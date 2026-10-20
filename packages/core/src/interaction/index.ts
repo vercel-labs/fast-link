@@ -109,19 +109,20 @@ function isOptedOut(
   eventTarget: EventTarget | null,
   anchor: HTMLAnchorElement,
 ): boolean {
-  if (
-    anchor.hasAttribute('data-no-fast-link') ||
-    anchor.getAttribute('role') === 'button'
-  )
+  if (anchor.hasAttribute('data-no-fast-link') || hasButtonRole(anchor))
     return true;
 
   let element = eventTarget instanceof Element ? eventTarget : null;
   while (element && element !== anchor) {
     if (element.hasAttribute('data-no-fast-link')) return true;
     if (NESTED_CONTROL_TAGS.has(element.tagName)) return true;
-    if (element.getAttribute('role') === 'button') return true;
+    if (hasButtonRole(element)) return true;
     element = element.parentElement;
   }
 
   return false;
+}
+
+function hasButtonRole(element: Element): boolean {
+  return element.getAttribute('role')?.trim().split(/\s+/, 1)[0] === 'button';
 }

@@ -3,6 +3,7 @@
 ## 0.0.7
 
 - Leave button-role anchors and presses on their descendants native.
+- Recognize a leading button role despite surrounding whitespace or fallback roles.
 
 ## 0.0.6
 

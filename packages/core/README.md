@@ -71,6 +71,8 @@ It leaves these interactions to the browser:
 - Middle, right, and modified clicks
 - Links with a `target` other than `_self`
 - Downloads, external URLs, and hash-only links
+- Button-role anchors and presses on their descendants, including
+  `role=" button "` and `role="button link"`
 - Presses that start on `button`, `input`, `label`, `select`, `summary`,
   `textarea`, or an element with `role="button"`
 - An anchor or descendant with `data-no-fast-link`
