@@ -38,20 +38,20 @@ Keep exhaustive cases with their owner:
 ### Specs
 
 - Prove decisions, controller state, adapter arguments, React rerenders, and cleanup.
-- Colocate `*.test.ts` / `*.test.tsx` with the owner; root tooling uses `scripts/*.spec.mjs`.
+- Colocate `*.test.ts` / `*.test.tsx` with the owner; root tooling uses `scripts/**/*.spec.mjs`.
 - Package specs use Vitest's `unit` project in jsdom. Synthetic events prove supplied-event handling, not native activation.
 
 ### Browser tests
 
 - Prove native targeting, capture/bubbling, trusted press/release sequences, default navigation, and browser differences.
-- `scripts/test-core-targeting.mjs` tests built core with named `node:test` cases in Chromium, Firefox, and WebKit.
+- `scripts/browser/test-core-targeting.mjs` tests built core with named `node:test` cases in Chromium, Firefox, and WebKit.
 - Use browser input for native activation claims; `dispatchEvent` remains synthetic in a browser.
 - Keep cases whose browser boundary adds proof.
 
 ### Real app fixtures
 
 - Prove actual Next Link/router behavior, hydration, history, scroll, base paths, prefetch, and composed navigation.
-- Extend `fixtures/next-16` and `scripts/test-next-fixtures.mjs`; keep the production app pinned.
+- Extend `fixtures/next-16` and `scripts/browser/test-next-fixtures.mjs`; keep the production app pinned.
 - Router mocks cannot establish real framework behavior.
 - Preserve `fixtures/core` to verify the built public core package in Node without framework or browser globals.
 - Use `fixtures/react` to verify SSR through the built public React package without DOM globals.

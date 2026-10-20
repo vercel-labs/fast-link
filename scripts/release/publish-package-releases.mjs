@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { verifyReleaseArtifacts } from '../packaging/release-artifacts.mjs';
+import { verifyPackageIdentity } from '../packaging/verify-packed-package.mjs';
 import { checkPackageChangelog } from './changelog.mjs';
 import { detectPackageReleases } from './detect-package-releases.mjs';
 import { getPublishedVersions, NPM_REGISTRY_ARGS } from './npm-registry.mjs';
-import { verifyReleaseArtifacts } from './release-artifacts.mjs';
 import { readReleaseSelection } from './release-selection.mjs';
-import { verifyPackageIdentity } from './verify-packed-package.mjs';
 
 /**
  * Publishes unchanged verified archives in dependency order, rechecking npm first.

@@ -21,6 +21,13 @@ When adding tests or changing test/CI configuration, follow
 - Keep the production fixture on a pinned Next.js version within
   `packages/next`'s peer range.
 
+## Script organization
+
+When adding or moving a script, place it in the existing group that owns its
+responsibility. Keep related helpers, tests, and fixtures with that group.
+Create a new group when a distinct responsibility has multiple related files.
+A single script unrelated to existing groups may stay directly under `scripts/`.
+
 ## Runtime contracts
 
 - `FastLinkIntent.href` is the authored attribute, `url` is the resolved
@@ -56,13 +63,13 @@ Publishing is configured.
 
 ## CI
 
-- `scripts/select-ci-paths.sh` selects lighter PR checks only for non-empty diffs
+- `scripts/ci/select-ci-paths.sh` selects lighter PR checks only for non-empty diffs
   where every path is root `*.md`, `docs/**/*.md`, or `skills/fast-link/**`.
 - Lightweight PRs run formatting and package release intent. They skip
   boundaries, lint, builds, types, tests, size, packing, browser, and packed
   consumers.
 - Other diffs run full CI. Path-detection failure fails validation. Local
   `pnpm validate` always runs the full checks.
-- Change allowed paths in the script and `scripts/select-ci-paths.spec.mjs`.
+- Change allowed paths in the script and `scripts/ci/select-ci-paths.spec.mjs`.
   Change selected checks in `.github/workflows/ci.yml`. After either change,
   run `pnpm validate` and inspect the PR's GitHub Actions results.

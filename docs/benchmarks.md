@@ -190,7 +190,7 @@ After the release publish job succeeds, its benchmark job:
 | Workload counts, list sizes, and mouse hold      | `scripts/benchmarks/workload.mjs`                                         |
 | Browser workloads and correctness checks         | `fixtures/next-16/app/benchmark/lab.tsx`                                  |
 | Sequential measurement                           | `scripts/benchmarks/run.mjs`, `measure.mjs`, `navigation.mjs`             |
-| Shared fixture server lifecycle                  | `scripts/fixture-server.mjs`                                              |
+| Shared fixture server lifecycle                  | `scripts/browser/fixture-server.mjs`                                      |
 | Browser/server reuse and report capture          | `scripts/benchmarks/session.mjs`                                          |
 | Checkout preparation and comparisons             | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs` |
 | Report validation and timing gates               | `scripts/benchmarks/report.mjs`, `policy.json`                            |
@@ -201,5 +201,5 @@ After the release publish job succeeds, its benchmark job:
 Run report, gate, and publication tests without GitHub access:
 
 ```sh
-pnpm exec vitest run --globals scripts/benchmarks.spec.mjs scripts/benchmark-publication.spec.mjs
+pnpm exec vitest run --globals scripts/benchmarks/benchmarks.spec.mjs scripts/benchmarks/benchmark-publication.spec.mjs
 ```

@@ -73,8 +73,8 @@ commit SHA to record as `gitHead`:
 
 ```sh
 pnpm build
-node scripts/prepare-package-artifacts.mjs <directory> <full-commit-sha>
-node scripts/test-packed-consumers.mjs <directory> <full-commit-sha>
+node scripts/packaging/prepare-package-artifacts.mjs <directory> <full-commit-sha>
+node scripts/packaging/test-packed-consumers.mjs <directory> <full-commit-sha>
 ```
 
 Run the consumer command under each supported Node.js version against that same

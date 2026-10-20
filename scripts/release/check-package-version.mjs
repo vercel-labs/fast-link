@@ -1,12 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { checkPackageChangelog } from './changelog.mjs';
 import {
   PUBLISHED_DEPENDENCIES,
   publishedDependencies,
   readWorkspaceManifests,
-} from './package-dependencies.mjs';
+} from '../packaging/package-dependencies.mjs';
+import { checkPackageChangelog } from './changelog.mjs';
 import { readPublishablePackages } from './publishable-packages.mjs';
 import {
   compareSemanticVersions,

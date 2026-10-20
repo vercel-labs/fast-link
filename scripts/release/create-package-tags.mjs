@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { verifyPackageIdentity } from '../packaging/verify-packed-package.mjs';
 import { getPublishedCommit, getPublishedVersions } from './npm-registry.mjs';
 import { readReleaseSelection } from './release-selection.mjs';
-import { verifyPackageIdentity } from './verify-packed-package.mjs';
 
 /**
  * Recovers missing tags for published, allowlisted package versions.
