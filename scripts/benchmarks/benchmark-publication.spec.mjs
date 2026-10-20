@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { scenarioNames } from './benchmarks/report.mjs';
+import { scenarioNames } from './report.mjs';
 
 const directories = [];
 afterEach(() => {
@@ -111,10 +111,7 @@ process.stdout.write(JSON.stringify(output));
   const execute = (script, args = []) =>
     spawnSync(
       process.execPath,
-      [
-        fileURLToPath(new URL(`./benchmarks/${script}.mjs`, import.meta.url)),
-        ...args,
-      ],
+      [fileURLToPath(new URL(`./${script}.mjs`, import.meta.url)), ...args],
       {
         cwd: directory,
         encoding: 'utf8',

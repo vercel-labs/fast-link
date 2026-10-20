@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PACKAGE_DIRECTORIES } from './release-artifacts.mjs';
+import { PACKAGE_DIRECTORIES } from '../packaging/release-artifacts.mjs';
 
 /**
  * Loads allowlisted manifests in PACKAGE_DIRECTORIES order without workspace dependencies.

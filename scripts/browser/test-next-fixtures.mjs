@@ -16,7 +16,7 @@ import { chromium, firefox, webkit } from 'playwright';
 import { startFixture } from './fixture-server.mjs';
 
 const server = await startFixture(
-  fileURLToPath(new URL('../', import.meta.url)),
+  fileURLToPath(new URL('../../', import.meta.url)),
   '/docs',
 );
 const fixtureOrigin = server.origin;

@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import { chromium, firefox, webkit } from 'playwright';
 
 const core = await readFile(
-  new URL('../packages/core/dist/index.js', import.meta.url),
+  new URL('../../packages/core/dist/index.js', import.meta.url),
   'utf8',
 );
 await test('core targeting browsers', { concurrency: true }, async (t) => {

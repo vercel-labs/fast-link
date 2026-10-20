@@ -7,7 +7,7 @@ import { githubRequest } from './github.mjs';
 import { runCommand } from './process.mjs';
 
 /** Selects inputs that can change the benchmark workload or measured implementation. */
-// scripts/select-ci-paths.sh separately allowlists safe CI skips.
+// scripts/ci/select-ci-paths.sh separately allowlists safe CI skips.
 // .agents/skills/testing/SKILL.md needs full CI but does not change measurement inputs.
 export function relevantChanges(paths) {
   return paths.some((path) =>

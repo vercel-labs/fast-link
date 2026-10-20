@@ -10,18 +10,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { applyOverride, relevantChanges } from './benchmarks/ci.mjs';
-import {
-  combineBatches,
-  summarizeCalibration,
-} from './benchmarks/comparison-results.mjs';
-import { updateReadme, renderTable } from './benchmarks/readme.mjs';
+import { applyOverride, relevantChanges } from './ci.mjs';
+import { combineBatches, summarizeCalibration } from './comparison-results.mjs';
+import { updateReadme, renderTable } from './readme.mjs';
 import {
   evaluateGate,
   scenarioNames,
   summarize,
   validateReport,
-} from './benchmarks/report.mjs';
+} from './report.mjs';
 
 const metric = (value) => ({
   unit: 'us/op',
@@ -344,7 +341,7 @@ describe('workflow commands', () => {
   function execute(command, env = {}) {
     return spawnSync(
       process.execPath,
-      [fileURLToPath(new URL('./benchmarks/ci.mjs', import.meta.url)), command],
+      [fileURLToPath(new URL('./ci.mjs', import.meta.url)), command],
       {
         encoding: 'utf8',
         env: { ...process.env, RUNNER_TEMP: directory, ...env },

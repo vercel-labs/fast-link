@@ -7,7 +7,7 @@ import { dirname, resolve } from 'node:path';
 
 import { chromium } from 'playwright';
 
-import { startFixture } from '../fixture-server.mjs';
+import { startFixture } from '../browser/fixture-server.mjs';
 import { createMeasurements } from './measure.mjs';
 import { scenarioNames, summarize, validateReport } from './report.mjs';
 import { workload } from './workload.mjs';

@@ -27,7 +27,9 @@ const artifacts = verifyReleaseArtifacts({
   root: process.cwd(),
   execute: (command, args) => execFileSync(command, args, { encoding: 'utf8' }),
 });
-const fixture = fileURLToPath(new URL('../fixtures/next-16/', import.meta.url));
+const fixture = fileURLToPath(
+  new URL('../../fixtures/next-16/', import.meta.url),
+);
 const fixtureManifest = JSON.parse(
   await readFile(join(fixture, 'package.json'), 'utf8'),
 );

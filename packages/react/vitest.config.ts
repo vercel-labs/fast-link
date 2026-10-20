@@ -1,28 +1,14 @@
 import { defineConfig } from 'vitest/config';
 
+// @boundaries-ignore Shared test defaults, outside production package imports.
+import { coverage, unit } from '../../vitest.shared.ts';
+
 export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
   test: {
-    coverage: {
-      provider: 'v8',
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/testing/**'],
-      reporter: ['text', 'json-summary'],
-    },
-    projects: [
-      {
-        test: {
-          name: 'unit',
-          globals: true,
-          environment: 'jsdom',
-          environmentOptions: {
-            jsdom: { url: 'https://example.com/' },
-          },
-          include: ['src/**/*.test.{ts,tsx}'],
-        },
-      },
-    ],
+    coverage,
+    projects: [{ test: unit }],
   },
 });

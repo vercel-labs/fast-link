@@ -35,7 +35,8 @@
       "dependsOn": ["build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"]
     },
     "size": {
       "dependsOn": ["build"]
@@ -45,7 +46,7 @@
       "cache": false,
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/scripts/test-core-targeting.mjs"
+        "$TURBO_ROOT$/scripts/browser/test-core-targeting.mjs"
       ]
     },
     "@fast-link/fixture-next-16#test:fixtures": {
@@ -63,6 +64,7 @@
         "scripts/**",
         ".pnpmfile.cjs",
         ".github/workflows/**",
+        ".github/actions/**",
         "package.json",
         "pnpm-lock.yaml"
       ]
