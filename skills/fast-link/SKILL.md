@@ -6,9 +6,8 @@ license: MIT
 
 # Fast Link
 
-Fast Link starts eligible primary-mouse navigation on `pointerdown`, including
-when the request calls it "navigate on mousedown". Use it where pressing
-the link is enough to commit. For press timing and opt-outs, see
+Fast Link starts eligible primary-mouse navigation on `pointerdown`. Use it
+where pressing the link is enough to commit. For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
 ## Inspect the consumer
@@ -105,15 +104,8 @@ Before implementation, identify the import path, Fast Link primitive, routing
 authority, and required opt-outs. Explain that choice
 with source evidence; keep uncertain links native until their contract is known.
 
-Read the consumer's `package.json` scripts, package-manager declaration,
-workspace commands, and browser-test configuration. Derive the exact install,
-typecheck, build, and test commands from those files; use its existing test
-runner and server setup. Fast Link's repository commands are not consumer
-commands. If no browser runner exists, report that gap before adding tooling.
-
-Run the consumer's relevant checks. For Next.js, adapt the
-[press/release recipe](references/next.md#verify-press-and-release) to its existing
-browser suite. For changed integrations, verify:
+Run the consumer's existing install, typecheck, build, and browser checks as
+applicable. Derive commands from its package scripts and configuration. Verify:
 
 - Mouse navigation begins on press and the follow-up click does not navigate
   twice; keyboard and modified activation retain their normal behavior.
