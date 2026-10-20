@@ -21,10 +21,6 @@ const [archiveDirectory, commit, mode] = process.argv.slice(2);
 if (mode !== undefined && mode !== '--minimum')
   throw new Error('Unknown consumer mode');
 const minimum = mode === '--minimum';
-if (minimum)
-  throw new Error(
-    'Intentional minimum compatibility failure for CI gate verification',
-  );
 if (!archiveDirectory) {
   throw new Error(
     'Usage: test-packed-consumers.mjs <directory> <full-commit-sha> [--minimum]',
