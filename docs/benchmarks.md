@@ -185,17 +185,18 @@ After the release publish job succeeds, its benchmark job:
 
 ## Change the benchmark code
 
-| Responsibility                                   | Source                                                                      |
-| ------------------------------------------------ | --------------------------------------------------------------------------- |
-| Workload counts, list sizes, and mouse hold      | `scripts/benchmarks/workload.mjs`                                           |
-| Browser workloads and correctness checks         | `fixtures/next-16/app/benchmark/lab.tsx`                                    |
-| Sequential measurement and fixture server        | `scripts/benchmarks/run.mjs`, `measure.mjs`, `server.mjs`, `navigation.mjs` |
-| Browser/server reuse and report capture          | `scripts/benchmarks/session.mjs`                                            |
-| Checkout preparation and comparisons             | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs`   |
-| Report validation and timing gates               | `scripts/benchmarks/report.mjs`, `policy.json`                              |
-| CI selection, overrides, and verdict enforcement | `scripts/benchmarks/ci.mjs`                                                 |
-| Release baseline and GitHub publication          | `scripts/benchmarks/baseline.mjs`, `publish.mjs`, `github.mjs`              |
-| README markers and table rendering               | `scripts/benchmarks/readme.mjs`                                             |
+| Responsibility                                   | Source                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| Workload counts, list sizes, and mouse hold      | `scripts/benchmarks/workload.mjs`                                         |
+| Browser workloads and correctness checks         | `fixtures/next-16/app/benchmark/lab.tsx`                                  |
+| Sequential measurement                           | `scripts/benchmarks/run.mjs`, `measure.mjs`, `navigation.mjs`             |
+| Shared fixture server lifecycle                  | `scripts/fixture-server.mjs`                                              |
+| Browser/server reuse and report capture          | `scripts/benchmarks/session.mjs`                                          |
+| Checkout preparation and comparisons             | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs` |
+| Report validation and timing gates               | `scripts/benchmarks/report.mjs`, `policy.json`                            |
+| CI selection, overrides, and verdict enforcement | `scripts/benchmarks/ci.mjs`                                               |
+| Release baseline and GitHub publication          | `scripts/benchmarks/baseline.mjs`, `publish.mjs`, `github.mjs`            |
+| README markers and table rendering               | `scripts/benchmarks/readme.mjs`                                           |
 
 Run report, gate, and publication tests without GitHub access:
 
