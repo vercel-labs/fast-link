@@ -17,6 +17,14 @@ proposal contains the computed router destination, history method (`push` or
 application's routing contract. The intent also contains the source anchor,
 authored href, and resolved URL.
 
+Choose the resolver input by its verified contract. `intent.url` is the resolved
+browser URL, including a base path such as `/docs`. For a region configured with
+`basePath="/docs"`, `proposed.destination` has one matching prefix removed:
+`/docs/overview?tab=1` becomes `/overview?tab=1`. A resolver expecting deployed
+URLs should receive `intent.url`; a resolver expecting router-relative paths
+should receive the appropriate proposed destination. Do not strip or add a
+prefix without checking the resolver's callers and routing configuration.
+
 ## Choose a supported decision
 
 The policy runs synchronously and returns one of:

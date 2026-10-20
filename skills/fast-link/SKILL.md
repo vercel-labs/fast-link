@@ -1,12 +1,13 @@
 ---
 name: fast-link
-description: Integrate, migrate, troubleshoot, or review Fast Link when it is named or the project uses or is adopting @fast-link/next, @fast-link/react, or @fast-link/core. General navigation performance requests alone are outside this skill's scope.
+description: Integrate, migrate, troubleshoot, or review Fast Link when named, when adopting @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on mousedown" or "navigate on press". General navigation performance requests alone are outside this skill's scope.
 license: MIT
 ---
 
 # Fast Link
 
-Fast Link starts eligible mouse navigation on pointerdown. Use it where pressing
+Fast Link starts eligible primary-mouse navigation on `pointerdown`, including
+when the request calls it "navigate on mousedown". Use it where pressing
 the link is enough to commit. For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
@@ -49,6 +50,16 @@ and its Next.js options should be preserved. Do not move a release-time guard
 earlier without agreement that the timing change fits the interaction.
 
 ## Select the interface
+
+Reuse an applicable application integration first. Within that integration:
+
+| Interface             | Choose it for                                                               |
+| --------------------- | --------------------------------------------------------------------------- |
+| Next `FastLink`       | A link with its own Next Link options or synchronous cancellation           |
+| Next `FastLinkRegion` | A group of ordinary links sharing one navigation policy                     |
+| Next `useFastLink`    | An existing renderer that must own the anchor and cannot use the components |
+| Core `createFastLink` | Plain DOM or a custom framework adapter                                     |
+| React `useFastLink`   | React lifecycle for a custom adapter                                        |
 
 Use the Next.js reference's selection steps for a Next.js target. For plain DOM
 or other React consumers, read [Core and React adapters](references/adapters.md)
@@ -94,7 +105,15 @@ Before implementation, identify the import path, Fast Link primitive, routing
 authority, and required opt-outs. Explain that choice
 with source evidence; keep uncertain links native until their contract is known.
 
-Run the consumer's relevant checks. For changed integrations, verify:
+Read the consumer's `package.json` scripts, package-manager declaration,
+workspace commands, and browser-test configuration. Derive the exact install,
+typecheck, build, and test commands from those files; use its existing test
+runner and server setup. Fast Link's repository commands are not consumer
+commands. If no browser runner exists, report that gap before adding tooling.
+
+Run the consumer's relevant checks. For Next.js, adapt the
+[press/release recipe](references/next.md#verify-press-and-release) to its existing
+browser suite. For changed integrations, verify:
 
 - Mouse navigation begins on press and the follow-up click does not navigate
   twice; keyboard and modified activation retain their normal behavior.

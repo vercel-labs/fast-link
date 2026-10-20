@@ -21,6 +21,9 @@ When adding tests or changing test/CI configuration, follow
 - Keep the production fixture on a pinned Next.js version within
   `packages/next`'s peer range.
 
+When changing a public contract, review affected package and root READMEs and
+`skills/fast-link/` references against the source, and update stale guidance.
+
 ## Script organization
 
 When adding or moving a script, place it in the existing group that owns its

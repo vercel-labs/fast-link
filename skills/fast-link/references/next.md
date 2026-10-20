@@ -35,9 +35,9 @@ does not make a release-time guard safe to move to pointerdown.
    Read [Routing decisions](routing.md) for policy contracts. Keep uncertain
    links native when source or documented contracts cannot establish safe behavior.
 
-Within the selected integration, prefer a region for ordinary links sharing its
-navigation behavior, or managed `FastLink` for per-link options and synchronous
-cancellation. Choose the narrowest compatible region. Use supported component
+Within the selected integration, use managed `FastLink` for per-link options
+and synchronous cancellation, or a region for ordinary links sharing one
+navigation policy. Choose the narrowest compatible region. Use supported component
 composition before the [custom-renderer hook](#custom-renderers), which requires
 a demonstrated renderer constraint. Keep one anchor per link.
 
@@ -79,7 +79,9 @@ handlers run after early navigation and cannot cancel it.
 
 Pass the application's actual `basePath` to `FastLinkRegion` when configured.
 For example, with `/docs`, Next Link renders `/docs/overview`; the region removes
-one matching prefix before the App Router adds it. Plain anchors inside the
+one matching prefix before the App Router adds it. The prop is optional and
+defaults to `''`; omitting it for an app configured with `/docs` can produce
+`/docs/docs/overview`. Omit it when the app has no base path. Plain anchors inside the
 region must include `/docs` in their authored href so native activation reaches
 the same destination. `FastLink` uses its authored Link destination and does
 not accept a `basePath` prop.
@@ -129,8 +131,13 @@ policies. Bind a needed policy inside a Client Component so Server Components
 can use the adapter with serializable props and children.
 
 This example assumes the application provides a client-safe
-`ownsRoute(url: URL): boolean` resolver. Adapt the call to the actual resolver's
+`ownsRoute(url: URL): boolean` resolver that accepts the full deployed URL,
+including its base path. Adapt the call to the actual resolver's
 contract and routing configuration; foreign or unknown ownership returns false.
+
+If the resolver instead expects a router-relative destination, inspect
+`proposed.destination` and its callers; a configured region removes its base
+path there. See [resolver inputs](routing.md#establish-router-ownership).
 
 This example binds the policy for early mouse navigation. Preserve the
 application's existing routing for native activation, including keyboard and
@@ -250,6 +257,68 @@ Fast Link uses public router calls, which do not set Next Link's internal
 `useLinkStatus().pending`. Use route-level loading UI or application-owned
 pending state updated by `onFastNavigate`; define how that state completes or
 resets in the application.
+
+## Verify press and release
+
+Use the consumer's existing Playwright suite and production-server setup. Read
+its scripts and configuration to derive the command and test path; run its
+existing install, typecheck, and production-build checks as applicable. Avoid
+assuming that the consumer has Fast Link's `validate` or `test:fixtures` scripts.
+
+Create or reuse a test route with a persistent navigation link that stays
+mounted at the same position across source and destination. Wait for the app's
+hydration/readiness signal before pressing. In that test fixture:
+
+- Give the managed link `data-testid="early-link"` and a same-app destination
+  that pushes a new history entry, without redirects.
+- Increment `fast-count` from the link's `onFastNavigate` and render the count.
+- In its `onClick`, increment and render `click-count` and render
+  `String(event.defaultPrevented)` in `click-prevented`. Keep caller handlers.
+- Render `destination-ready` when the destination has committed. Start both
+  counts at zero and retain them in the persistent layout.
+
+Adapt the example URLs, selectors, and readiness signal to that fixture:
+
+```ts
+import { expect, test } from '@playwright/test';
+
+test('navigates on press and suppresses the release click', async ({
+  page,
+}) => {
+  await page.goto('/press-check');
+  await expect(page.getByTestId('navigation-ready')).toHaveText('ready');
+  const link = page.getByTestId('early-link');
+  await expect(page.getByTestId('fast-count')).toHaveText('0');
+  await expect(page.getByTestId('click-count')).toHaveText('0');
+  const historyBefore = await page.evaluate(() => history.length);
+  await link.scrollIntoViewIfNeeded();
+  const box = await link.boundingBox();
+  if (!box) throw new Error('Missing early-navigation link');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  try {
+    await expect(page).toHaveURL(/\/press-check\/destination$/);
+    await expect(page.getByTestId('destination-ready')).toBeVisible();
+    await expect(page.getByTestId('fast-count')).toHaveText('1');
+    await expect(page.getByTestId('click-count')).toHaveText('0');
+  } finally {
+    await page.mouse.up();
+  }
+  await expect(page.getByTestId('click-count')).toHaveText('1');
+  await expect(page.getByTestId('click-prevented')).toHaveText('true');
+  await expect(page.getByTestId('fast-count')).toHaveText('1');
+  expect(await page.evaluate(() => history.length)).toBe(historyBefore + 1);
+});
+```
+
+The destination assertion runs while the mouse is held. Observing the actual
+prevented click establishes release handling; the final count and history check
+reject a second early-navigation intent or history push. A URL assertion alone
+cannot prove the absence of duplicate navigation. If the link unmounts or moves
+before release, use a persistent fixture to test suppression separately.
+
+Keep existing checks for keyboard and modified activation, guards, base paths,
+and routing ownership. Router mocks alone do not verify the real Next.js path.
 
 The [package README](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
 contains the full public API. Check it against the installed version before
