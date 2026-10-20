@@ -259,7 +259,7 @@ async function checkSvg(browser, scenario) {
         return route.abort();
       }
       const graphic =
-        '<svg width="200" height="80"><a href="#native"><rect id="pressed" x="10" y="10" width="180" height="60" fill="blue" /></a></svg>';
+        '<svg width="200" height="80"><a href="/#native"><rect id="pressed" x="10" y="10" width="180" height="60" fill="blue" /></a></svg>';
       return route.fulfill({
         contentType: 'text/html',
         body: `<div id="root">${scenario === 'svg-html' ? `<a href="/first">${graphic}</a>` : graphic}</div>`,
