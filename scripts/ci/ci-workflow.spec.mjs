@@ -100,15 +100,18 @@ it.each(['ci', 'release'])(
       ),
     );
     const steps = jobs.validate.steps;
-    const prepare = steps.findIndex((step) =>
-      step.run?.includes('prepare-package-artifacts.mjs'),
+    const prepare = steps.findIndex(
+      (step) =>
+        step.run ===
+        'node scripts/packaging/prepare-package-artifacts.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"',
     );
     const minimum = steps.findIndex(
       (step) =>
-        step.run?.includes('test-packed-consumers.mjs') &&
-        step.run.includes('--minimum'),
+        step.run ===
+        'node scripts/packaging/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}" --minimum',
     );
     expect(prepare).toBeGreaterThanOrEqual(0);
+    expect(minimum).toBeGreaterThanOrEqual(0);
     expect(minimum).toBeGreaterThan(prepare);
     expect(steps[minimum]['continue-on-error']).toBeUndefined();
     expect(steps[minimum].if).toBe(
@@ -119,8 +122,9 @@ it.each(['ci', 'release'])(
     expect(
       steps
         .slice(prepare + 1, minimum)
-        .some((step) =>
-          step.run?.includes('playwright install --with-deps chromium'),
+        .some(
+          (step) =>
+            step.run === 'pnpm exec playwright install --with-deps chromium',
         ),
     ).toBe(true);
     if (name === 'release') expect(jobs.publish.needs).toContain('validate');
