@@ -10,6 +10,33 @@ const NESTED_CONTROL_TAGS = new Set([
   'TEXTAREA',
 ]);
 
+// Concrete roles stop fallback; abstract and unknown roles do not.
+// Includes browser-supported aliases from Blink's non-abstract role mappings:
+// https://chromium.googlesource.com/chromium/src/+/6b5a1b80ccc1e8a4967901d8e58fc2e162cdf050/third_party/blink/renderer/core/html/aria_properties.json5
+const CONCRETE_ROLES = new Set(
+  `
+  alert alertdialog application article banner blockquote button caption cell
+  checkbox code columnheader combobox comment complementary contentinfo definition
+  deletion dialog directory doc-abstract doc-acknowledgments doc-afterword
+  doc-appendix doc-backlink doc-biblioentry doc-bibliography doc-biblioref
+  doc-chapter doc-colophon doc-conclusion doc-cover doc-credit doc-credits
+  doc-dedication doc-endnote doc-endnotes doc-epigraph doc-epilogue doc-errata
+  doc-example doc-footnote doc-foreword doc-glossary doc-glossref doc-index
+  doc-introduction doc-noteref doc-notice doc-pagebreak doc-pagefooter doc-pageheader doc-pagelist doc-part
+  doc-preface doc-prologue doc-pullquote doc-qna doc-subtitle doc-tip doc-toc
+  document emphasis feed figure form generic graphics-document graphics-object
+  graphics-symbol grid gridcell group heading image img insertion link list listbox
+  listitem log main mark marquee math menu menubar menuitem menuitemcheckbox
+  menuitemradio meter navigation none note option paragraph presentation
+  progressbar radio radiogroup region row rowgroup rowheader scrollbar search
+  searchbox sectionfooter sectionheader separator slider spinbutton status strong subscript suggestion superscript
+  switch tab table tablist tabpanel term textbox time timer toolbar tooltip tree
+  treegrid treeitem
+`
+    .trim()
+    .split(/\s+/),
+);
+
 /** A validated same-origin destination for a primary mouse pointerdown. */
 export interface FastLinkIntent {
   /** The link selected for early navigation. */
@@ -124,5 +151,9 @@ function isOptedOut(
 }
 
 function hasButtonRole(element: Element): boolean {
-  return element.getAttribute('role')?.trim().split(/\s+/, 1)[0] === 'button';
+  const roles = element
+    .getAttribute('role')
+    ?.replace(/[A-Z]/g, (letter) => letter.toLowerCase())
+    .split(/[\t\n\f\r ]+/);
+  return roles?.find((role) => CONCRETE_ROLES.has(role)) === 'button';
 }

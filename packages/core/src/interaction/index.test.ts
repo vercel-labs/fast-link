@@ -112,6 +112,11 @@ describe('resolveFastLink', () => {
     [' button ', 'descendant'],
     ['button link', 'anchor'],
     ['button link', 'descendant'],
+    ['future-button button', 'anchor'],
+    ['future-button button', 'descendant'],
+    ['command button', 'anchor'],
+    ['command button', 'descendant'],
+    ['BUTTON', 'anchor'],
   ])('leaves role=%j native for a press on the %s', (role, targetKind) => {
     const anchor = createAnchor({ href: '/menu', role });
     const label = anchor.appendChild(document.createElement('span'));
@@ -120,8 +125,22 @@ describe('resolveFastLink', () => {
     expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
   });
 
-  it('accepts a link role with button as a fallback', () => {
-    const anchor = createAnchor({ href: '/menu', role: 'link button' });
+  it.each([
+    'link button',
+    'future-role link button',
+    'checkbox button',
+    'doc-biblioref button',
+    'graphics-symbol button',
+    'LINK button',
+    'comment button',
+    'image button',
+    'suggestion button',
+    'sectionfooter button',
+    'sectionheader button',
+    'doc-pagefooter button',
+    'doc-pageheader button',
+  ])('accepts role=%j when button is an unused fallback', (role) => {
+    const anchor = createAnchor({ href: '/menu', role });
 
     expect(resolveFastLink(createPointerEvent(), anchor)).not.toBeNull();
   });
@@ -144,6 +163,14 @@ describe('resolveFastLink', () => {
     [
       'button with fallback role',
       '<div role="button link"><span>Menu</span></div>',
+    ],
+    [
+      'button after an unsupported role',
+      '<div role="future-button button"><span>Menu</span></div>',
+    ],
+    [
+      'button after an abstract role',
+      '<div role="command button"><span>Menu</span></div>',
     ],
     [
       'opted-out descendant',
