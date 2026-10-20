@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.8
+
+- Lead quick starts with FastLink and explain region options, guards, and routing ownership.
+
 ## 0.0.7
 
 - Require Next.js 16 and React 19, with minimum-version production compatibility checks.
