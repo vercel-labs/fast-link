@@ -7,45 +7,19 @@
 /* oxlint-disable no-await-in-loop -- Fixture startup and browser interactions must run in order. */
 
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { createServer } from 'node:net';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { chromium, firefox, webkit } from 'playwright';
 
-const version = 'next-16';
-const port = await freePort();
-const fixtureOrigin = `http://127.0.0.1:${port}`;
-const serverProcess = spawn(
-  process.execPath,
-  [
-    fileURLToPath(
-      new URL(
-        `../fixtures/${version}/node_modules/next/dist/bin/next`,
-        import.meta.url,
-      ),
-    ),
-    'start',
-    '--hostname',
-    '127.0.0.1',
-    '--port',
-    String(port),
-  ],
-  {
-    cwd: fileURLToPath(new URL(`../fixtures/${version}/`, import.meta.url)),
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
+import { startFixture } from './fixture-server.mjs';
+
+const server = await startFixture(
+  fileURLToPath(new URL('../', import.meta.url)),
+  '/docs',
 );
-let output = '';
-serverProcess.stdout.on('data', (data) => {
-  output += data.toString();
-});
-serverProcess.stderr.on('data', (data) => {
-  output += data.toString();
-});
+const fixtureOrigin = server.origin;
 
 const scenarios = [
   [
@@ -304,7 +278,7 @@ const scenarios = [
 ];
 
 try {
-  await waitForServer(`${fixtureOrigin}/docs`, serverProcess);
+  await server.waitUntilReady();
   await test('Next.js fixture browsers', { concurrency: true }, async (t) => {
     await Promise.all(
       Object.entries({ chromium, firefox, webkit }).map(([name, browserType]) =>
@@ -314,15 +288,10 @@ try {
       ),
     );
   });
-} catch (error) {
-  throw new Error(`${version} fixture failed:\n${output}`, { cause: error });
 } finally {
-  if (serverProcess.exitCode === null && serverProcess.signalCode === null) {
-    const exited = once(serverProcess, 'exit');
-    serverProcess.kill('SIGTERM');
-    await exited;
-  }
+  await server.close();
 }
+
 async function checkBrowser(browserType, t) {
   const browser = await browserType.launch();
   try {
@@ -639,36 +608,6 @@ function assertBrowserNavigation(
       `${testId}: expected preserved scroll, moved ${before.scrollY} -> ${after.scrollY}`,
     );
   }
-}
-
-async function freePort() {
-  const server = createServer();
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const address = server.address();
-  if (!address || typeof address === 'string')
-    throw new Error('No fixture port');
-  await new Promise((resolve) => server.close(resolve));
-  return address.port;
-}
-
-async function waitForServer(url, child) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null)
-      throw new Error(`Next.js exited with ${child.exitCode}`);
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
-      await response.body?.cancel();
-      if (response.ok) return;
-    } catch {
-      // The server may still be starting.
-    }
-    await delay(100);
-  }
-  throw new Error('Next.js fixture did not start');
 }
 
 async function checkPrefetch(page, origin) {

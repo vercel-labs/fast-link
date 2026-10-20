@@ -7,9 +7,9 @@ import { dirname, resolve } from 'node:path';
 
 import { chromium } from 'playwright';
 
+import { startFixture } from '../fixture-server.mjs';
 import { createMeasurements } from './measure.mjs';
 import { scenarioNames, summarize, validateReport } from './report.mjs';
-import { startFixture } from './server.mjs';
 import { workload } from './workload.mjs';
 
 /** Captures source identity, tested versions, environment, and measurement conditions. */
@@ -99,7 +99,7 @@ export function createBenchmarkSession() {
   async function prepare(root) {
     let server = servers.get(root);
     if (!server) {
-      server = await startFixture(root);
+      server = await startFixture(root, '/docs/benchmark');
       servers.set(root, server);
       await server.waitUntilReady();
     }
