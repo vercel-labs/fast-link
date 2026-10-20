@@ -1,6 +1,6 @@
 {
   "name": "@fast-link/next",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Early mouse navigation for Next.js App Router links",
   "author": "Vercel",
   "license": "MIT",
@@ -26,8 +26,8 @@
     "@fast-link/react": "workspace:^"
   },
   "peerDependencies": {
-    "next": ">=16",
-    "react": ">=18"
+    "next": ">=16 <17",
+    "react": ">=19 <20"
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "12.1.0",

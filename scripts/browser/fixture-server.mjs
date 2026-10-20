@@ -6,14 +6,18 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 /**
- * Starts the built Next.js fixture from the caller's checkout on a localhost port.
+ * Starts a built Next.js fixture on a localhost port. The optional fixture path
+ * selects an isolated packed consumer; otherwise uses the caller's checkout.
  * waitUntilReady polls readinessPath for 30 seconds, with one-second requests,
  * and closes the child on failure. close is idempotent, waits five seconds after
  * SIGTERM, then five after SIGKILL, and rejects if exit cannot be confirmed.
  * Startup and cleanup failures include captured stdout and stderr.
  */
-export async function startFixture(root, readinessPath) {
-  const fixture = resolve(root, 'fixtures/next-16');
+export async function startFixture(
+  root,
+  readinessPath,
+  fixture = resolve(root, 'fixtures/next-16'),
+) {
   const socket = createServer();
   socket.listen(0, '127.0.0.1');
   await once(socket, 'listening');

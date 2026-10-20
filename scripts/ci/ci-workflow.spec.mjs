@@ -87,3 +87,42 @@ describe('CI validation workflow', () => {
     });
   });
 });
+
+// The required validate job owns this gate, so a failed minimum run cannot be
+// hidden behind a separately optional check or reach release publication.
+it.each(['ci', 'release'])(
+  'requires packed minimum compatibility in %s validation',
+  (name) => {
+    const { jobs } = parse(
+      readFileSync(
+        new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
+        'utf8',
+      ),
+    );
+    const steps = jobs.validate.steps;
+    const prepare = steps.findIndex((step) =>
+      step.run?.includes('prepare-package-artifacts.mjs'),
+    );
+    const minimum = steps.findIndex(
+      (step) =>
+        step.run?.includes('test-packed-consumers.mjs') &&
+        step.run.includes('--minimum'),
+    );
+    expect(prepare).toBeGreaterThanOrEqual(0);
+    expect(minimum).toBeGreaterThan(prepare);
+    expect(steps[minimum]['continue-on-error']).toBeUndefined();
+    expect(steps[minimum].if).toBe(
+      name === 'ci'
+        ? "${{ needs.paths.outputs.lightweight != 'true' }}"
+        : undefined,
+    );
+    expect(
+      steps
+        .slice(prepare + 1, minimum)
+        .some((step) =>
+          step.run?.includes('playwright install --with-deps chromium'),
+        ),
+    ).toBe(true);
+    if (name === 'release') expect(jobs.publish.needs).toContain('validate');
+  },
+);

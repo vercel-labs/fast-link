@@ -72,6 +72,10 @@
     "test:coverage": {
       "dependsOn": ["^build"],
       "cache": false
+    },
+    "//#test:compatibility": {
+      "dependsOn": ["@fast-link/next#build"],
+      "cache": false
     }
   }
 }

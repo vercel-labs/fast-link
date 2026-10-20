@@ -11,7 +11,7 @@ pnpm validate
 ```
 
 `pnpm validate` checks formatting, lint, package boundaries, release tooling,
-builds, types, unit and browser tests, the Next.js fixture, and package sizes.
+builds, types, unit and browser tests, the Next.js fixture, minimum framework compatibility, and package sizes.
 Run it before opening a pull request. All commits must be signed.
 
 ## Package boundaries
@@ -82,3 +82,31 @@ directory. Preparation packs each public package once, runs publint and reposito
 checks, and writes archive identities and SHA-256 digests to `release-artifacts.json`.
 Consumers and publication verify this handoff before using the archives.
 The release workflow performs these checks even while publication is disabled.
+
+### Verify framework compatibility
+
+React adapters support React `>=19 <20`; the Next.js adapter supports Next.js
+`>=16 <17`. Verify a new major before changing these ranges.
+
+```sh
+pnpm exec turbo run //#test:compatibility
+```
+
+This uncached check builds the packages, prepares and inspects archives, and
+installs them in a fresh consumer with Next.js 16.0.0 and matching React/React DOM
+19.0.0. It asserts resolved versions, runs the existing standalone React lifecycle
+suite against the installed public export, checks public types and a production
+build, then runs the existing Next.js scenarios in Chromium. The minimum consumer
+also uses React 19.0.0 type declarations. No workspace framework links are used.
+
+`pnpm validate` includes this check. Code PR and release validation run the same
+minimum consumer against their prepared release archives, so failure blocks the
+required validation job and publication. Documentation-only CI stays lightweight.
+The pinned fixture retains Chromium, Firefox, and WebKit; the packed-consumer
+Node.js 22/24/26 matrix remains separate.
+
+To verify an existing archive set without repacking:
+
+```sh
+node scripts/packaging/test-packed-consumers.mjs <directory> <full-commit-sha> --minimum
+```
