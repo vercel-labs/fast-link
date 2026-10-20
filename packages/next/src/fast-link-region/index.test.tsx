@@ -6,6 +6,7 @@
 
 import { fireEvent, render } from '@testing-library/react';
 import Link from 'next/link';
+import { StrictMode } from 'react';
 
 import { FastLink } from '../fast-link';
 import { pointerDown, router, routing } from '../testing';
@@ -241,4 +242,41 @@ describe('FastLinkRegion', () => {
     expect(errors).toEqual([failure]);
     expect(router.push).toHaveBeenCalledExactlyOnceWith('/pricing');
   });
+});
+
+it('preserves managed ownership and cleans up composed controllers in StrictMode', () => {
+  const regionPolicy = vi.fn(() => ({ kind: 'router' as const }));
+  const managedPolicy = vi.fn(() => ({ kind: 'router' as const }));
+  const { getByRole, unmount } = render(
+    <StrictMode>
+      <FastLinkRegion navigationPolicy={regionPolicy}>
+        <FastLink href="/managed" navigationPolicy={managedPolicy}>
+          Managed
+        </FastLink>
+      </FastLinkRegion>
+    </StrictMode>,
+  );
+  const anchor = getByRole('link');
+  pointerDown(anchor);
+  expect(managedPolicy).toHaveBeenCalledTimes(1);
+  expect(regionPolicy).not.toHaveBeenCalled();
+  expect(router.push).toHaveBeenCalledExactlyOnceWith('/managed', {
+    scroll: undefined,
+    transitionTypes: undefined,
+  });
+  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+  // Unmount with another pending click to check both listener and pending-owner cleanup.
+  pointerDown(anchor);
+  unmount();
+  pointerDown(anchor);
+  const click = vi.fn();
+  anchor.addEventListener('click', (event) => {
+    click(event.defaultPrevented);
+    event.preventDefault();
+  });
+  fireEvent.click(anchor, { detail: 1 });
+  expect(click).toHaveBeenCalledExactlyOnceWith(false);
+  expect(managedPolicy).toHaveBeenCalledTimes(2);
+  expect(router.push).toHaveBeenCalledTimes(2);
+  expect(regionPolicy).not.toHaveBeenCalled();
 });

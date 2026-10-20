@@ -75,3 +75,29 @@ it('keeps the hook policy, pending click, and forwarded refs current across anch
   unmount();
   expect(ref.current).toBeNull();
 });
+
+it('leaves legacy rendering to click navigation without early policy or suppression', () => {
+  const policy = vi.fn(() => ({ kind: 'router' as const }));
+  const observe = vi.fn();
+  const { getByRole } = render(
+    <HookLink
+      href="/legacy"
+      legacyBehavior
+      navigationPolicy={policy}
+      onFastNavigate={observe}
+    />,
+  );
+  const anchor = getByRole('link');
+  pointerDown(anchor);
+  expect(router.push).not.toHaveBeenCalled();
+  expect(router.replace).not.toHaveBeenCalled();
+  expect(policy).not.toHaveBeenCalled();
+  expect(observe).not.toHaveBeenCalled();
+  const click = vi.fn();
+  anchor.addEventListener('click', (event) => {
+    click(event.defaultPrevented);
+    event.preventDefault();
+  });
+  fireEvent.click(anchor, { detail: 1 });
+  expect(click).toHaveBeenCalledExactlyOnceWith(false);
+});

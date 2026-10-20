@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.7
+
+- Leave button-role anchors and presses on their descendants native.
+
 ## 0.0.6
 
 - Explain press and click state with an inline diagram and matching rules.

@@ -183,11 +183,14 @@ function ShadowCaptureLink({
       ref={host}
       data-testid="closed-capture-host"
       data-ready={root ? 'true' : 'false'}
-      style={{ width: 200, height: 40 }}
+      style={{ width: 200, height: 80 }}
     >
       {root &&
         createPortal(
-          <FastLinkRegion>
+          <FastLinkRegion
+            basePath="/docs"
+            onFastNavigate={() => record('shadow-region-fast')}
+          >
             <div
               onClickCapture={(event) => {
                 record(
@@ -207,6 +210,20 @@ function ShadowCaptureLink({
                 Closed shadow capture
               </FastLink>
             </div>
+            <Link
+              href="/slow?from=closed-region"
+              prefetch={false}
+              style={{ display: 'block', width: 200, height: 40 }}
+              onClick={(event) =>
+                record(
+                  event.defaultPrevented
+                    ? 'shadow-region-prevented'
+                    : 'shadow-region-allowed',
+                )
+              }
+            >
+              Closed shadow ordinary link
+            </Link>
           </FastLinkRegion>,
           root,
         )}

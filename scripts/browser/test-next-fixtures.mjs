@@ -120,6 +120,41 @@ const scenarios = [
     `${testId}: suppresses before stopping capture`,
     (page) => checkCaptureSuppression(page, testId, destination),
   ]),
+  [
+    'ordinary region link inside a closed shadow root navigates before release once',
+    async (page) => {
+      const host = page.getByTestId('closed-capture-host');
+      await host.scrollIntoViewIfNeeded();
+      const box = await host.boundingBox();
+      assert.ok(box);
+      let documentRequests = 0;
+      page.on('request', (request) => {
+        if (
+          request.isNavigationRequest() &&
+          request.frame() === page.mainFrame()
+        )
+          documentRequests++;
+      });
+      await page.mouse.move(box.x + 100, box.y + 60);
+      await page.mouse.down();
+      try {
+        await expectOutput(page, 'events', 'shadow-region-fast');
+      } finally {
+        await page.mouse.up();
+      }
+      await expectOutput(
+        page,
+        'events',
+        'shadow-region-fast,shadow-region-prevented',
+      );
+      await page.waitForURL(/\/docs\/slow\?from=closed-region$/);
+      assert.equal(
+        documentRequests,
+        0,
+        'suppressed follow-up must not activate the document',
+      );
+    },
+  ],
   ...[
     ['options', /\/docs\/fast\?from=options$/, 'pointerdown'],
     ['region-options', /\/docs\/fast\?from=region-options$/, 'click'],
@@ -351,7 +386,10 @@ async function pressAndHold(page, testId) {
   const box = await target.boundingBox();
   if (!box) throw new Error(`Missing ${testId}`);
   const before = await page.evaluate(() => window.__fixturePresses);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.move(
+    box.x + box.width / 2,
+    box.y + (testId === 'closed-capture-host' ? 20 : box.height / 2),
+  );
   await page.mouse.down();
   // Document bubbling follows the controllers' synchronous capture handlers.
   await page.waitForFunction(
@@ -429,7 +467,10 @@ async function checkCaptureSuppression(page, testId, destination) {
   };
   page.on('request', onRequest);
   try {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.move(
+      box.x + box.width / 2,
+      box.y + (testId === 'closed-capture-host' ? 20 : box.height / 2),
+    );
     await page.mouse.down();
     await page.waitForFunction(
       () =>

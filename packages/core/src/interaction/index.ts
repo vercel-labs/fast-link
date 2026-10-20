@@ -109,7 +109,11 @@ function isOptedOut(
   eventTarget: EventTarget | null,
   anchor: HTMLAnchorElement,
 ): boolean {
-  if (anchor.hasAttribute('data-no-fast-link')) return true;
+  if (
+    anchor.hasAttribute('data-no-fast-link') ||
+    anchor.getAttribute('role') === 'button'
+  )
+    return true;
 
   let element = eventTarget instanceof Element ? eventTarget : null;
   while (element && element !== anchor) {

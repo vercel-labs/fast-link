@@ -88,6 +88,11 @@ describe('resolveFastLink', () => {
       createAnchor({ href: 'https://other.example/pricing' }),
     ],
     ['a download', createAnchor({ href: '/guide.pdf', download: '' })],
+    ['a top frame target', createAnchor({ href: '/pricing', target: '_top' })],
+    [
+      'a parent frame target',
+      createAnchor({ href: '/pricing', target: '_parent' }),
+    ],
     [
       'a new browsing context',
       createAnchor({ href: '/pricing', target: '_blank' }),
@@ -99,6 +104,19 @@ describe('resolveFastLink', () => {
   ])('leaves %s to native behavior', (_, anchor) => {
     expect(resolveFastLink(createPointerEvent(), anchor)).toBeNull();
   });
+
+  it.each(['anchor', 'descendant'])(
+    'leaves a button-role %s native',
+    (targetKind) => {
+      const anchor = createAnchor({ href: '/menu', role: 'button' });
+      const label = anchor.appendChild(document.createElement('span'));
+      const target = targetKind === 'anchor' ? anchor : label;
+
+      expect(
+        resolveFastLink(createPointerEvent({ target }), anchor),
+      ).toBeNull();
+    },
+  );
 
   it('allows target="_self"', () => {
     const anchor = createAnchor({ href: '/pricing', target: '_self' });

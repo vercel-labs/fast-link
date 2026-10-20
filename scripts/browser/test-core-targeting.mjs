@@ -39,6 +39,9 @@ async function checkBrowser(name, browserType, t) {
         'copies-extensible',
         'copies-nonextensible',
         'default-document',
+        'svg-standalone',
+        'svg-html',
+        'iframe',
       ].map((scenario) =>
         t.test(scenario, { timeout: 15000 }, () =>
           checkScenario(name, browser, scenario),
@@ -51,6 +54,8 @@ async function checkBrowser(name, browserType, t) {
 }
 
 async function checkScenario(name, browser, scenario) {
+  if (scenario === 'iframe') return checkIframe(browser);
+  if (scenario.startsWith('svg-')) return checkSvg(browser, scenario);
   const page = await browser.newPage();
   page.setDefaultTimeout(5000);
   try {
@@ -236,6 +241,109 @@ async function checkScenario(name, browser, scenario) {
     console.log(
       JSON.stringify({ browser: name, scenario, ...observed, requests }),
     );
+  } finally {
+    await page.close();
+  }
+}
+
+async function checkSvg(browser, scenario) {
+  const page = await browser.newPage();
+  try {
+    const requests = [];
+    await page.route('http://fast-link.test/**', (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === '/core.js')
+        return route.fulfill({ contentType: 'text/javascript', body: core });
+      if (path !== '/') {
+        if (route.request().isNavigationRequest()) requests.push(path);
+        return route.abort();
+      }
+      const graphic =
+        '<svg width="200" height="80"><a href="#native"><rect id="pressed" x="10" y="10" width="180" height="60" fill="blue" /></a></svg>';
+      return route.fulfill({
+        contentType: 'text/html',
+        body: `<div id="root">${scenario === 'svg-html' ? `<a href="/first">${graphic}</a>` : graphic}</div>`,
+      });
+    });
+    await page.goto('http://fast-link.test/');
+    await page.evaluate(async () => {
+      const { createFastLink } = await import('/core.js');
+      window.observed = { routes: [], clicks: [] };
+      createFastLink(document.querySelector('#root'), {
+        navigate: ({ href }) => window.observed.routes.push(href),
+      });
+      document.addEventListener('click', (event) =>
+        window.observed.clicks.push({
+          prevented: event.defaultPrevented,
+          trusted: event.isTrusted,
+        }),
+      );
+    });
+    const pressed = page.locator('#pressed');
+    const box = await pressed.boundingBox();
+    assert.ok(box);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    assert.deepEqual(
+      await page.evaluate(() => window.observed.routes),
+      scenario === 'svg-html' ? ['/first'] : [],
+    );
+    assert.equal(page.url(), 'http://fast-link.test/');
+    await page.mouse.up();
+    if (scenario === 'svg-standalone')
+      await page.waitForURL('http://fast-link.test/#native');
+    await page.waitForFunction(() => window.observed.clicks.length === 1);
+    assert.deepEqual(await page.evaluate(() => window.observed), {
+      routes: scenario === 'svg-html' ? ['/first'] : [],
+      clicks: [{ prevented: scenario === 'svg-html', trusted: true }],
+    });
+    assert.deepEqual(requests, []);
+  } finally {
+    await page.close();
+  }
+}
+
+async function checkIframe(browser) {
+  const page = await browser.newPage();
+  try {
+    const destinations = [];
+    await page.route('http://fast-link.test/**', (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === '/core.js')
+        return route.fulfill({ contentType: 'text/javascript', body: core });
+      let body;
+      if (path === '/')
+        body =
+          '<iframe src="/frame" style="width:400px;height:200px"></iframe>';
+      else if (path === '/frame')
+        body = `<base href="/child/base/"><a id="child" href="destination?from=iframe#result">Child destination</a><script type="module">import { createFastLink } from '/core.js'; createFastLink(document.body); document.body.dataset.ready = 'true';</script>`;
+      else {
+        destinations.push(route.request().url());
+        body = '<h1>Child arrived</h1>';
+      }
+      return route.fulfill({ contentType: 'text/html', body });
+    });
+    await page.goto('http://fast-link.test/');
+    const child = page.frames().find((frame) => frame.parentFrame());
+    assert.ok(child);
+    await child.locator('body[data-ready="true"]').waitFor();
+    const box = await child.locator('#child').boundingBox();
+    assert.ok(box);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    try {
+      await child.waitForURL(
+        'http://fast-link.test/child/base/destination?from=iframe#result',
+      );
+      await child.getByRole('heading', { name: 'Child arrived' }).waitFor();
+      assert.equal(page.url(), 'http://fast-link.test/');
+    } finally {
+      await page.mouse.up();
+    }
+    assert.equal(destinations.length, 1);
+    assert.equal(new URL(destinations[0]).pathname, '/child/base/destination');
+    assert.equal(new URL(destinations[0]).search, '?from=iframe');
+    assert.equal(page.url(), 'http://fast-link.test/');
   } finally {
     await page.close();
   }
