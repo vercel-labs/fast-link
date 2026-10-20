@@ -1,6 +1,6 @@
 ---
 name: fast-link
-description: Integrate, migrate, troubleshoot, or review Fast Link when named, when adopting @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on mousedown" or "navigate on press". General navigation performance requests alone are outside this skill's scope.
+description: Integrate, migrate, troubleshoot, or review Fast Link when named, when the project uses or is adopting @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on mousedown" or "navigate on press". General navigation performance requests alone are outside this skill's scope.
 license: MIT
 ---
 
