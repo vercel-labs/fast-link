@@ -202,6 +202,13 @@ Navigation measures mouse press to destination commit. `next/link` waits for rel
 
 ## Known limitations
 
+For Next.js early navigation, `useLinkStatus().pending` does not update because
+public App Router calls cannot set Next Link's internal pending state. Use
+route-level loading UI, or start application-owned pending state from
+`onFastNavigate` and clear it when navigation completes. Define reset handling
+for navigation failures, cancellation, and unmount so the indicator cannot stay
+stuck. `onFastNavigate` observes a navigation attempt, not its completion.
+
 Fast Link starts mouse navigation on press. Moving away before release won't
 cancel it, and Fast Link provides no built-in abort or undo.
 

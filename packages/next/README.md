@@ -175,7 +175,9 @@ Other integration rules:
   application's normal routing for those inputs.
 - `useLinkStatus().pending` does not update because public App Router calls
   cannot set Link's internal pending state. Use route-level loading UI or set
-  application pending state from `onFastNavigate`.
+  application pending state from `onFastNavigate`. Clear that state when
+  navigation completes, and define reset handling for navigation failures,
+  cancellation, and unmount. The observer reports an attempt, not completion.
 - With `as` or `legacyBehavior`, `FastLink` stays on the normal Link path.
   Legacy behavior attaches no controller to the anchor; add `data-no-fast-link`
   when that anchor needs native handling inside a region.
