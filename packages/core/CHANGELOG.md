@@ -2,9 +2,8 @@
 
 ## 0.0.7
 
-- Leave button-role anchors and presses on their descendants native.
-- Recognize button roles despite surrounding whitespace or preceding unknown
-  or abstract roles; preserve earlier concrete roles in fallback lists.
+- Accelerate anchors only when their role is absent, empty, or `link`.
+- Leave presses inside descendants with any `button` role token native.
 
 ## 0.0.6
 

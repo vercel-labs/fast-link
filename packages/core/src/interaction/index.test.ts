@@ -127,23 +127,27 @@ describe('resolveFastLink', () => {
 
   it.each([
     'link button',
-    'future-role link button',
-    'checkbox button',
-    'doc-biblioref button',
-    'graphics-symbol button',
-    'LINK button',
-    'comment button',
-    'image button',
-    'suggestion button',
-    'sectionfooter button',
-    'sectionheader button',
-    'doc-pagefooter button',
-    'doc-pageheader button',
-  ])('accepts role=%j when button is an unused fallback', (role) => {
+    'future-role link',
+    'checkbox',
+    'presentation',
+    'future-role',
+    '\u00a0link',
+  ])('leaves other anchor roles native: %j', (role) => {
     const anchor = createAnchor({ href: '/menu', role });
+    const child = anchor.appendChild(document.createElement('span'));
 
-    expect(resolveFastLink(createPointerEvent(), anchor)).not.toBeNull();
+    expect(
+      resolveFastLink(createPointerEvent({ target: child }), anchor),
+    ).toBeNull();
   });
+
+  it.each(['', ' \t\n\f\r ', 'link', ' LINK\t'])(
+    'accepts an empty or link anchor role: %j',
+    (role) => {
+      const anchor = createAnchor({ href: '/pricing', role });
+      expect(resolveFastLink(createPointerEvent(), anchor)).not.toBeNull();
+    },
+  );
 
   it('allows target="_self"', () => {
     const anchor = createAnchor({ href: '/pricing', target: '_self' });
@@ -160,6 +164,11 @@ describe('resolveFastLink', () => {
     ['textarea', '<textarea></textarea>'],
     ['button role', '<div role="button"><span>Menu</span></div>'],
     ['padded button role', '<div role=" button "><span>Menu</span></div>'],
+    ['later button token', '<div role="link button"><span>Menu</span></div>'],
+    [
+      'mixed-case button token',
+      '<div role="link\tBUTTON"><span>Menu</span></div>',
+    ],
     [
       'button with fallback role',
       '<div role="button link"><span>Menu</span></div>',
@@ -185,12 +194,20 @@ describe('resolveFastLink', () => {
     expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
   });
 
-  it('accepts non-interactive content inside an anchor', () => {
+  it.each([
+    '<h2>Pricing</h2>',
+    '<span role="img">Icon</span>',
+    '<span role="future-button">Label</span>',
+    '<span role="buttonish">Label</span>',
+  ])('accepts ordinary link content: %s', (markup) => {
     const anchor = createAnchor({ href: '/card' });
-    const heading = anchor.appendChild(document.createElement('h2'));
+    anchor.innerHTML = markup;
 
     expect(
-      resolveFastLink(createPointerEvent({ target: heading }), anchor),
+      resolveFastLink(
+        createPointerEvent({ target: anchor.firstElementChild }),
+        anchor,
+      ),
     ).not.toBeNull();
   });
 });
