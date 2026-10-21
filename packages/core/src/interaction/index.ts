@@ -1,6 +1,7 @@
 import { coordination, HANDLED_EVENT } from '../coordination';
 
 const { handledEvents } = coordination;
+const EMPTY_OR_LINK_ROLE = /^[\t\n\f\r ]*(?:link)?[\t\n\f\r ]*$/i;
 const NESTED_CONTROL_TAGS = new Set([
   'BUTTON',
   'INPUT',
@@ -111,7 +112,7 @@ function isOptedOut(
 ): boolean {
   if (anchor.hasAttribute('data-no-fast-link')) return true;
   const role = anchor.getAttribute('role');
-  if (role && !/^[\t\n\f\r ]*(?:link)?[\t\n\f\r ]*$/i.test(role)) return true;
+  if (role && !EMPTY_OR_LINK_ROLE.test(role)) return true;
 
   let element = eventTarget instanceof Element ? eventTarget : null;
   while (element && element !== anchor) {
