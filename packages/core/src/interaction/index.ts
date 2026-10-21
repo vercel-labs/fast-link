@@ -2,6 +2,7 @@ import { coordination, HANDLED_EVENT } from '../coordination';
 
 const { handledEvents } = coordination;
 const EMPTY_OR_LINK_ROLE = /^[\t\n\f\r ]*(?:link)?[\t\n\f\r ]*$/i;
+const BUTTON_ROLE_TOKEN = /(?:^|[\t\n\f\r ])button(?:$|[\t\n\f\r ])/i;
 const NESTED_CONTROL_TAGS = new Set([
   'BUTTON',
   'INPUT',
@@ -126,7 +127,5 @@ function isOptedOut(
 }
 
 function hasButtonRoleToken(element: Element): boolean {
-  return /(?:^|[\t\n\f\r ])button(?:$|[\t\n\f\r ])/i.test(
-    element.getAttribute('role') ?? '',
-  );
+  return BUTTON_ROLE_TOKEN.test(element.getAttribute('role') ?? '');
 }
