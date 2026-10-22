@@ -35,9 +35,9 @@ does not make a release-time guard safe to move to pointerdown.
    Read [Routing decisions](routing.md) for policy contracts. Keep uncertain
    links native when source or documented contracts cannot establish safe behavior.
 
-Within the selected integration, prefer a region for ordinary links sharing its
-navigation behavior, or managed `FastLink` for per-link options and synchronous
-cancellation. Choose the narrowest compatible region. Use supported component
+Within the selected integration, use managed `FastLink` for per-link options
+and synchronous cancellation, or a region for ordinary links sharing one
+navigation policy. Choose the narrowest compatible region. Use supported component
 composition before the [custom-renderer hook](#custom-renderers), which requires
 a demonstrated renderer constraint. Keep one anchor per link.
 
@@ -77,12 +77,15 @@ normal Link handling. A descendant React `onPointerDownCapture` can stop or
 prevent the press before the region's native listener runs. Descendant bubble
 handlers run after early navigation and cannot cancel it.
 
-Pass the application's actual `basePath` to `FastLinkRegion` when configured.
-For example, with `/docs`, Next Link renders `/docs/overview`; the region removes
-one matching prefix before the App Router adds it. Plain anchors inside the
-region must include `/docs` in their authored href so native activation reaches
-the same destination. `FastLink` uses its authored Link destination and does
-not accept a `basePath` prop.
+For apps with a Next.js base path:
+
+- Pass the configured value to `FastLinkRegion`, e.g. `basePath="/docs"`.
+- The region strips one matching prefix before App Router adds it.
+  Omitting the prop can produce `/docs/docs/overview`.
+- Plain anchors need `/docs` in their authored href for native activation.
+- `FastLink` uses its authored Link destination; it has no `basePath` prop.
+
+Without a base path, omit the prop (default `''`).
 
 ## Managed links and cancellation
 
@@ -128,9 +131,14 @@ consumers can use the direct imports above without introducing wrappers or
 policies. Bind a needed policy inside a Client Component so Server Components
 can use the adapter with serializable props and children.
 
-This example assumes the application provides a client-safe
-`ownsRoute(url: URL): boolean` resolver. Adapt the call to the actual resolver's
-contract and routing configuration; foreign or unknown ownership returns false.
+The example assumes a client-safe `ownsRoute(url: URL): boolean` resolver:
+
+- Input: full deployed URL, including any base path.
+- Foreign or unknown ownership: `false`.
+- If the actual resolver expects a router-relative path, use the appropriate
+  `proposed.destination`; configured regions strip their base path there.
+
+Verify the resolver's contract; see [resolver inputs](routing.md#establish-router-ownership).
 
 This example binds the policy for early mouse navigation. Preserve the
 application's existing routing for native activation, including keyboard and

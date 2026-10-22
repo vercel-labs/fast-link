@@ -17,6 +17,14 @@ proposal contains the computed router destination, history method (`push` or
 application's routing contract. The intent also contains the source anchor,
 authored href, and resolved URL.
 
+Match the resolver's verified input contract:
+
+- Deployed URL: `intent.url`, including any base path.
+- Router-relative path: the appropriate `proposed.destination`. A region with
+  `basePath="/docs"` turns `/docs/overview?tab=1` into `/overview?tab=1`.
+
+Check existing callers and routing configuration before transforming prefixes.
+
 ## Choose a supported decision
 
 The policy runs synchronously and returns one of:
