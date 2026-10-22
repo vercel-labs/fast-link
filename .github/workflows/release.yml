@@ -45,7 +45,7 @@ jobs:
       - name: Prepare and inspect release archives
         run: node scripts/packaging/prepare-package-artifacts.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"
       - name: Install minimum compatibility browser
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps --only-shell chromium
       - name: Verify packed minimum framework compatibility
         run: node scripts/packaging/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}" --minimum
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

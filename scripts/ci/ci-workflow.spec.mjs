@@ -124,7 +124,8 @@ it.each(['ci', 'release'])(
         .slice(prepare + 1, minimum)
         .some(
           (step) =>
-            step.run === 'pnpm exec playwright install --with-deps chromium',
+            step.run ===
+            'pnpm exec playwright install --with-deps --only-shell chromium',
         ),
     ).toBe(true);
     if (name === 'release') expect(jobs.publish.needs).toContain('validate');

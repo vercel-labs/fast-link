@@ -67,7 +67,7 @@ jobs:
         run: node scripts/packaging/prepare-package-artifacts.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"
       - name: Install minimum compatibility browser
         if: ${{ needs.paths.outputs.lightweight != 'true' }}
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps --only-shell chromium
       - name: Verify packed minimum framework compatibility
         if: ${{ needs.paths.outputs.lightweight != 'true' }}
         run: node scripts/packaging/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}" --minimum

@@ -3,6 +3,8 @@
  * metadata, core/React imports without a browser, and a Next.js production build
  * and TypeScript check.
  * This catches missing files and dependency problems that workspace links can hide.
+ * Uses pinned fixture versions by default. --minimum uses the lowest supported
+ * framework versions and adds React lifecycle and Chromium navigation checks.
  */
 
 /* oxlint-disable no-await-in-loop -- Consumer checks run in dependency order. */
@@ -21,7 +23,7 @@ if (mode !== undefined && mode !== '--minimum')
 const minimum = mode === '--minimum';
 if (!archiveDirectory) {
   throw new Error(
-    'Usage: test-packed-consumers.mjs <directory> <full-commit-sha>',
+    'Usage: test-packed-consumers.mjs <directory> <full-commit-sha> [--minimum]',
   );
 }
 const artifacts = verifyReleaseArtifacts({
@@ -44,6 +46,16 @@ const run = (command, args) =>
     stdio: 'inherit',
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
   });
+
+function replaceOnce(source, search, replacement, path) {
+  const matches = source.split(search).length - 1;
+  if (matches !== 1) {
+    throw new Error(
+      `${path}: expected exactly one ${JSON.stringify(search)} match, found ${matches}`,
+    );
+  }
+  return source.replace(search, replacement);
+}
 
 try {
   const dependencies = { ...fixtureManifest.dependencies };
@@ -110,7 +122,12 @@ try {
     await mkdir(join(consumer, 'src/use-fast-link'), { recursive: true });
     await writeFile(
       join(consumer, 'src/use-fast-link/index.test.tsx'),
-      tests.replace("from './index'", "from '@fast-link/react'"),
+      replaceOnce(
+        tests,
+        "from './index'",
+        "from '@fast-link/react'",
+        'packages/react/src/use-fast-link/index.test.tsx',
+      ),
     );
     const config = await readFile(
       join(root, 'packages/react/vitest.config.ts'),
@@ -118,7 +135,12 @@ try {
     );
     await writeFile(
       join(consumer, 'vitest.config.ts'),
-      config.replace('../../vitest.shared.ts', './vitest.shared.ts'),
+      replaceOnce(
+        config,
+        '../../vitest.shared.ts',
+        './vitest.shared.ts',
+        'packages/react/vitest.config.ts',
+      ),
     );
     await cp(
       join(root, 'vitest.shared.ts'),
