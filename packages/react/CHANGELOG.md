@@ -1,5 +1,9 @@
 # @fast-link/react
 
+## 0.0.7
+
+- Depend on core 0.0.7 to keep button-role anchors native.
+
 ## 0.0.6
 
 - Explain controller attachment, option updates, and cleanup with an inline diagram.

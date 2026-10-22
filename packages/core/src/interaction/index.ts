@@ -1,6 +1,8 @@
 import { coordination, HANDLED_EVENT } from '../coordination';
 
 const { handledEvents } = coordination;
+const EMPTY_OR_LINK_ROLE = /^[\t\n\f\r ]*(?:link)?[\t\n\f\r ]*$/i;
+const BUTTON_ROLE_TOKEN = /(?:^|[\t\n\f\r ])button(?:$|[\t\n\f\r ])/i;
 const NESTED_CONTROL_TAGS = new Set([
   'BUTTON',
   'INPUT',
@@ -110,14 +112,20 @@ function isOptedOut(
   anchor: HTMLAnchorElement,
 ): boolean {
   if (anchor.hasAttribute('data-no-fast-link')) return true;
+  const role = anchor.getAttribute('role');
+  if (role && !EMPTY_OR_LINK_ROLE.test(role)) return true;
 
   let element = eventTarget instanceof Element ? eventTarget : null;
   while (element && element !== anchor) {
     if (element.hasAttribute('data-no-fast-link')) return true;
     if (NESTED_CONTROL_TAGS.has(element.tagName)) return true;
-    if (element.getAttribute('role') === 'button') return true;
+    if (hasButtonRoleToken(element)) return true;
     element = element.parentElement;
   }
 
   return false;
+}
+
+function hasButtonRoleToken(element: Element): boolean {
+  return BUTTON_ROLE_TOKEN.test(element.getAttribute('role') ?? '');
 }

@@ -88,6 +88,11 @@ describe('resolveFastLink', () => {
       createAnchor({ href: 'https://other.example/pricing' }),
     ],
     ['a download', createAnchor({ href: '/guide.pdf', download: '' })],
+    ['a top frame target', createAnchor({ href: '/pricing', target: '_top' })],
+    [
+      'a parent frame target',
+      createAnchor({ href: '/pricing', target: '_parent' }),
+    ],
     [
       'a new browsing context',
       createAnchor({ href: '/pricing', target: '_blank' }),
@@ -99,6 +104,50 @@ describe('resolveFastLink', () => {
   ])('leaves %s to native behavior', (_, anchor) => {
     expect(resolveFastLink(createPointerEvent(), anchor)).toBeNull();
   });
+
+  it.each([
+    ['button', 'anchor'],
+    ['button', 'descendant'],
+    [' button ', 'anchor'],
+    [' button ', 'descendant'],
+    ['button link', 'anchor'],
+    ['button link', 'descendant'],
+    ['future-button button', 'anchor'],
+    ['future-button button', 'descendant'],
+    ['command button', 'anchor'],
+    ['command button', 'descendant'],
+    ['BUTTON', 'anchor'],
+  ])('leaves role=%j native for a press on the %s', (role, targetKind) => {
+    const anchor = createAnchor({ href: '/menu', role });
+    const label = anchor.appendChild(document.createElement('span'));
+    const target = targetKind === 'anchor' ? anchor : label;
+
+    expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
+  });
+
+  it.each([
+    'link button',
+    'future-role link',
+    'checkbox',
+    'presentation',
+    'future-role',
+    '\u00a0link',
+  ])('leaves other anchor roles native: %j', (role) => {
+    const anchor = createAnchor({ href: '/menu', role });
+    const child = anchor.appendChild(document.createElement('span'));
+
+    expect(
+      resolveFastLink(createPointerEvent({ target: child }), anchor),
+    ).toBeNull();
+  });
+
+  it.each(['', ' \t\n\f\r ', 'link', ' LINK\t'])(
+    'accepts an empty or link anchor role: %j',
+    (role) => {
+      const anchor = createAnchor({ href: '/pricing', role });
+      expect(resolveFastLink(createPointerEvent(), anchor)).not.toBeNull();
+    },
+  );
 
   it('allows target="_self"', () => {
     const anchor = createAnchor({ href: '/pricing', target: '_self' });
@@ -114,6 +163,24 @@ describe('resolveFastLink', () => {
     ['summary', '<summary><span>Details</span></summary>'],
     ['textarea', '<textarea></textarea>'],
     ['button role', '<div role="button"><span>Menu</span></div>'],
+    ['padded button role', '<div role=" button "><span>Menu</span></div>'],
+    ['later button token', '<div role="link button"><span>Menu</span></div>'],
+    [
+      'mixed-case button token',
+      '<div role="link\tBUTTON"><span>Menu</span></div>',
+    ],
+    [
+      'button with fallback role',
+      '<div role="button link"><span>Menu</span></div>',
+    ],
+    [
+      'button after an unsupported role',
+      '<div role="future-button button"><span>Menu</span></div>',
+    ],
+    [
+      'button after an abstract role',
+      '<div role="command button"><span>Menu</span></div>',
+    ],
     [
       'opted-out descendant',
       '<span data-no-fast-link><span>Handle</span></span>',
@@ -127,12 +194,20 @@ describe('resolveFastLink', () => {
     expect(resolveFastLink(createPointerEvent({ target }), anchor)).toBeNull();
   });
 
-  it('accepts non-interactive content inside an anchor', () => {
+  it.each([
+    '<h2>Pricing</h2>',
+    '<span role="img">Icon</span>',
+    '<span role="future-button">Label</span>',
+    '<span role="buttonish">Label</span>',
+  ])('accepts ordinary link content: %s', (markup) => {
     const anchor = createAnchor({ href: '/card' });
-    const heading = anchor.appendChild(document.createElement('h2'));
+    anchor.innerHTML = markup;
 
     expect(
-      resolveFastLink(createPointerEvent({ target: heading }), anchor),
+      resolveFastLink(
+        createPointerEvent({ target: anchor.firstElementChild }),
+        anchor,
+      ),
     ).not.toBeNull();
   });
 });

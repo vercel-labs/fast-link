@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.7
+
+- Accelerate anchors only when their role is absent, empty, or `link`.
+- Leave presses inside descendants with any `button` role token native.
+
 ## 0.0.6
 
 - Explain press and click state with an inline diagram and matching rules.

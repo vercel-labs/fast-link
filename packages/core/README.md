@@ -71,8 +71,9 @@ It leaves these interactions to the browser:
 - Middle, right, and modified clicks
 - Links with a `target` other than `_self`
 - Downloads, external URLs, and hash-only links
+- Anchors with a role other than empty or `link`, including role lists
 - Presses that start on `button`, `input`, `label`, `select`, `summary`,
-  `textarea`, or an element with `role="button"`
+  `textarea`, or an element with a `button` role token
 - An anchor or descendant with `data-no-fast-link`
 - Keyboard activation
 
