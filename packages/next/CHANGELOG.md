@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.10
+
+- Clarify completion and reset handling for application-owned pending state.
+
 ## 0.0.9
 
 - Explain optional region base paths and the duplicated prefix caused by omitting a configured value.
