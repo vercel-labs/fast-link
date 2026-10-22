@@ -173,16 +173,19 @@ Other integration rules:
 
 - Keyboard and touch activation skip `navigationPolicy`; preserve the
   application's normal routing for those inputs.
-- `useLinkStatus().pending` does not update because public App Router calls
-  cannot set Link's internal pending state. Use route-level loading UI or set
-  application pending state from `onFastNavigate`. Clear that state when
-  navigation completes, and define reset handling for navigation failures,
-  cancellation, and unmount. The observer reports an attempt, not completion.
 - With `as` or `legacyBehavior`, `FastLink` stays on the normal Link path.
   Legacy behavior attaches no controller to the anchor; add `data-no-fast-link`
   when that anchor needs native handling inside a region.
 - Committed option updates preserve pending click suppression. Removing or
   replacing the root destroys the old controller and clears pending suppression.
+
+### Pending state
+
+- `useLinkStatus().pending` does not update. Public App Router calls cannot set
+  Next Link's pending state.
+- Use route-level loading UI, or manage pending state in your app.
+- Start app-owned state in `onFastNavigate`. It reports an attempt, not completion.
+- Clear it on completion. Reset it on failure, cancellation, and unmount.
 
 ## API reference
 
