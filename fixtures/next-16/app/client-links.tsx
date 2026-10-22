@@ -103,7 +103,6 @@ export function ClientLinks(): JSX.Element {
         prefetch={false}
         replace
         scroll={false}
-        transitionTypes={['slide']}
       >
         Options
       </FastLink>

@@ -1,5 +1,9 @@
 # @fast-link/react
 
+## 0.0.8
+
+- Require React 19 and verify React 19.0.0 lifecycle behavior against packed artifacts.
+
 ## 0.0.7
 
 - Depend on core 0.0.7 to keep button-role anchors native.

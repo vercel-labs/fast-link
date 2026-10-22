@@ -7,6 +7,8 @@
 /* oxlint-disable no-await-in-loop -- Fixture startup and browser interactions must run in order. */
 
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -15,10 +17,32 @@ import { chromium, firefox, webkit } from 'playwright';
 
 import { startFixture } from './fixture-server.mjs';
 
-const server = await startFixture(
-  fileURLToPath(new URL('../../', import.meta.url)),
-  '/docs',
+const root = fileURLToPath(new URL('../../', import.meta.url));
+const [fixture = resolve(root, 'fixtures/next-16'), browserName] =
+  process.argv.slice(2);
+const browsers = { chromium, firefox, webkit };
+assert.ok(
+  browserName === undefined || browserName in browsers,
+  'unknown browser',
 );
+const require = createRequire(resolve(fixture, 'package.json'));
+const frameworkVersions = require('./package.json').dependencies;
+for (const name of ['next', 'react', 'react-dom']) {
+  assert.equal(
+    require(`${name}/package.json`).version,
+    frameworkVersions[name],
+    `${name} fixture version`,
+  );
+}
+assert.equal(
+  frameworkVersions.react,
+  frameworkVersions['react-dom'],
+  'matching React DOM',
+);
+console.log(
+  `Next fixture: Next ${frameworkVersions.next}, React/DOM ${frameworkVersions.react}`,
+);
+const server = await startFixture(root, '/docs', fixture);
 const fixtureOrigin = server.origin;
 
 const scenarios = [
@@ -316,7 +340,9 @@ try {
   await server.waitUntilReady();
   await test('Next.js fixture browsers', { concurrency: true }, async (t) => {
     await Promise.all(
-      Object.entries({ chromium, firefox, webkit }).map(([name, browserType]) =>
+      Object.entries(
+        browserName ? { [browserName]: browsers[browserName] } : browsers,
+      ).map(([name, browserType]) =>
         t.test(name, { concurrency: 2 }, (browserTest) =>
           checkBrowser(browserType, browserTest),
         ),

@@ -1,6 +1,6 @@
 {
   "name": "@fast-link/react",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "React lifecycle binding for Fast Link DOM controllers",
   "author": "Vercel",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "@fast-link/core": "workspace:^"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=19 <20"
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "12.1.0",

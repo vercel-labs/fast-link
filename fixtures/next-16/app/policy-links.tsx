@@ -30,7 +30,7 @@ const navigationPolicy: FastNavigationPolicy = (intent, proposed) => {
 };
 
 type AppLinkProps = Omit<ComponentPropsWithoutRef<typeof Link>, 'href'> &
-  Pick<UseFastLinkOptions, 'href' | 'enabled' | 'transitionTypes'>;
+  Pick<UseFastLinkOptions, 'href' | 'enabled'>;
 
 const AppLink = forwardRef<HTMLAnchorElement | HTMLSpanElement, AppLinkProps>(
   function AppLink({ href, enabled, children, ...props }, forwardedRef) {

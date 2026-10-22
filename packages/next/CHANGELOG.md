@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.7
+
+- Require Next.js 16 and React 19, with minimum-version production compatibility checks.
+
 ## 0.0.6
 
 - Depend on core and React 0.0.7 to keep button-role anchors native.

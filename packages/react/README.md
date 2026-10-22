@@ -13,7 +13,7 @@ For press timing and opt-outs, see
 
 ## Requirements
 
-Supports Node.js 22 or later, with React 18 or later.
+Supports Node.js 22 or later, with React 19 (`>=19 <20`).
 
 ## Install the package
 
