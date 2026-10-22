@@ -81,7 +81,7 @@ such as `nav`, inside the region. The wrapper has no layout box.
 
 ### Configure a Next.js base path
 
-Pass the application's `basePath` to `FastLinkRegion`:
+Match the `basePath` configured in `next.config`:
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
@@ -98,13 +98,13 @@ export function DocsNavigation() {
 }
 ```
 
-Next Link renders anchors with the base path, and App Router adds it when
-routing. The region removes one matching prefix before `router.push`. Plain
-anchors inside the region must include the base path in their `href` so native
-clicks reach the same application.
-
-Omit `basePath` when the application has none. `FastLink` uses the authored Link
-destination and does not accept a `basePath` prop.
+- Next Link renders `/docs/overview`.
+- The region passes `/overview` to App Router, which adds `/docs` back.
+- Omitting the region's configured base path can produce `/docs/docs/overview`.
+- One exact prefix is removed. `/docs` becomes `/`; `/docs-extra` stays unchanged.
+- Plain anchors need the base path in their `href` for native navigation.
+- No app base path: omit the prop (default `''`).
+- `FastLink` uses its authored destination; it has no `basePath` prop.
 
 ### Leave one region link on its normal path
 

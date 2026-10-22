@@ -1,6 +1,6 @@
 {
   "name": "@fast-link/next",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Early mouse navigation for Next.js App Router links",
   "author": "Vercel",
   "license": "MIT",

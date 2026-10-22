@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.9
+
+- Explain optional region base paths and the duplicated prefix caused by omitting a configured value.
+
 ## 0.0.8
 
 - Lead quick starts with FastLink and explain region options, guards, and routing ownership.
