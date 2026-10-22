@@ -67,12 +67,11 @@ export function AccountLink() {
 }
 ```
 
-`FastLink` renders Next Link and preserves its per-link navigation options,
-including synchronous `onNavigate` cancellation. Primary mouse navigation starts
-on `pointerdown`; other input methods use normal Link and browser behavior.
+- Preserves Next Link options and synchronous `onNavigate` cancellation.
+- Starts primary mouse navigation on press (`pointerdown`).
+- Keeps normal Link and browser behavior for other input methods.
 
-For groups sharing one navigation policy, `FastLinkRegion` lets you keep existing
-links:
+Use `FastLinkRegion` when existing links share one navigation policy:
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
@@ -90,20 +89,22 @@ export function Navigation() {
 }
 ```
 
-Ordinary rendered anchors do not expose Next Link's `replace`, `scroll`, or
-`onNavigate` props to the region. Use `FastLink` for those options; managed links
-inside a region retain their own options and policy.
+- Use `FastLink` for per-link options. It keeps its own options and policy inside
+  a region.
+- Regions cannot read Next Link options from ordinary rendered anchors.
 
-Both interfaces start navigation before click-time guards. Opt out with
-`enabled={false}` on `FastLink` or `data-no-fast-link` on an ordinary region link
-when a guard must run on click. API routes and destinations owned by another
-application need an explicit routing decision or an opt-out; same origin does
-not establish App Router ownership.
+Before adopting either interface:
 
-See the [`@fast-link/next` README](./packages/next/README.md) for
-[base paths](./packages/next/README.md#configure-a-nextjs-base-path),
-[routing policies](./packages/next/README.md#route-links-across-application-boundaries),
-and custom renderers.
+- Click-time guard on `FastLink`: opt out with `enabled={false}`.
+- Click-time guard on an ordinary region link: add `data-no-fast-link`.
+- For API routes or another application's pages, choose an explicit routing
+  policy or opt out. Same origin does not imply App Router ownership.
+
+More in the [`@fast-link/next` README](./packages/next/README.md):
+
+- [Base paths](./packages/next/README.md#configure-a-nextjs-base-path)
+- [Routing policies](./packages/next/README.md#route-links-across-application-boundaries)
+- [Custom renderers](./packages/next/README.md#build-a-custom-renderer)
 
 ## How Fast Link handles input
 

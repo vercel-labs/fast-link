@@ -20,11 +20,11 @@ npm install @fast-link/next
 
 ## Choose an interface
 
-| Interface        | Use it when                                                         |
-| ---------------- | ------------------------------------------------------------------- |
-| `FastLink`       | An App Router link needs early navigation with its own Link options |
-| `FastLinkRegion` | A group of existing links shares one navigation policy              |
-| `useFastLink`    | An application-owned component renders the anchor                   |
+| Interface        | Use it for                                    |
+| ---------------- | --------------------------------------------- |
+| `FastLink`       | One App Router link with its own Link options |
+| `FastLinkRegion` | Existing links sharing one navigation policy  |
+| `useFastLink`    | A custom component that renders the anchor    |
 
 `FastLinkRegion` wraps a group once, so you do not need to replace its links or
 manage refs. `FastLink` renders `next/link`, preserving Link prefetching and
@@ -46,14 +46,12 @@ export function AccountLink() {
 }
 ```
 
-`FastLink` supports object `href`, `replace`, `scroll`, `onNavigate`, and
-`transitionTypes`. Its anchor controller takes priority over a containing
-`FastLinkRegion`, including when the link is disabled.
+- Supports [Next Link options](#fastlink), including object `href`.
+- Keeps its own options and policy inside a `FastLinkRegion`, even when disabled.
 
 ## Add Fast Link to a navigation region
 
-Use a region for a group sharing one navigation policy. Wrap a semantic
-navigation element containing ordinary `next/link` or anchor elements:
+Wrap existing `next/link` or anchor elements that share one navigation policy:
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
@@ -71,9 +69,9 @@ export default function Navigation() {
 }
 ```
 
-Ordinary rendered anchors do not expose Next Link's `replace`, `scroll`, or
-`onNavigate` props to the region. Use `FastLink` for those options; managed links
-inside a region retain their own options and policy.
+- Use `FastLink` for per-link options. It keeps its own options and policy inside
+  a region.
+- Regions cannot read Next Link options from ordinary rendered anchors.
 
 Primary mouse navigation now starts on `pointerdown`. A Server Component can
 pass the link subtree as children.
@@ -134,10 +132,9 @@ Client Component.
 
 ## Understand navigation and click behavior
 
-Both links and regions navigate before click-time guards. Opt out when a guard
-must run on click. API routes and destinations owned by another application need
-an explicit routing decision or an opt-out; see
-[routing across application boundaries](#route-links-across-application-boundaries).
+- Click-time guards: opt out if they must run before navigation.
+- API routes or another application's pages: choose an explicit routing policy
+  or opt out. See [application boundaries](#route-links-across-application-boundaries).
 
 For an accepted primary mouse press, a managed link calls Next.js Link's
 `onNavigate` prop before selecting navigation. Ordinary region links skip that
