@@ -53,9 +53,25 @@ requirements.
 npm install @fast-link/next
 ```
 
-Wrap a group of existing links with `FastLinkRegion`. This example assumes one
-App Router owns every destination and no link needs click-time checks or
-individual Link options:
+Use `FastLink` for an App Router link:
+
+```tsx
+import { FastLink } from '@fast-link/next';
+
+export function AccountLink() {
+  return (
+    <FastLink href="/account" replace scroll={false}>
+      Account
+    </FastLink>
+  );
+}
+```
+
+- Preserves Next Link options and synchronous `onNavigate` cancellation.
+- Starts primary mouse navigation on press (`pointerdown`).
+- Keeps normal Link and browser behavior for other input methods.
+
+Use `FastLinkRegion` when existing links share one navigation policy:
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
@@ -73,14 +89,22 @@ export function Navigation() {
 }
 ```
 
-Primary mouse navigation now starts on `pointerdown`. Other input methods still
-use the normal Link and browser behavior.
+- Use `FastLink` for per-link options. It keeps its own options and policy inside
+  a region.
+- Regions cannot read Next Link options from ordinary rendered anchors.
 
-Use `FastLink` when one link needs its own Next.js options or `onNavigate`
-cancellation. Add `data-no-fast-link` to an ordinary link inside a region when
-its click-time behavior must run before navigation. See the
-[`@fast-link/next` README](./packages/next/README.md) for component options,
-opt-outs, routing policies, and custom renderers.
+Before adopting either interface:
+
+- Click-time guard on `FastLink`: opt out with `enabled={false}`.
+- Click-time guard on an ordinary region link: add `data-no-fast-link`.
+- For API routes or another application's pages, choose an explicit routing
+  policy or opt out. Same origin does not imply App Router ownership.
+
+More in the [`@fast-link/next` README](./packages/next/README.md):
+
+- [Base paths](./packages/next/README.md#configure-a-nextjs-base-path)
+- [Routing policies](./packages/next/README.md#route-links-across-application-boundaries)
+- [Custom renderers](./packages/next/README.md#build-a-custom-renderer)
 
 ## How Fast Link handles input
 
