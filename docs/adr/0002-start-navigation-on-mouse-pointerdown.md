@@ -25,5 +25,5 @@ navigation benefit, so touch and pen keep native activation.
 
 Implementation: [eligibility](../../packages/core/src/interaction/index.ts#L31)
 and [click suppression](../../packages/core/src/controller/index.ts#L85).
-The [browser tests](../../scripts/browser/test-core-targeting.mjs)
+The [browser tests](../../scripts/browser/core.pw.mjs)
 check trusted navigation timing, click targeting, and propagation.

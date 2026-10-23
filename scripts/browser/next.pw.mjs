@@ -7,50 +7,20 @@
 /* oxlint-disable no-await-in-loop -- Fixture startup and browser interactions must run in order. */
 
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
-import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
 
-import { chromium, firefox, webkit } from 'playwright';
+import { expect, test } from './test-fixtures.mjs';
 
-import { startFixture } from './fixture-server.mjs';
-
-const root = fileURLToPath(new URL('../../', import.meta.url));
-const [fixture = resolve(root, 'fixtures/next-16'), browserName] =
-  process.argv.slice(2);
-const browsers = { chromium, firefox, webkit };
-assert.ok(
-  browserName === undefined || browserName in browsers,
-  'unknown browser',
-);
-const require = createRequire(resolve(fixture, 'package.json'));
-const frameworkVersions = require('./package.json').dependencies;
-for (const name of ['next', 'react', 'react-dom']) {
-  assert.equal(
-    require(`${name}/package.json`).version,
-    frameworkVersions[name],
-    `${name} fixture version`,
-  );
-}
-assert.equal(
-  frameworkVersions.react,
-  frameworkVersions['react-dom'],
-  'matching React DOM',
-);
-console.log(
-  `Next fixture: Next ${frameworkVersions.next}, React/DOM ${frameworkVersions.react}`,
-);
-const server = await startFixture(root, '/docs', fixture);
-const fixtureOrigin = server.origin;
+const fixtureOrigin = process.env.FAST_LINK_FIXTURE_ORIGIN;
 
 const scenarios = [
   [
     'benchmark interactions use the supplied measurement and warmup counts',
     async (page) => {
       await page.goto(`${fixtureOrigin}/docs/benchmark`);
-      await page.waitForFunction(() => Boolean(window.benchmark));
+      await expect
+        .poll(() => page.evaluate(() => Boolean(window.benchmark)))
+        .toBe(true);
       const observations = await page.evaluate(() => {
         return ['bare', 'core', 'plain', 'react'].map((variant) => {
           const counts = { mouse: 0, touch: 0, clicks: 0 };
@@ -295,12 +265,7 @@ const scenarios = [
         'contents',
       );
       await pressAndHold(page, 'policy-pending');
-      await page.waitForFunction(
-        () =>
-          document
-            .querySelector('[data-testid="policy-pending"]')
-            ?.getAttribute('data-pending') === 'true',
-      );
+      await expect(pending).toHaveAttribute('data-pending', 'true');
       assert.equal(await pending.getAttribute('data-attached'), 'true');
       await page.mouse.up();
       await expectOutput(
@@ -359,74 +324,31 @@ const scenarios = [
   ],
 ];
 
-try {
-  await server.waitUntilReady();
-  await test('Next.js fixture browsers', { concurrency: true }, async (t) => {
-    await Promise.all(
-      Object.entries(
-        browserName ? { [browserName]: browsers[browserName] } : browsers,
-      ).map(([name, browserType]) =>
-        t.test(name, { concurrency: 2 }, (browserTest) =>
-          checkBrowser(browserType, browserTest),
-        ),
-      ),
-    );
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__fixturePresses = 0;
+    document.addEventListener('pointerdown', () => window.__fixturePresses++);
   });
-} finally {
-  await server.close();
-}
+  await page.goto(`${fixtureOrigin}/docs`);
+  await waitForHydration(page);
+});
 
-async function checkBrowser(browserType, t) {
-  const browser = await browserType.launch();
-  try {
-    await Promise.all(
-      scenarios.map(([name, run, options]) =>
-        t.test(name, { timeout: 30000 }, async () => {
-          const context = await browser.newContext(options);
-          try {
-            const page = await context.newPage();
-            page.setDefaultTimeout(5000);
-            page.setDefaultNavigationTimeout(10000);
-            const errors = [];
-            page.on('pageerror', (error) => errors.push(error.message));
-            await page.addInitScript(() => {
-              window.__fixturePresses = 0;
-              document.addEventListener(
-                'pointerdown',
-                () => window.__fixturePresses++,
-              );
-            });
-            await page.goto(`${fixtureOrigin}/docs`);
-            await waitForHydration(page);
-            await run(page);
-            assert.deepEqual(errors, [], 'unexpected browser errors');
-          } finally {
-            await context.close();
-          }
-        }),
-      ),
-    );
-  } finally {
-    await browser.close();
-  }
+for (const [name, run, options] of scenarios) {
+  test.describe(() => {
+    if (options) test.use(options);
+    test(name, async ({ page }) => run(page));
+  });
 }
 
 async function waitForHydration(page) {
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('[data-testid="closed-capture-host"]')
-        ?.getAttribute('data-ready') === 'true',
+  await expect(page.getByTestId('closed-capture-host')).toHaveAttribute(
+    'data-ready',
+    'true',
   );
 }
 
 async function expectOutput(page, testId, text) {
-  await page.waitForFunction(
-    (expected) =>
-      document.querySelector(`[data-testid="${expected.testId}"]`)
-        ?.textContent === expected.text,
-    { testId, text },
-  );
+  await expect(page.getByTestId(testId)).toHaveJSProperty('textContent', text);
 }
 
 async function pressAndHold(page, testId) {
@@ -499,12 +421,7 @@ async function pressBeforeRelease(page, testId, destination) {
 }
 
 async function checkCaptureSuppression(page, testId, destination) {
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('[data-testid="closed-capture-host"]')
-        ?.getAttribute('data-ready') === 'true',
-  );
+  await waitForHydration(page);
   const target = page.getByTestId(testId);
   await target.scrollIntoViewIfNeeded();
   const box = await target.boundingBox();
@@ -521,17 +438,9 @@ async function checkCaptureSuppression(page, testId, destination) {
       box.y + (testId === 'closed-capture-host' ? 20 : box.height / 2),
     );
     await page.mouse.down();
-    await page.waitForFunction(
-      () =>
-        document.querySelector('[data-testid="events"]')?.textContent ===
-        'capture-fast',
-    );
+    await expectOutput(page, 'events', 'capture-fast');
     await page.mouse.up();
-    await page.waitForFunction(
-      () =>
-        document.querySelector('[data-testid="events"]')?.textContent ===
-        'capture-fast,capture-prevented',
-    );
+    await expectOutput(page, 'events', 'capture-fast,capture-prevented');
     await page.waitForURL(destination);
     if (documentRequests !== 0)
       throw new Error(`${testId}: follow-up click activated the document`);
@@ -621,7 +530,7 @@ async function observeBrowserNavigation(
       await pressAfterRelease(page, testId, expectedDestination);
     }
     if (scroll === 'reset') {
-      await page.waitForFunction(() => window.scrollY === 0);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     }
 
     const after = await page.evaluate(

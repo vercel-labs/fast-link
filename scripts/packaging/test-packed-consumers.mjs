@@ -44,7 +44,11 @@ const run = (command, args) =>
   execFileSync(command, args, {
     cwd: consumer,
     stdio: 'inherit',
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+    env: {
+      ...process.env,
+      NEXT_TELEMETRY_DISABLED: '1',
+      FAST_LINK_FIXTURE_DIR: consumer,
+    },
   });
 
 function replaceOnce(source, search, replacement, path) {
@@ -172,9 +176,11 @@ try {
   run(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit']);
   if (minimum) {
     run(process.execPath, [
-      join(root, 'scripts/browser/test-next-fixtures.mjs'),
-      consumer,
-      'chromium',
+      join(root, 'node_modules/@playwright/test/cli.js'),
+      'test',
+      '--config',
+      join(root, 'scripts/browser/next.config.mjs'),
+      '--project=chromium',
     ]);
   }
   console.log(

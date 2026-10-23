@@ -42,6 +42,12 @@ failure.
 - Compare repeated runs of the same command before claiming a speedup; record
   whether caches are cold or warm. Avoid strict wall-clock assertions.
 
+### Browser suites
+
+Run `pnpm test:browser` for core browser tests and `pnpm test:fixtures` for the
+Next.js fixture. Both commands build their prerequisites. Failed browser runs
+save screenshots and traces under `test-results/`.
+
 ### Test package installs
 
 Check the [packed-consumers CI job](.github/workflows/ci.yml) when changing exports,

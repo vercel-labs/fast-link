@@ -1,7 +1,7 @@
 /*
  * Tests FastLink's routing options, cancellation, click handling, and ref updates
  * with mocked Next Link and App Router. Real framework and browser integration
- * is covered in scripts/browser/test-next-fixtures.mjs.
+ * is covered in scripts/browser/next.pw.mjs.
  */
 
 import { act, fireEvent, render } from '@testing-library/react';
