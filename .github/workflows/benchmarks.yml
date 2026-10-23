@@ -69,7 +69,7 @@ jobs:
         working-directory: head
         run: |
           pnpm install --frozen-lockfile
-          pnpm exec playwright install --with-deps chromium
+          bash scripts/ci/install-browsers.sh chromium
 
       - name: Compare revisions
         if: steps.select.outputs.relevant == 'true'
