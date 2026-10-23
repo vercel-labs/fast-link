@@ -42,6 +42,30 @@ failure.
 - Compare repeated runs of the same command before claiming a speedup; record
   whether caches are cold or warm. Avoid strict wall-clock assertions.
 
+### Browser suites
+
+`pnpm test:browser` runs the core targeting suite; `pnpm test:fixtures` runs
+Next.js production fixture scenarios. Both use Playwright Test across Chromium,
+Firefox, and WebKit, with fresh contexts, six workers, and no retries.
+Turbo builds their prerequisites and runs the browser tasks uncached.
+
+After building, run a focused scenario from the repository root:
+
+```sh
+pnpm exec playwright test --config scripts/browser/core.config.mjs --project=firefox --grep descendant
+pnpm exec playwright test --config scripts/browser/next.config.mjs --project=chromium --grep 'keyboard activation'
+```
+
+Each invocation writes failures to a unique `test-results/core-*` or
+`test-results/next-*` directory, including screenshots, traces, and page errors.
+CI uploads these directories when a browser or packed minimum-version check fails.
+Open a retained trace with `pnpm exec playwright show-trace <path-to-trace.zip>`.
+
+The Next suite reuses one production server per invocation with a dynamic port.
+Set `FAST_LINK_FIXTURE_DIR` to select an already built isolated fixture; resolved
+Next, React, and React DOM versions must match that fixture's pinned manifest.
+Use `--project=chromium` for the minimum-version packed consumer.
+
 ### Test package installs
 
 Check the [packed-consumers CI job](.github/workflows/ci.yml) when changing exports,

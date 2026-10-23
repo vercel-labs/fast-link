@@ -44,14 +44,13 @@
     "@fast-link/core#test:browser": {
       "dependsOn": ["build"],
       "cache": false,
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/scripts/browser/test-core-targeting.mjs"
-      ]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/browser/**"]
     },
     "@fast-link/fixture-next-16#test:fixtures": {
       "dependsOn": ["build"],
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["FAST_LINK_FIXTURE_DIR"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/browser/**"]
     },
     "//#format": {
       "cache": false
@@ -62,6 +61,7 @@
     "//#test:root": {
       "inputs": [
         "scripts/**",
+        "vitest.config.mjs",
         ".pnpmfile.cjs",
         ".github/workflows/**",
         ".github/actions/**",

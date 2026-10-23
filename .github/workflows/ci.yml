@@ -71,6 +71,14 @@ jobs:
       - name: Verify packed minimum framework compatibility
         if: ${{ needs.paths.outputs.lightweight != 'true' }}
         run: node scripts/packaging/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}" --minimum
+      - name: Upload browser failure artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ failure() }}
+        with:
+          name: browser-failures-${{ github.job }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ needs.paths.outputs.lightweight != 'true' }}
         with:
@@ -96,6 +104,15 @@ jobs:
 
       - name: Run browser and App Router tests
         run: pnpm exec turbo run test:browser test:fixtures
+
+      - name: Upload browser failure artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ failure() }}
+        with:
+          name: browser-failures-${{ github.job }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
 
   packed-consumers:
     needs: [paths, validate]

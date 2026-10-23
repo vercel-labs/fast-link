@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "typecheck": "tsc --noEmit",
-    "test:fixtures": "node ../../scripts/browser/test-next-fixtures.mjs"
+    "test:fixtures": "playwright test --config ../../scripts/browser/next.config.mjs"
   },
   "dependencies": {
     "@fast-link/core": "workspace:^",

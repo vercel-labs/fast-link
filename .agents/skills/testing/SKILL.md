@@ -44,14 +44,14 @@ Keep exhaustive cases with their owner:
 ### Browser tests
 
 - Prove native targeting, capture/bubbling, trusted press/release sequences, default navigation, and browser differences.
-- `scripts/browser/test-core-targeting.mjs` tests built core with named `node:test` cases in Chromium, Firefox, and WebKit.
+- `scripts/browser/core.pw.mjs` tests built core with Playwright Test cases in Chromium, Firefox, and WebKit.
 - Use browser input for native activation claims; `dispatchEvent` remains synthetic in a browser.
 - Keep cases whose browser boundary adds proof.
 
 ### Real app fixtures
 
 - Prove actual Next Link/router behavior, hydration, history, scroll, base paths, prefetch, and composed navigation.
-- Extend `fixtures/next-16` and `scripts/browser/test-next-fixtures.mjs`; keep the production app pinned.
+- Extend `fixtures/next-16` and `scripts/browser/next.pw.mjs`; keep the production app pinned.
 - Router mocks cannot establish real framework behavior.
 - Preserve `fixtures/core` to verify the built public core package in Node without framework or browser globals.
 - Use `fixtures/react` to verify SSR through the built public React package without DOM globals.
@@ -89,8 +89,9 @@ Keep exhaustive cases with their owner:
 - Explain the limits of necessary observation windows; elapsed sleep alone does not establish completion.
 - Give browser scenarios separate identities and fresh contexts where state can leak.
 - Share builds and production servers when appropriate.
-- Prefer `@playwright/test` fixtures and `webServer` when runner growth obstructs isolation, diagnostic retries, or reliable waits.
-- Treat Playwright Test adoption as an explicit tooling change; verify dependency support first.
+- Use Playwright Test fixtures and locator assertions for browser scenarios.
+- The Next global setup reuses `startFixture`; preserve one production server per invocation and the benchmark consumer.
+- See [browser suite commands and diagnostics](../../../CONTRIBUTING.md#browser-suites).
 
 ## Coverage
 

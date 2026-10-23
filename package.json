@@ -23,6 +23,7 @@
     "test:compatibility": "node scripts/packaging/test-framework-compatibility.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.59.0",
     "@vitest/coverage-v8": "4.1.11",
     "lefthook": "2.1.5",
     "oxfmt": "0.44.0",
