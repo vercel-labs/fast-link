@@ -159,18 +159,41 @@ const scenarios = [
         )
           documentRequests++;
       });
+      const response = Promise.withResolvers();
+      await page.route('**/docs/slow?*', async (route) => {
+        await response.promise;
+        await route.continue();
+      });
+      const requested = page.waitForRequest((request) => {
+        const url = new URL(request.url());
+        return (
+          url.pathname === '/docs/slow' &&
+          url.searchParams.get('from') === 'closed-region'
+        );
+      });
+      requested.catch(() => undefined);
       await page.mouse.move(box.x + 100, box.y + 60);
-      await page.mouse.down();
       try {
-        await expectOutput(page, 'events', 'shadow-region-fast');
+        await page.mouse.down();
+        try {
+          await expectOutput(page, 'events', 'shadow-region-fast');
+          await requested;
+          assert.equal(
+            new URL(page.url()).pathname,
+            '/docs',
+            'response must still be held',
+          );
+        } finally {
+          await page.mouse.up();
+        }
+        await expectOutput(
+          page,
+          'events',
+          'shadow-region-fast,shadow-region-prevented',
+        );
       } finally {
-        await page.mouse.up();
+        response.resolve();
       }
-      await expectOutput(
-        page,
-        'events',
-        'shadow-region-fast,shadow-region-prevented',
-      );
       await page.waitForURL(/\/docs\/slow\?from=closed-region$/);
       assert.equal(
         documentRequests,

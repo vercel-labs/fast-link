@@ -265,10 +265,18 @@ it('preserves managed ownership and cleans up composed controllers in StrictMode
     transitionTypes: undefined,
   });
   expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
-  // Unmount with another pending click to check both listener and pending-owner cleanup.
+  // Retain the old subtree so a live region can expose stale pending ownership.
+  const subtree = anchor.parentElement;
+  if (!subtree) throw new Error('Missing managed link region');
   pointerDown(anchor);
   unmount();
   pointerDown(anchor);
+  const live = render(
+    <FastLinkRegion>
+      <span data-testid="mount" />
+    </FastLinkRegion>,
+  );
+  live.getByTestId('mount').append(subtree);
   const click = vi.fn();
   anchor.addEventListener('click', (event) => {
     click(event.defaultPrevented);
@@ -279,4 +287,5 @@ it('preserves managed ownership and cleans up composed controllers in StrictMode
   expect(managedPolicy).toHaveBeenCalledTimes(2);
   expect(router.push).toHaveBeenCalledTimes(2);
   expect(regionPolicy).not.toHaveBeenCalled();
+  live.unmount();
 });
