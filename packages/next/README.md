@@ -7,6 +7,12 @@ regions and individual links, plus a hook for custom renderers.
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
+[Install](#install-the-package) · [Choose an interface](#choose-an-interface) ·
+[One link](#configure-one-link) · [Regions and base paths](#add-fast-link-to-a-navigation-region) ·
+[Navigation and pending state](#understand-navigation-and-click-behavior) ·
+[Routing policies](#route-links-across-application-boundaries) ·
+[Custom renderers](#build-a-custom-renderer) · [API reference](#api-reference)
+
 ## Requirements
 
 Supports Node.js 22 or later, with Next.js 16 (`>=16 <17`) and React 19 (`>=19 <20`).
@@ -26,10 +32,6 @@ npm install @fast-link/next
 | `FastLinkRegion` | Existing links sharing one navigation policy  |
 | `useFastLink`    | A custom component that renders the anchor    |
 
-`FastLinkRegion` wraps a group once, so you do not need to replace its links or
-manage refs. `FastLink` renders `next/link`, preserving Link prefetching and
-native activation.
-
 ## Configure one link
 
 Use `FastLink` when one link needs its own Next.js behavior:
@@ -47,6 +49,7 @@ export function AccountLink() {
 ```
 
 - Supports [Next Link options](#fastlink), including object `href`.
+- Preserves Next Link prefetching and native activation.
 - Keeps its own options and policy inside a `FastLinkRegion`, even when disabled.
 
 ## Add Fast Link to a navigation region
@@ -73,11 +76,9 @@ export default function Navigation() {
   a region.
 - Regions cannot read Next Link options from ordinary rendered anchors.
 
-Primary mouse navigation now starts on `pointerdown`. A Server Component can
-pass the link subtree as children.
-
-`FastLinkRegion` renders a `display: contents` `div`. Keep a semantic element,
-such as `nav`, inside the region. The wrapper has no layout box.
+- Server Components can pass the link subtree as children.
+- The wrapper is a `display: contents` div, with no layout box.
+  Keep a semantic element such as `nav` inside it.
 
 ### Configure a Next.js base path
 
@@ -123,12 +124,10 @@ export function AccountLink() {
 }
 ```
 
-Use this opt-out for an ordinary link with `onNavigate`, an `onClick` guard,
-`replace`, `scroll`, or other behavior that the region cannot read from the
-rendered anchor. A descendant React `onPointerDownCapture` can stop or prevent
-the press before the region's native listener runs. Descendant bubble handlers
-run after early navigation and cannot cancel it. Define callback props in a
-Client Component.
+- Opt out for click-time guards or Link options the region cannot read.
+- Descendant `onPointerDownCapture` can prevent or stop the press before the
+  region listener. Bubble handlers run too late to cancel early navigation.
+- Define callbacks in a Client Component.
 
 ## Understand navigation and click behavior
 
@@ -160,14 +159,14 @@ callback.
   `onNavigate` cancellation for press-time validation; opt out for release-time
   validation.
 
-Fast Link leaves these interactions on their normal Link or browser path:
+Native behavior remains for:
 
-- Touch and pen input
-- Keyboard, middle, right, and modified clicks
-- Downloads, external URLs, non-`_self` targets, and hash-only links
-- Presses that start on nested controls
-- Anchors or descendants with `data-no-fast-link`
-- Components with `enabled={false}`
+- Touch, pen, keyboard, modified and non-primary clicks.
+- Downloads, external or hash-only URLs, non-`_self` targets, nested controls,
+  and `data-no-fast-link` opt-outs.
+
+See core's [eligibility rules](https://github.com/vercel-labs/fast-link/tree/main/packages/core#know-which-interactions-fast-link-accepts).
+Use `enabled={false}` to disable a component's early navigation.
 
 Other integration rules:
 
@@ -186,82 +185,6 @@ Other integration rules:
 - Use route-level loading UI, or manage pending state in your app.
 - Start app-owned state in `onFastNavigate`. It reports an attempt, not completion.
 - Clear it on completion. Reset it on failure, cancellation, and unmount.
-
-## API reference
-
-### Options shared by links, regions, and hooks
-
-| Option             | Type                         | Default | Behavior                                               |
-| ------------------ | ---------------------------- | ------- | ------------------------------------------------------ |
-| `enabled`          | `boolean`                    | `true`  | Controls whether new pointerdowns can start navigation |
-| `navigationPolicy` | `FastNavigationPolicy`       | None    | Selects App Router or document navigation              |
-| `onFastNavigate`   | `(intent, decision) => void` | None    | Observes the frozen decision before navigation         |
-
-`onFastNavigate` cannot change the selected action. Its return value is ignored,
-and navigation is still attempted if it throws.
-
-### `FastLink`
-
-`FastLinkProps` includes every prop accepted by `next/link` plus the shared
-options above. `href` remains required.
-
-Fast navigation preserves `replace`, `scroll`, and `transitionTypes` options.
-`transitionTypes` follows the installed `next/link` types; it is omitted from
-hook options on Next versions that do not declare it.
-`onNavigate` can cancel Fast Link before policy evaluation, observation, or
-navigation.
-
-### `FastLinkRegion`
-
-| Prop               | Type                         | Default  | Behavior                                                   |
-| ------------------ | ---------------------------- | -------- | ---------------------------------------------------------- |
-| `children`         | `ReactNode`                  | Required | Supplies the existing link subtree                         |
-| `basePath`         | `string`                     | `''`     | Removes one matching prefix before `router.push`           |
-| `enabled`          | `boolean`                    | `true`   | Controls early navigation for ordinary links in the region |
-| `navigationPolicy` | `FastNavigationPolicy`       | None     | Selects App Router or document navigation                  |
-| `onFastNavigate`   | `(intent, decision) => void` | None     | Observes the selected decision before navigation           |
-
-Nested regions retain outer-first capture ordering. A managed `FastLink` or
-`useFastLink` anchor owns its press before every containing region.
-
-### `useFastLink`
-
-`useFastLink(options)` returns stable `{ ref, onClickCapture }` bindings for an
-application-owned anchor or optional-href element. Spread both on the same DOM
-element after other props. It accepts:
-
-- `href`, `as`, `legacyBehavior`, `replace`, `scroll`, `onNavigate`, and
-  `transitionTypes` from `next/link`
-- The shared `enabled`, `navigationPolicy`, and `onFastNavigate` options
-- `forwardedRef` for composing the caller's ref
-- `onClickCapture`, called after suppression even when the click is prevented
-
-A missing `href`, a supplied `as`, `legacyBehavior={true}`, or a non-anchor root
-leaves navigation on its normal path. Option updates preserve a pending
-follow-up click. Replacing the root or unmounting destroys the controller and
-cleans up composed refs.
-
-### Navigation policy types
-
-`FastNavigationPolicy(intent, proposed)` runs synchronously and returns a
-`FastNavigationDecision`. `FastRouterProposal` describes the route the adapter
-would take without policy:
-
-| Proposal field | Type                   | Value                               |
-| -------------- | ---------------------- | ----------------------------------- |
-| `destination`  | `string`               | The computed App Router destination |
-| `method`       | `'push' \| 'replace'`  | The proposed history method         |
-| `scroll`       | `boolean \| undefined` | The proposed scroll behavior        |
-
-| Decision                                  | Action                                                       |
-| ----------------------------------------- | ------------------------------------------------------------ |
-| `{ kind: 'router' }`                      | Use the proposed route and scroll behavior                   |
-| `{ kind: 'router', scroll: false }`       | Use the proposed route and preserve scroll position          |
-| `{ kind: 'document', method: 'assign' }`  | Load the validated URL with a new history entry              |
-| `{ kind: 'document', method: 'replace' }` | Load the validated URL and replace the current history entry |
-
-A policy can override only router scroll behavior. It cannot replace the
-destination, history method, or transition settings.
 
 ## Route links across application boundaries
 
@@ -360,7 +283,83 @@ after suppression. The renderer keeps its normal Link props and forwarded ref.
 Add `onFastNavigate` to maintain application pending state when route-level
 loading UI is not enough.
 
-## Exports
+## API reference
+
+### Options shared by links, regions, and hooks
+
+| Option             | Type                         | Default | Behavior                                               |
+| ------------------ | ---------------------------- | ------- | ------------------------------------------------------ |
+| `enabled`          | `boolean`                    | `true`  | Controls whether new pointerdowns can start navigation |
+| `navigationPolicy` | `FastNavigationPolicy`       | None    | Selects App Router or document navigation              |
+| `onFastNavigate`   | `(intent, decision) => void` | None    | Observes the frozen decision before navigation         |
+
+`onFastNavigate` cannot change the selected action. Its return value is ignored,
+and navigation is still attempted if it throws.
+
+### `FastLink`
+
+`FastLinkProps` includes every prop accepted by `next/link` plus the shared
+options above. `href` remains required.
+
+Fast navigation preserves `replace`, `scroll`, and `transitionTypes` options.
+`transitionTypes` follows the installed `next/link` types; it is omitted from
+hook options on Next versions that do not declare it.
+`onNavigate` can cancel Fast Link before policy evaluation, observation, or
+navigation.
+
+### `FastLinkRegion`
+
+| Prop               | Type                         | Default  | Behavior                                                   |
+| ------------------ | ---------------------------- | -------- | ---------------------------------------------------------- |
+| `children`         | `ReactNode`                  | Required | Supplies the existing link subtree                         |
+| `basePath`         | `string`                     | `''`     | Removes one matching prefix before `router.push`           |
+| `enabled`          | `boolean`                    | `true`   | Controls early navigation for ordinary links in the region |
+| `navigationPolicy` | `FastNavigationPolicy`       | None     | Selects App Router or document navigation                  |
+| `onFastNavigate`   | `(intent, decision) => void` | None     | Observes the selected decision before navigation           |
+
+Nested regions retain outer-first capture ordering. A managed `FastLink` or
+`useFastLink` anchor owns its press before every containing region.
+
+### `useFastLink`
+
+`useFastLink(options)` returns stable `{ ref, onClickCapture }` bindings for an
+application-owned anchor or optional-href element. Spread both on the same DOM
+element after other props. It accepts:
+
+- `href`, `as`, `legacyBehavior`, `replace`, `scroll`, `onNavigate`, and
+  `transitionTypes` from `next/link`
+- The shared `enabled`, `navigationPolicy`, and `onFastNavigate` options
+- `forwardedRef` for composing the caller's ref
+- `onClickCapture`, called after suppression even when the click is prevented
+
+A missing `href`, a supplied `as`, `legacyBehavior={true}`, or a non-anchor root
+leaves navigation on its normal path. Option updates preserve a pending
+follow-up click. Replacing the root or unmounting destroys the controller and
+cleans up composed refs.
+
+### Navigation policy types
+
+`FastNavigationPolicy(intent, proposed)` runs synchronously and returns a
+`FastNavigationDecision`. `FastRouterProposal` describes the route the adapter
+would take without policy:
+
+| Proposal field | Type                   | Value                               |
+| -------------- | ---------------------- | ----------------------------------- |
+| `destination`  | `string`               | The computed App Router destination |
+| `method`       | `'push' \| 'replace'`  | The proposed history method         |
+| `scroll`       | `boolean \| undefined` | The proposed scroll behavior        |
+
+| Decision                                  | Action                                                       |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `{ kind: 'router' }`                      | Use the proposed route and scroll behavior                   |
+| `{ kind: 'router', scroll: false }`       | Use the proposed route and preserve scroll position          |
+| `{ kind: 'document', method: 'assign' }`  | Load the validated URL with a new history entry              |
+| `{ kind: 'document', method: 'replace' }` | Load the validated URL and replace the current history entry |
+
+A policy can override only router scroll behavior. It cannot replace the
+destination, history method, or transition settings.
+
+### Exports
 
 `@fast-link/next` exports `FastLink`, `FastLinkRegion`, `useFastLink`,
 `FastLinkProps`, `FastLinkRegionProps`, `UseFastLinkOptions`,

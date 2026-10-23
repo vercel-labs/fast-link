@@ -1,5 +1,10 @@
 # @fast-link/next
 
+## 0.0.11
+
+- Group integration guides before the API reference and add README navigation links.
+- Shorten repeated input rules while retaining navigation caveats.
+
 ## 0.0.10
 
 - Clarify completion and reset handling for application-owned pending state.
