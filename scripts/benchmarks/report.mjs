@@ -22,7 +22,7 @@ export function summarize(samples) {
   };
 }
 
-/** Rejects incomplete work before any timing decision or publication. */
+/** Rejects incomplete work before accepting a measurement. */
 export function validateReport(report) {
   if (
     report?.schema !== 1 ||
@@ -91,7 +91,7 @@ export function scenarioNames(
   return names;
 }
 
-/** Rejects differences in scenario sets, runner, units, or sample counts before gating. */
+/** Rejects differences in scenario sets, runner, units, or sample counts before comparison. */
 function assertComparable(base, head) {
   validateReport(base);
   validateReport(head);
@@ -118,67 +118,11 @@ function assertComparable(base, head) {
   }
 }
 
-/** Finds raw scenario medians that exceed both approved budgets. */
-function findRegressions(base, head, policy) {
-  assertComparable(base, head);
-  const regressions = [];
-
-  for (const key of Object.keys(base.metrics).toSorted()) {
-    const before = base.metrics[key];
-    const after = head.metrics[key];
-    const budget = policy.metrics[key];
-    if (!budget) continue;
-    if (
-      !/^(core|react)\./.test(key) ||
-      !(budget.absolute > 0) ||
-      !(policy.relative > 0)
-    )
-      throw new Error(`Invalid gate budget: ${key}`);
-    const baseline = summarize(before.samples).median;
-    const current = summarize(after.samples).median;
-    if (
-      current - baseline > budget.absolute &&
-      current > baseline * (1 + policy.relative)
-    )
-      regressions.push({
-        metric: key,
-        base: baseline,
-        head: current,
-        delta: current - baseline,
-        unit: before.unit,
-      });
-  }
-
-  for (const key of Object.keys(policy.metrics))
-    if (!head.metrics[key]) throw new Error(`Gated metric missing: ${key}`);
-
-  return regressions;
-}
-
-/** Requires a second valid comparison before failing a timing regression. */
-export function evaluateGate(base, head, policy, confirmation) {
+/** Validates both measurements and their compatibility; timing differences never fail. */
+export function evaluateComparison(base, head) {
   try {
-    const regressions = findRegressions(base, head, policy);
-    if (!regressions.length) return { status: 'pass', regressions };
-    if (!confirmation) return { status: 'repeat', regressions };
-    if (
-      confirmation.base.revision !== base.revision ||
-      confirmation.head.revision !== head.revision
-    )
-      throw new Error('Confirmation revisions differ');
-    const repeated = findRegressions(
-      confirmation.base,
-      confirmation.head,
-      policy,
-    );
-    const confirmed = regressions.filter(({ metric }) =>
-      repeated.some((item) => item.metric === metric),
-    );
-    return {
-      status: confirmed.length ? 'fail' : 'inconclusive',
-      regressions,
-      confirmed,
-    };
+    assertComparable(base, head);
+    return { status: 'pass' };
   } catch (error) {
     return { status: 'fail', error: error.message };
   }

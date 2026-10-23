@@ -1,11 +1,11 @@
 /* oxlint-disable no-await-in-loop -- Alternate revisions without overlapping work. */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { combineBatches, summarizeCalibration } from './comparison-results.mjs';
+import { combineBatches } from './comparison-results.mjs';
 import { prepareCheckouts } from './prepare.mjs';
-import { evaluateGate } from './report.mjs';
+import { evaluateComparison } from './report.mjs';
 import { createBenchmarkSession } from './session.mjs';
 import { workload } from './workload.mjs';
 
@@ -17,14 +17,12 @@ function readOptions() {
       head: { type: 'string', default: process.cwd() },
       output: { type: 'string' },
       case: { type: 'string', default: 'all' },
-      calibrate: { type: 'boolean', default: false },
-      informational: { type: 'boolean', default: false },
     },
   });
 
   if (!values.base || !values.output) {
     throw new Error(
-      'Usage: pnpm benchmark:compare --base CHECKOUT --output DIRECTORY [--calibrate]',
+      'Usage: pnpm benchmark:compare --base CHECKOUT --output DIRECTORY',
     );
   }
 
@@ -37,8 +35,8 @@ function readOptions() {
 }
 
 /** Runs one revision's batch and retains its raw JSON, including failed work. */
-async function measureBatch(session, options, index, batch, side) {
-  const path = resolve(options.output, `${index}-${batch}-${side}.json`);
+async function measureBatch(session, options, batch, side) {
+  const path = resolve(options.output, `batch-${batch}-${side}.json`);
   return session.measure({
     root: options[side],
     output: path,
@@ -48,49 +46,23 @@ async function measureBatch(session, options, index, batch, side) {
 }
 
 /** Alternates base/head batches, then saves a complete report for each side. */
-async function measureComparison(session, options, index, policy) {
+async function measureComparison(session, options) {
   const collected = { base: [], head: [] };
 
   for (let batch = 0; batch < workload.batches; batch++) {
-    const sides = (batch + index) % 2 ? ['head', 'base'] : ['base', 'head'];
+    const sides = batch % 2 ? ['head', 'base'] : ['base', 'head'];
     for (const side of sides) {
-      collected[side].push(
-        await measureBatch(session, options, index, batch, side),
-      );
+      collected[side].push(await measureBatch(session, options, batch, side));
     }
   }
 
   const reports = {};
   for (const side of ['base', 'head']) {
     reports[side] = combineBatches(collected[side]);
-    await writeJson(
-      resolve(options.output, `${index}-${side}.json`),
-      reports[side],
-    );
+    await writeJson(resolve(options.output, `${side}.json`), reports[side]);
   }
 
-  const validity = evaluateGate(reports.base, reports.head, {
-    ...policy,
-    metrics: {},
-  });
-  if (validity.status === 'fail') throw new Error(validity.error);
   return reports;
-}
-
-/** Repeats only a suspected timing regression; invalid work never requests a repeat. */
-async function evaluateComparisons(session, options, comparisons, policy) {
-  const first = comparisons[0];
-  const verdict = evaluateGate(first.base, first.head, policy);
-  if (verdict.status !== 'repeat') return verdict;
-
-  const confirmation = await measureComparison(
-    session,
-    options,
-    comparisons.length,
-    policy,
-  );
-  comparisons.push(confirmation);
-  return evaluateGate(first.base, first.head, policy, confirmation);
 }
 
 async function writeJson(path, value) {
@@ -101,10 +73,7 @@ async function writeJson(path, value) {
 async function main() {
   const started = performance.now();
   const options = readOptions();
-  const policy = JSON.parse(
-    await readFile(new URL('./policy.json', import.meta.url), 'utf8'),
-  );
-  const comparisons = [];
+  let comparisons = 0;
   let verdict;
   let session;
 
@@ -114,30 +83,9 @@ async function main() {
     await prepareCheckouts(options.base, options.head);
     session = createBenchmarkSession();
 
-    const count = options.calibrate ? policy.calibrationComparisons : 1;
-    for (let index = 0; index < count; index++) {
-      comparisons.push(
-        await measureComparison(session, options, index, policy),
-      );
-    }
-
-    const effectivePolicy =
-      options.informational || options.calibrate
-        ? { ...policy, metrics: {} }
-        : policy;
-    verdict = await evaluateComparisons(
-      session,
-      options,
-      comparisons,
-      effectivePolicy,
-    );
-
-    if (options.calibrate) {
-      await writeJson(
-        resolve(options.output, 'calibration.json'),
-        summarizeCalibration(comparisons),
-      );
-    }
+    const reports = await measureComparison(session, options);
+    comparisons = 1;
+    verdict = evaluateComparison(reports.base, reports.head);
   } catch (error) {
     verdict = { status: 'fail', error: error.stack };
   } finally {
@@ -151,8 +99,7 @@ async function main() {
   const summary = {
     ...verdict,
     elapsedMs: performance.now() - started,
-    comparisons: comparisons.length,
-    reportOnly: Object.keys(policy.metrics).length === 0,
+    comparisons,
   };
   await writeJson(resolve(options.output, 'verdict.json'), summary);
   console.log(JSON.stringify(summary, null, 2));

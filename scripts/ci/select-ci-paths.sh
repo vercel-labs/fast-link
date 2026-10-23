@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Use lighter PR checks only for non-empty diffs within the allowed docs and skill paths.
-# This allowlist controls safe CI skips; scripts/benchmarks/ci.mjs selects measurement inputs.
-# Keep the policies separate: .agents/skills/testing/SKILL.md needs full CI but no measurements.
+# Benchmark measurements are manual; this allowlist controls correctness and packaging checks.
 diff_file=$(mktemp "$RUNNER_TEMP/fast-link-paths.XXXXXX")
 trap 'rm -f "$diff_file"' EXIT
 git diff --name-status -z --find-renames "$PR_BASE...$PR_HEAD" > "$diff_file"

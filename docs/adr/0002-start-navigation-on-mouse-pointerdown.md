@@ -4,6 +4,9 @@ Fast Link starts eligible same-origin navigation on primary mouse `pointerdown`
 rather than waiting for `click`. This removes the wait for release and gives up
 release-time cancellation for those interactions.
 
+Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+See the [accessibility limitation](../../README.md#known-limitations).
+
 For touch and pen, `pointerdown` cannot establish whether contact will become a
 tap, scroll, swipe, drag, zoom, or long press. A later `pointercancel` cannot undo
 navigation that has already started. Waiting for `pointerup` gives up the early

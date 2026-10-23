@@ -1,5 +1,9 @@
 # @fast-link/react
 
+## 0.0.9
+
+- Document that sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+
 ## 0.0.8
 
 - Require React 19 and verify React 19.0.0 lifecycle behavior against packed artifacts.

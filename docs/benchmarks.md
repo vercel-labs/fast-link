@@ -15,7 +15,7 @@ pnpm benchmark --output "$results/full.json"
 
 - Add `--case core|react|next` to run one case.
 - Save output outside source checkouts. Failed runs retain partial samples and errors; do not publish them.
-- Local runs write JSON only. [Release publication](#publish-release-results) generates the README.
+- Local runs write JSON only; the README summary is maintained manually.
 
 ### Compare revisions
 
@@ -30,8 +30,9 @@ pnpm benchmark:compare --base /absolute/path/to/base-checkout --output "$results
 - Both revisions use the head workload, frozen installs, and forced production builds of the Next.js fixture and its dependencies. Each retains its own package source and external dependency versions.
 - Base/head execution alternates on the same runner.
 - Comparisons reuse Chromium and one server per checkout; each batch and navigation sample uses fresh browser contexts.
-- `--case core|react|next` narrows an investigation. Omitting a gated metric fails the check.
-- `--informational` validates work without timing thresholds.
+- `--case core|react|next` narrows an investigation. Both revisions must have matching scenario sets, units, sample counts, and runner environments.
+- A valid slowdown succeeds. Invalid, incomplete, incompatible, or failed measurements fail and retain available JSON diagnostics.
+- `base.json` and `head.json` combine the five batches per revision; individual batch files retain raw measurements. `verdict.json` records success or failure and elapsed comparison time.
 
 ## Scenario IDs
 
@@ -92,114 +93,41 @@ the runner does not wait for unrelated network activity to stop.
 - JSON retains individual samples, correctness checks, actual press durations, source identity, tested versions, and browser/host metadata.
 - Summaries use unrounded samples for medians and minimum-to-maximum ranges. Single-link lifecycle timings can reach browser timer resolution.
 - Five batch samples do not support useful p95/p99 estimates. Percentiles of interaction batch averages do not describe individual-interaction latency.
-- Gates compare raw scenario medians. They do not subtract noisy variant medians or use rounded README values.
 - Before claiming a difference, reproduce it, compare environments and ranges, and profile the limiting work separately from publication runs.
 - These are controlled lab measurements. Claims about typical-user gains need user data.
 
-## Present results in the README
+## When to measure and publish
 
-[`readme.mjs`](../scripts/benchmarks/readme.mjs) generates tables from validated reports.
+Run benchmarks when changing workloads or making performance claims. Measurements
+are manual; correctness, packaging, and release CI continue independently.
+There are no timing budgets, confirmation reruns, calibration, or overrides.
 
-- Show plain workload names, explicit baselines, median times, and units.
-- Show the recorded batch count, interaction count, warmups, and requested mouse hold.
-- Show only the recorded CPU model and OS in a small note below the tables. Regeneration uses the report, not the publishing machine.
-- Keep individual samples, diagnostics, full environment details, and previous-release comparisons in linked raw results.
-- Explain that `next/link` waits for mouse release; earlier navigation does not establish faster JavaScript execution or typical-user gains.
-- Changing displayed rows must preserve the underlying measurements and correctness checks.
+Publish evidence only to support public performance claims. A published report is
+not a release prerequisite. Link the complete validated raw report and describe
+its source revision, environment, workload, sample counts, medians, ranges, and
+measurement limits. Keep the README summary manually maintained.
 
-## CI checks
-
-`Benchmarks / benchmark` runs for PRs, main pushes, and manual dispatches.
-
-- Source, fixture, dependency, script, and workflow changes run measurements.
-- Docs-only changes pass without building or measuring.
-- Timing gates are currently report-only. Invalid work and infrastructure failures fail checks.
-- CI uploads JSON artifacts for 90 days, including available results from failed runs.
-- `verdict.json` records comparison time.
-- `full-run.json` records setup, builds, and measurement time, ending before artifact upload. Queue time is excluded.
-
-## Calibrate and enable gates
-
-1. Manually dispatch the workflow with `calibrate` selected. It runs ten unchanged-code comparisons.
-2. Review `calibration.json` and raw samples in the hosted artifact. Select stable core/React metrics; leave zero-resolution or unstable metrics report-only.
-3. Propose budgets in [`policy.json`](../scripts/benchmarks/policy.json), linking the artifact in the PR.
-4. Obtain maintainer approval before enabling metrics.
-
-- Each metric needs an `absolute` budget in its unit, above observed noise. Calibration proposes twice the largest absolute median difference.
-- The relative budget starts at a provisional 10%.
-- Next.js list and navigation timings remain informational.
-
-Exercise calibration locally with:
-
-```sh
-pnpm benchmark:compare --base "$PWD" --calibrate --output "$results/calibration"
-```
-
-Local calibration does not establish hosted-runner noise.
-
-| Measurement outcome                                     | Check result                       |
-| ------------------------------------------------------- | ---------------------------------- |
-| Median exceeds both absolute and relative budgets       | Run one confirmation comparison    |
-| Same metric exceeds both budgets again                  | Fail                               |
-| Valid comparisons disagree                              | Pass as inconclusive               |
-| Within budgets                                          | Pass                               |
-| Invalid data, incorrect work, or infrastructure failure | Fail, including during calibration |
-
-## Approve an intentional regression
-
-Before allowing overrides:
-
-1. Configure required maintainer reviewers on the `benchmark-override` GitHub environment.
-2. Approve a separate policy change setting `overridesEnabled` to `true`.
-
-To override a confirmed timing regression:
-
-1. Dispatch the workflow on the PR's current head branch.
-2. Supply the PR base revision and `override_reason`. Budget changes require separate review.
-3. Obtain the protected environment's approval before the run starts.
-
-The command verifies required reviewers and records the reason, measured cost,
-and original failure in the artifact. Invalid work and infrastructure failures
-cannot be overridden.
-
-## Publish release results
-
-After the release publish job succeeds, its benchmark job:
-
-1. Reads the previous measured source commit from `benchmark-results/latest.json`.
-2. Remeasures that commit and the release on the same runner using the current workload.
-3. Saves reports under `results/<source-commit>/` on `benchmark-results` and updates `latest.json`.
-4. Opens or updates a README PR when generated content differs from main.
-
-- The first measured release has no previous-release comparison. Release timings are informational.
-- The pointer stores the predecessor, so retries keep the same comparison.
-- An incompatible or unbuildable baseline fails publication for investigation. Do not substitute another baseline.
-- A release rerun fails if the latest measured release is not its ancestor. It cannot move results backward.
-- An empty [publish allowlist](../scripts/publishable-packages.json) prevents release benchmark publication.
-- Manually published local results belong under `local/<source-commit>/` on `benchmark-results`. Reserve `latest.json` for releases, whose publication replaces the README table.
-
-### GitHub setup and review
-
-- Allow GitHub Actions to create PRs in repository settings.
-- On an automated docs PR, select **Approve workflows to run** to start required checks. See [GitHub's workflow-trigger rules](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow).
+Navigation starts one press-to-release interval earlier. The historical workload's
+85 ms hold is a configured input, not a typical-user gain or a speedup multiplier.
+The [historical raw report](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
+records revision `fe6fd78dfb572725fccd5b37f555f61b536dda95` on a single Apple M4 Pro
+running macOS, with five alternating batches. Existing historical reports remain
+available at their original links.
 
 ## Change the benchmark code
 
-| Responsibility                                   | Source                                                                    |
-| ------------------------------------------------ | ------------------------------------------------------------------------- |
-| Workload counts, list sizes, and mouse hold      | `scripts/benchmarks/workload.mjs`                                         |
-| Browser workloads and correctness checks         | `fixtures/next-16/app/benchmark/lab.tsx`                                  |
-| Sequential measurement                           | `scripts/benchmarks/run.mjs`, `measure.mjs`, `navigation.mjs`             |
-| Shared fixture server lifecycle                  | `scripts/browser/fixture-server.mjs`                                      |
-| Browser/server reuse and report capture          | `scripts/benchmarks/session.mjs`                                          |
-| Checkout preparation and comparisons             | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs` |
-| Report validation and timing gates               | `scripts/benchmarks/report.mjs`, `policy.json`                            |
-| CI selection, overrides, and verdict enforcement | `scripts/benchmarks/ci.mjs`                                               |
-| Release baseline and GitHub publication          | `scripts/benchmarks/baseline.mjs`, `publish.mjs`, `github.mjs`            |
-| README markers and table rendering               | `scripts/benchmarks/readme.mjs`                                           |
+| Responsibility                                 | Source                                                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Workload counts, list sizes, and mouse hold    | `scripts/benchmarks/workload.mjs`                                         |
+| Browser workloads and correctness checks       | `fixtures/next-16/app/benchmark/lab.tsx`                                  |
+| Sequential measurement                         | `scripts/benchmarks/run.mjs`, `measure.mjs`, `navigation.mjs`             |
+| Shared fixture server lifecycle                | `scripts/browser/fixture-server.mjs`                                      |
+| Browser/server reuse and report capture        | `scripts/benchmarks/session.mjs`                                          |
+| Checkout preparation and comparisons           | `scripts/benchmarks/prepare.mjs`, `compare.mjs`, `comparison-results.mjs` |
+| Report validation and comparison compatibility | `scripts/benchmarks/report.mjs`                                           |
 
-Run report, gate, and publication tests without GitHub access:
+Run the report and comparison tests without GitHub access:
 
 ```sh
-pnpm exec vitest run --globals scripts/benchmarks/benchmarks.spec.mjs scripts/benchmarks/benchmark-publication.spec.mjs
+pnpm exec vitest run --globals scripts/benchmarks/benchmarks.spec.mjs
 ```

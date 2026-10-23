@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.8
+
+- Document that sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+
 ## 0.0.7
 
 - Accelerate anchors only when their role is absent, empty, or `link`.

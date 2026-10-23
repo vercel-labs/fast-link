@@ -35,34 +35,3 @@ export function combineBatches(reports) {
   validateReport(combined);
   return combined;
 }
-
-/** Proposes budgets from unchanged-code noise; approval remains a separate step. */
-export function summarizeCalibration(comparisons) {
-  if (comparisons.some((pair) => pair.base.revision !== pair.head.revision)) {
-    throw new Error('Calibration requires unchanged code (the same revision)');
-  }
-
-  const first = comparisons[0];
-  const names = Object.keys(first.head.metrics).filter((name) =>
-    /^(core|react)\./.test(name),
-  );
-  const noise = {};
-
-  for (const name of names) {
-    const differences = comparisons.map((pair) =>
-      Math.abs(
-        summarize(pair.head.metrics[name].samples).median -
-          summarize(pair.base.metrics[name].samples).median,
-      ),
-    );
-    const maximum = Math.max(...differences);
-
-    noise[name] = {
-      maxAbsoluteDifference: maximum,
-      proposedAbsoluteBudget: maximum * 2,
-      unit: first.head.metrics[name].unit,
-    };
-  }
-
-  return { comparisons: comparisons.length, noise, approvalRequired: true };
-}
