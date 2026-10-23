@@ -10,7 +10,6 @@ function readOptions() {
       root: { type: 'string', default: process.cwd() },
       output: { type: 'string' },
       case: { type: 'string', default: 'all' },
-      batch: { type: 'string' },
     },
   });
   if (!values.output || !['all', 'core', 'react', 'next'].includes(values.case))
@@ -33,7 +32,6 @@ async function main() {
       root: values.root,
       output: values.output,
       selected: values.case,
-      batch: values.batch === undefined ? undefined : Number(values.batch),
     });
   } finally {
     await session.close();

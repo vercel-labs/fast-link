@@ -1,5 +1,9 @@
 # @fast-link/next
 
+## 0.0.12
+
+- Document that sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+
 ## 0.0.11
 
 - Group integration guides before the API reference and add README navigation links.
