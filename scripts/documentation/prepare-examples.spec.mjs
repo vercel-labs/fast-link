@@ -24,7 +24,7 @@ it.each([
   fixture.path = fileURLToPath(new URL('../../README.md', import.meta.url));
   fixture.appended = `\n${opening}\nconst invalid: number = 'bad';\n${opening.trim().replace(/tsx?.*/, '')}\n`;
   vi.resetModules();
-  await expect(import('./check-examples.mjs')).rejects.toThrow(
+  await expect(import('./prepare-examples.mjs')).rejects.toThrow(
     'Use plain triple-backtick ts/tsx fences',
   );
 });

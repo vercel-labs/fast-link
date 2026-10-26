@@ -77,14 +77,14 @@
       "dependsOn": ["@fast-link/next#build"],
       "cache": false
     },
-    "//#typecheck:examples": {
-      "dependsOn": ["@fast-link/next#build"],
+    "@fast-link/fixture-documentation#typecheck": {
+      "dependsOn": ["^build"],
       "inputs": [
-        "scripts/documentation/**",
-        "README.md",
-        "packages/*/README.md",
-        "skills/fast-link/**",
-        "pnpm-lock.yaml"
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/documentation/**",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/packages/*/README.md",
+        "$TURBO_ROOT$/skills/fast-link/**"
       ]
     }
   }

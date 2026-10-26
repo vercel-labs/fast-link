@@ -3,12 +3,13 @@
 Run from the repository root on Node.js 24:
 
 ```sh
-pnpm build
-pnpm typecheck:examples
+pnpm typecheck
 ```
 
-The check reads the TS/TSX fences from these files and compiles their contents
-against built public package exports. Block numbers count only TS/TSX fences,
+The documentation fixture extracts the TS/TSX fences from these files into
+ignored `.generated` files, then runs ordinary `tsc --noEmit` against built public
+package exports. Its `tsconfig.json` extends the shared repository configuration;
+Turbo builds its package dependencies first. Block numbers count only TS/TSX fences,
 in document order. Each block gets a separate module; examples with the same
 export name do not share scope.
 
@@ -36,7 +37,8 @@ All integration examples are standalone modules except the Next skill's blocks
 and forwarding an anchor ref. It supplies no implementation or `any` types.
 Verify the real application's modules separately before integration.
 
-The command reports each source location, block number, and classification,
-then the result. It is also part of `pnpm validate` and full PR CI. Typechecking
+Extraction reports each source location, block number, and classification.
+Standard repo `pnpm typecheck`, `pnpm validate`, and full CI include the fixture.
+Typechecking
 does not prove navigation timing, event suppression, or framework behavior;
 those remain covered by controller, browser, and production fixture tests.

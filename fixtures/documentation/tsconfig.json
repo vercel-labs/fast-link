@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["react"],
+    "noEmit": true
+  },
+  "include": [".generated/**/*.ts", ".generated/**/*.tsx"]
+}

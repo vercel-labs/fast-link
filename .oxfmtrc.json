@@ -10,7 +10,8 @@
     "**/.github/**",
     "**/.turbo/**",
     "**/dist/**",
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "fixtures/documentation/.generated/**"
   ],
   "printWidth": 80,
   "quoteProps": "as-needed",
