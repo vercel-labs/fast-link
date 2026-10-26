@@ -1,0 +1,25 @@
+{
+  "name": "@fast-link/fixture-next-16",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test:fixtures": "playwright test --config ../../scripts/browser/next.config.mjs"
+  },
+  "dependencies": {
+    "@fast-link/core": "workspace:^",
+    "@fast-link/react": "workspace:^",
+    "@fast-link/next": "workspace:^",
+    "next": "16.3.6",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "@types/react": "19.2.10",
+    "@types/react-dom": "19.2.3",
+    "typescript": "6.0.2"
+  }
+}

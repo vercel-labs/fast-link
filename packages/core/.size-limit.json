@@ -1,0 +1,8 @@
+[
+  {
+    "name": "createFastLink",
+    "path": "src/index.ts",
+    "import": "{ createFastLink }",
+    "limit": "2 kB"
+  }
+]

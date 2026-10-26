@@ -1,0 +1,59 @@
+{
+  "name": "@fast-link/react",
+  "version": "0.0.1",
+  "description": "React lifecycle binding for Fast Link DOM controllers",
+  "author": "Vercel",
+  "license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/vercel-labs/fast-link.git",
+    "directory": "packages/react"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run --project=unit",
+    "typecheck": "tsc --noEmit",
+    "size": "size-limit",
+    "prepublishOnly": "pnpm build",
+    "test:coverage": "vitest run --project=unit --coverage"
+  },
+  "dependencies": {
+    "@fast-link/core": "workspace:^"
+  },
+  "peerDependencies": {
+    "react": ">=19 <20"
+  },
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "12.1.0",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "25.6.0",
+    "@types/react": "19.2.10",
+    "@types/react-dom": "19.2.3",
+    "jsdom": "23.2.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "size-limit": "12.1.0",
+    "tsdown": "0.21.7",
+    "typescript": "6.0.2",
+    "vitest": "4.1.11"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

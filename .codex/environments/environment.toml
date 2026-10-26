@@ -1,0 +1,9 @@
+version = 1
+name = "fast-link"
+
+[setup]
+script = """
+set -eu
+corepack pnpm install --frozen-lockfile
+corepack pnpm exec playwright install chromium firefox webkit
+"""

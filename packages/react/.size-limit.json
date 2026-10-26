@@ -1,0 +1,9 @@
+[
+  {
+    "name": "useFastLink",
+    "path": "src/index.ts",
+    "import": "{ useFastLink }",
+    "ignore": ["react"],
+    "limit": "2 kB"
+  }
+]

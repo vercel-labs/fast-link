@@ -1,0 +1,43 @@
+{
+  "name": "@fast-link/workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "benchmark": "node scripts/benchmarks/run.mjs",
+    "benchmark:compare": "node scripts/benchmarks/compare.mjs",
+    "boundaries": "turbo boundaries",
+    "build": "turbo run build",
+    "format": "oxfmt --check",
+    "format:fix": "oxfmt .",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "prepare": "lefthook install || true",
+    "size": "turbo run size",
+    "test": "turbo run test",
+    "test:browser": "turbo run test:browser",
+    "test:fixtures": "turbo run test:fixtures",
+    "test:root": "vitest run --globals scripts",
+    "typecheck": "turbo run typecheck",
+    "validate": "turbo boundaries && turbo run //#format //#lint //#test:root build typecheck test test:browser test:fixtures size //#test:compatibility",
+    "coverage": "turbo run test:coverage",
+    "test:compatibility": "node scripts/packaging/test-framework-compatibility.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "lefthook": "2.1.5",
+    "oxfmt": "0.44.0",
+    "oxlint": "1.59.0",
+    "playwright": "1.59.0",
+    "publint": "0.3.25",
+    "semver": "7.8.5",
+    "turbo": "2.11.8",
+    "validate-npm-package-name": "7.0.2",
+    "vitest": "4.1.11",
+    "yaml": "2.8.2"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "packageManager": "pnpm@10.32.1"
+}

@@ -1,0 +1,91 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import validatePackageName from 'validate-npm-package-name';
+
+import { isSemanticVersion } from './semantic-version.mjs';
+
+/** Reads the allowlist in dependency-first order; rejects dependency cycles. */
+export function readPublishablePackages(root = process.cwd()) {
+  const declared = JSON.parse(
+    readFileSync(resolve(root, 'scripts/publishable-packages.json'), 'utf8'),
+  );
+  if (!Array.isArray(declared)) {
+    throw new Error('Publishable packages must be an array');
+  }
+
+  const directories = new Set();
+  const packageNames = new Set();
+  const packages = declared.map((directory) => {
+    if (
+      typeof directory !== 'string' ||
+      !/^packages\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(directory)
+    ) {
+      throw new Error(`Invalid package directory: ${String(directory)}`);
+    }
+    if (directories.has(directory)) {
+      throw new Error(`Duplicate package directory: ${directory}`);
+    }
+    directories.add(directory);
+
+    const manifest = JSON.parse(
+      readFileSync(resolve(root, directory, 'package.json'), 'utf8'),
+    );
+    if (manifest.private === true) {
+      throw new Error(`Publishable package ${directory} must not be private`);
+    }
+    if (
+      !validatePackageName(manifest.name).validForNewPackages ||
+      !isSemanticVersion(manifest.version) ||
+      /[-+]/.test(manifest.version)
+    ) {
+      throw new Error(
+        `${directory} must have a valid npm name and canonical stable version (no prerelease or build metadata)`,
+      );
+    }
+    if (packageNames.has(manifest.name)) {
+      throw new Error(`Duplicate npm package name: ${manifest.name}`);
+    }
+    packageNames.add(manifest.name);
+
+    const registry = manifest.publishConfig?.registry;
+    if (
+      registry !== undefined &&
+      registry !== 'https://registry.npmjs.org' &&
+      registry !== 'https://registry.npmjs.org/'
+    ) {
+      throw new Error(`${manifest.name} must publish to npmjs.org`);
+    }
+
+    return { directory, manifest };
+  });
+
+  return orderPackages(packages);
+}
+
+function orderPackages(packages) {
+  const byName = new Map(packages.map((entry) => [entry.manifest.name, entry]));
+  const visiting = new Set();
+  const visited = new Set();
+  const ordered = [];
+
+  function visit(entry) {
+    const { name, dependencies = {} } = entry.manifest;
+    if (visited.has(name)) return;
+    if (visiting.has(name)) {
+      throw new Error(`Cyclic publish dependencies: ${name}`);
+    }
+
+    visiting.add(name);
+    for (const dependency of Object.keys(dependencies)) {
+      const declared = byName.get(dependency);
+      if (declared) visit(declared);
+    }
+    visiting.delete(name);
+    visited.add(name);
+    ordered.push(entry);
+  }
+
+  for (const entry of packages) visit(entry);
+  return ordered;
+}

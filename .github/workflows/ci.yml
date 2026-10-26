@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      lightweight: ${{ steps.changes.outputs.lightweight }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check changed paths
+        id: changes
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/ci/select-ci-paths.sh
+
+  validate:
+    needs: paths
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fail when path detection fails
+        if: ${{ needs.paths.result != 'success' }}
+        run: exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          turbo-cache: ${{ needs.paths.outputs.lightweight != 'true' }}
+
+      - name: Check package release intent
+        run: node scripts/release/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
+
+      - name: Validate formatting
+        if: ${{ needs.paths.outputs.lightweight == 'true' }}
+        run: pnpm exec turbo run //#format
+
+      - name: Check package boundaries
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
+        run: pnpm boundaries
+
+      - name: Validate formatting, builds, types, tests, and size
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
+        run: pnpm exec turbo run //#format //#lint //#test:root build typecheck test size
+
+      - name: Prepare and inspect release archives
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
+        run: node scripts/packaging/prepare-package-artifacts.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"
+      - name: Install minimum compatibility browser
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
+        run: bash scripts/ci/install-browsers.sh --only-shell chromium
+      - name: Verify packed minimum framework compatibility
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
+        run: node scripts/packaging/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}" --minimum
+      - name: Upload browser failure artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ failure() }}
+        with:
+          name: browser-failures-${{ github.job }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ needs.paths.outputs.lightweight != 'true' }}
+        with:
+          name: fast-link-packed
+          path: ${{ runner.temp }}/fast-link-packed
+          if-no-files-found: error
+          retention-days: 7
+
+  browser:
+    needs: paths
+    if: ${{ needs.paths.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          node-version: "24"
+
+      - name: Install browsers
+        run: bash scripts/ci/install-browsers.sh chromium firefox webkit
+
+      - name: Run browser and App Router tests
+        run: pnpm exec turbo run test:browser test:fixtures
+
+      - name: Upload browser failure artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ failure() }}
+        with:
+          name: browser-failures-${{ github.job }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  packed-consumers:
+    needs: [paths, validate]
+    if: ${{ needs.paths.result == 'success' && needs.validate.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        node: [22, 24, 26]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: ${{ matrix.node }}
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: fast-link-packed
+          path: ${{ runner.temp }}/fast-link-packed
+      - name: Verify isolated packed consumers
+        run: node scripts/packaging/test-packed-consumers.mjs "$RUNNER_TEMP/fast-link-packed" "${{ github.sha }}"
