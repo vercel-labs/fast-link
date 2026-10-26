@@ -76,16 +76,6 @@
     "//#test:compatibility": {
       "dependsOn": ["@fast-link/next#build"],
       "cache": false
-    },
-    "@fast-link/fixture-documentation#typecheck": {
-      "dependsOn": ["^build"],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/scripts/documentation/**",
-        "$TURBO_ROOT$/README.md",
-        "$TURBO_ROOT$/packages/*/README.md",
-        "$TURBO_ROOT$/skills/fast-link/**"
-      ]
     }
   }
 }

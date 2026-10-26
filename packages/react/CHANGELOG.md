@@ -2,7 +2,7 @@
 
 ## 0.0.10
 
-- Label the API signature as a partial reference and depend on core 0.0.9.
+- Depend on core 0.0.9 with clarified iframe and role eligibility guidance.
 
 ## 0.0.9
 

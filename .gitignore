@@ -11,4 +11,3 @@ test-results/
 /fixtures/*/.next/
 /fixtures/*/next-env.d.ts
 coverage/
-/fixtures/documentation/.generated/

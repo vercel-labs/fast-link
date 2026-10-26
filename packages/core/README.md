@@ -112,8 +112,6 @@ bundled copies of core, navigate once.
 
 ### `createFastLink`
 
-API signature fragment (types are exported by `@fast-link/core`):
-
 ```ts
 function createFastLink(
   root: HTMLElement,
