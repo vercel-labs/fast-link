@@ -2,7 +2,7 @@
 
 ## 0.0.10
 
-- Depend on core 0.0.9 with clarified iframe and role eligibility guidance.
+- Depend on core 0.0.9.
 
 ## 0.0.9
 

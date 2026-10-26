@@ -2,7 +2,7 @@
 
 ## 0.0.13
 
-- Depend on core 0.0.9 and React adapter 0.0.10 with clarified usage guidance.
+- Depend on core 0.0.9 and React adapter 0.0.10.
 
 ## 0.0.12
 

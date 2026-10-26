@@ -27,16 +27,18 @@ ownership, cleanup, and suppression; avoid parallel pointer/click listeners.
 The adapter chooses authored `intent.href` versus resolved `intent.url` according
 to its router's contract and supplies history, scroll, state, and transitions.
 Core's `onFastNavigate` observes an intent; Next Link's `onNavigate` can cancel.
-For callback ordering, failures, and complete options, read the
-[core API and event contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#api-reference).
+See the [core API reference](https://github.com/vercel-labs/fast-link/tree/main/packages/core#api-reference)
+for options and the [event ordering guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering)
+for callback ordering and failures.
 
 ## Iframes
 
 Load and initialize Fast Link inside each iframe it controls. A controller on
-the parent document does not receive child-document events. Parent-loaded
-controllers attached directly to elements inside an iframe are unsupported.
-See the [core iframe guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#initialize-inside-each-iframe)
-for setup; broader cross-realm controller support is deferred.
+the parent document does not receive child-document events. Loading Fast Link
+in the parent document and attaching its controllers to elements inside an
+iframe is unsupported. See the
+[core iframe guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#initialize-inside-each-iframe)
+for setup.
 
 ## React lifecycle
 
@@ -60,11 +62,12 @@ export function NavigationRegion({
 }
 ```
 
-Forward both returned bindings to the same DOM element and spread them last.
-Pass caller capture handlers and refs into the hook so it can compose them with
-suppression and cleanup. A ref alone misses clicks stopped by descendant React
-capture. Pass the application's current navigation callback on each render;
-the hook preserves pending suppression across committed option changes.
+Forward both `ref` and `onClickCapture` to the same DOM element and spread them
+last. Pass the caller's capture handler and ref into the hook so it can preserve
+click suppression and ref cleanup. A ref alone cannot suppress clicks stopped
+by descendant React capture handlers. Pass the application's current navigation
+callback on each render; the hook preserves pending suppression across
+committed option changes.
 See the [React lifecycle contract](https://github.com/vercel-labs/fast-link/tree/main/packages/react#understand-the-hook-lifecycle)
 for root replacement, unmount, and ref cleanup.
 

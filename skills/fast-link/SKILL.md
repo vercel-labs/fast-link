@@ -78,10 +78,11 @@ policy only for a demonstrated application requirement.
 - Core accepts primary mouse presses. Touch, pen, keyboard activation, modified
   clicks, downloads, external URLs, non-`_self` targets, hash-only links, and
   presses on nested controls stay on their normal path.
-- Anchor roles may be absent, empty/ASCII-whitespace-only, or a single `link`
-  token, case-insensitive with surrounding ASCII whitespace allowed. Other roles
-  and role lists stay native. Presses inside descendants with a `button` role
-  token also stay native. ASCII whitespace here is tab, LF, FF, CR, or space.
+- An anchor can omit `role`, use an empty value or only ASCII whitespace, or
+  use a single `link` token. Role matching is case-insensitive and allows
+  surrounding ASCII whitespace: tab, line feed, form feed, carriage return, or
+  space. Other roles and role lists stay native. Presses inside descendants
+  with a `button` role token also stay native.
 - After accepted early navigation, the follow-up pointer click is
   default-prevented but still propagates. Click handlers may run if the elements
   remain mounted; navigation can unmount them before release. A drag away can

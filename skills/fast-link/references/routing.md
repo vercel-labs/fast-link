@@ -27,14 +27,16 @@ Check existing callers and routing configuration before transforming prefixes.
 
 ## Choose a supported decision
 
-Return a synchronous router decision (`{ kind: 'router' }`, optionally overriding
-`scroll`) or document decision (`{ kind: 'document', method: 'assign' }` or
-`'replace'`). Choose history behavior from the application's requirement.
+Return a router decision (`{ kind: 'router' }`) or a document decision
+(`{ kind: 'document', method: 'assign' }`). Policies must run synchronously.
+Router decisions can override `scroll`; document decisions choose `assign` or
+`replace` from the application's history requirement.
+
 Policies cannot cancel, defer, or replace the destination. Use synchronous
 managed-link `onNavigate` cancellation for press-time validation, or opt out for
 release-time checks.
 
-Read the [complete decision contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
+Read the [core decision contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
 for accepted fields, defaults, and custom-adapter usage.
 
 ## Share the application policy deliberately
@@ -52,7 +54,6 @@ It cannot change or cancel the selected action.
 
 Throwing is not cancellation: policy failures attempt document navigation, and
 observer failures still permit navigation. Use the
-[canonical sequencing and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
-when implementing or reviewing failure paths; it defines validation, fallback,
-and error precedence. [ADR 0003](https://github.com/vercel-labs/fast-link/blob/main/docs/adr/0003-let-applications-choose-navigation.md)
+[core decision and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
+for validation, callback ordering, document fallback, and error precedence. [ADR 0003](https://github.com/vercel-labs/fast-link/blob/main/docs/adr/0003-let-applications-choose-navigation.md)
 explains why adapters share this ordering.

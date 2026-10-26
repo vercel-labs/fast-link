@@ -39,19 +39,18 @@ The registry and marker are internal coordination contracts between versions,
 not package exports.
 
 Compatible versions reuse the same registry object and collection instances.
-A version adding compatible fields must initialize any missing fields on the
-existing registry before using them. Preserve existing object and collection
-identities, field meanings, callback behavior, and live ownership and
-suppression state. The current schema needs no backfill.
+A version that adds compatible fields must initialize missing fields on the
+existing registry before using them. Preserve the registry and collection
+identities, existing field names and meanings, callback behavior, and live
+ownership and suppression state. The current schema needs no backfill.
 
 The first schema addition must include mixed-version tests through public
-controllers, loading old then new and new then old. Both load orders must
-preserve live anchor ownership, pending click suppression, and event
-deduplication, including non-extensible events. Add migration machinery only
-when a schema change requires it.
+controllers. Load the old version before the new version, then test the reverse
+order. Both load orders must preserve live anchor ownership, pending click
+suppression, and event deduplication, including non-extensible events.
 
-Keep the keys independent of package versions; separate registries would lose shared
-ownership and deduplication. An incompatible change needs an explicit plan for
+Use the same keys across package versions. Separate registries would lose
+shared ownership and deduplication. An incompatible change needs an explicit plan for
 versions to coexist, including non-extensible events that rely on the shared
 `handledEvents` collection.
 

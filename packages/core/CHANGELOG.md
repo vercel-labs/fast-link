@@ -2,7 +2,7 @@
 
 ## 0.0.9
 
-- Document iframe-local initialization and precise anchor role eligibility.
+- Document iframe setup and which anchor roles allow early navigation.
 
 ## 0.0.8
 
