@@ -111,8 +111,10 @@ Define callback props in a Client Component.
 An `onPointerDown` bubble guard or `onClick` guard cannot cancel navigation that
 already started on pointerdown. For a managed link, use synchronous `onNavigate`
 cancellation when validation belongs on press. Keep links requiring release-time
-validation opted out. `onFastNavigate` observes the selected action; see the [callback and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/next#route-links-across-application-boundaries)
-for failure ordering.
+validation opted out. `onFastNavigate` is an observer: its return value is ignored
+and navigation is still attempted if it throws. See the
+[callback and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/next#route-links-across-application-boundaries)
+for full failure ordering.
 
 A managed anchor takes priority over containing regions, even with
 `enabled={false}`. Disabling a containing region does not disable separately

@@ -67,20 +67,24 @@ responsible for history, scroll, route state, and transitions.
 
 ## Initialize inside each iframe
 
-Load Fast Link and call `createFastLink` from a script running inside each
-iframe you want to control. Use elements from that iframe's document. For
-example, run the document navigation quickstart above from the iframe's script.
-
-A controller on the parent document does not receive events from a child
-document. Loading Fast Link in the parent document and attaching its controllers
-directly to elements inside an iframe is unsupported.
+- Load Fast Link and call `createFastLink` inside each iframe it controls.
+  Use elements from that iframe's document.
+- For example, run the document navigation quickstart above from the iframe's
+  own script.
+- A parent-document controller does not receive child-document events.
+- Loading Fast Link in the parent and attaching its controllers to iframe
+  elements is unsupported.
 
 ## Know which interactions Fast Link accepts
 
 Core accepts only a primary mouse `pointerdown` on an eligible same-origin link.
-An anchor can omit `role`, use an empty value or only ASCII whitespace, or use a
-single `link` token. Role matching is case-insensitive and allows surrounding
-ASCII whitespace: tab, line feed, form feed, carriage return, or space.
+
+Accepted anchor roles:
+
+- No `role` attribute, an empty value, or only ASCII whitespace.
+- A single `link` token, case-insensitive, with optional surrounding ASCII whitespace.
+
+ASCII whitespace means tab, line feed, form feed, carriage return, or space.
 
 It leaves these interactions to the browser:
 

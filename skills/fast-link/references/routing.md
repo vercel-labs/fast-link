@@ -27,10 +27,19 @@ Check existing callers and routing configuration before transforming prefixes.
 
 ## Choose a supported decision
 
-Return a router decision (`{ kind: 'router' }`) or a document decision
-(`{ kind: 'document', method: 'assign' }`). Policies must run synchronously.
-Router decisions can override `scroll`; document decisions choose `assign` or
-`replace` from the application's history requirement.
+The policy runs synchronously and returns one of:
+
+| Decision                                  | Effect                                                           |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `{ kind: 'router' }`                      | Use the proposed router navigation                               |
+| `{ kind: 'router', scroll: false }`       | Use the proposed route and preserve scroll position              |
+| `{ kind: 'document', method: 'assign' }`  | Load the validated URL with a new history entry                  |
+| `{ kind: 'document', method: 'replace' }` | Load the validated URL while replacing the current history entry |
+
+- Router decisions can override `scroll`, but not the destination, history
+  method, or transition settings.
+- Document decisions use the captured validated URL. Choose `assign` or `replace`
+  from the application's history requirement.
 
 Policies cannot cancel, defer, or replace the destination. Use synchronous
 managed-link `onNavigate` cancellation for press-time validation, or opt out for
@@ -57,3 +66,14 @@ observer failures still permit navigation. Use the
 [core decision and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
 for validation, callback ordering, document fallback, and error precedence. [ADR 0003](https://github.com/vercel-labs/fast-link/blob/main/docs/adr/0003-let-applications-choose-navigation.md)
 explains why adapters share this ordering.
+
+## Custom adapters
+
+Call `runFastNavigation(intent, options)` from `@fast-link/core` with:
+
+- `defaultRouterDecision`, used only when `policy` is absent.
+- `policy`, an optional callback without arguments.
+- `observe`, an optional callback for the selected decision.
+- `route`, a callback that runs router navigation.
+
+Capture the application's intent and proposed route in those callbacks.

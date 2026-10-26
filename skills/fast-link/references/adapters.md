@@ -20,12 +20,27 @@ Without a `navigate` callback, the controller uses the anchor's window to call
 `location.assign(intent.url.href)`. Call `destroy()` when the root is no longer
 used; repeated destruction is harmless.
 
-Use `controller.update(allOptions)` to replace configuration while preserving a
-pending follow-up click. Use the public controller for eligibility, event
-ownership, cleanup, and suppression; avoid parallel pointer/click listeners.
+Options are copied. Use `controller.update(allOptions)` to replace configuration
+while preserving a pending follow-up click. Mutating the original options object
+does not update the controller.
 
-The adapter chooses authored `intent.href` versus resolved `intent.url` according
-to its router's contract and supplies history, scroll, state, and transitions.
+Use the public controller for eligibility, event ownership, cleanup, and
+suppression; avoid parallel pointer/click listeners.
+
+## Navigation intents
+
+The `navigate(intent)` callback receives:
+
+| Field    | Meaning                      |
+| -------- | ---------------------------- |
+| `anchor` | The source anchor element    |
+| `href`   | The authored href attribute  |
+| `url`    | The resolved same-origin URL |
+
+The adapter supplies the router behavior, including history, scroll, route
+state, and transitions. Choose authored versus resolved destinations according
+to that router's contract; do not treat them as interchangeable.
+
 Core's `onFastNavigate` observes an intent; Next Link's `onNavigate` can cancel.
 See the [core API reference](https://github.com/vercel-labs/fast-link/tree/main/packages/core#api-reference)
 for options and the [event ordering guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering)
@@ -33,10 +48,11 @@ for callback ordering and failures.
 
 ## Iframes
 
-Load and initialize Fast Link inside each iframe it controls. A controller on
-the parent document does not receive child-document events. Loading Fast Link
-in the parent document and attaching its controllers to elements inside an
-iframe is unsupported. See the
+- Load and initialize Fast Link inside each iframe it controls.
+- A parent-document controller does not receive child-document events.
+- Parent-loaded controllers attached to iframe elements are unsupported.
+
+See the
 [core iframe guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#initialize-inside-each-iframe)
 for setup.
 
@@ -62,12 +78,13 @@ export function NavigationRegion({
 }
 ```
 
-Forward both `ref` and `onClickCapture` to the same DOM element and spread them
-last. Pass the caller's capture handler and ref into the hook so it can preserve
-click suppression and ref cleanup. A ref alone cannot suppress clicks stopped
-by descendant React capture handlers. Pass the application's current navigation
-callback on each render; the hook preserves pending suppression across
-committed option changes.
+- Spread both `ref` and `onClickCapture` last on the same DOM element.
+  A ref alone misses clicks stopped by descendant React capture handlers.
+- Pass the caller's capture handler and ref into the hook for handler composition
+  and ref cleanup.
+- Pass the current navigation callback on each render. The hook preserves pending
+  click suppression across committed option changes.
+
 See the [React lifecycle contract](https://github.com/vercel-labs/fast-link/tree/main/packages/react#understand-the-hook-lifecycle)
 for root replacement, unmount, and ref cleanup.
 
