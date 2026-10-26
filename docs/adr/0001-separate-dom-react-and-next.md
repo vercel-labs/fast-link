@@ -23,6 +23,6 @@ Adapters update the existing controller when options change, preserving a
 pending follow-up click across rerenders. Implementing this lifecycle in each
 adapter would duplicate the same cleanup and update rules.
 
-Implementation: [DOM controller](../../packages/core/src/controller/index.ts#L65),
-[React binding](../../packages/react/src/use-fast-link/index.ts#L68), and
-[Next hook](../../packages/next/src/use-fast-link/index.ts#L54).
+Implementation: [`createFastLink`](../../packages/core/src/controller/index.ts),
+[`useFastLink`](../../packages/react/src/use-fast-link/index.ts), and
+[`useFastLink`](../../packages/next/src/use-fast-link/index.ts).

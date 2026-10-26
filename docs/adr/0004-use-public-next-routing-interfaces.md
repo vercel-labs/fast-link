@@ -26,9 +26,9 @@ Applications use route-level loading UI or track pending state through
 `onFastNavigate`. Using private Link internals to set that state would couple
 the adapter to Next implementation details.
 
-Implementation: [Link renderer](../../packages/next/src/fast-link/index.tsx#L19),
-[routing hook](../../packages/next/src/use-fast-link/index.ts#L54), and
-[region](../../packages/next/src/fast-link-region/index.tsx#L28).
-The [Link tests](../../packages/next/src/fast-link/index.test.tsx#L8) and
-[region tests](../../packages/next/src/fast-link-region/index.test.tsx#L8) check
+Implementation: [`FastLink`](../../packages/next/src/fast-link/index.tsx),
+[`useFastLink`](../../packages/next/src/use-fast-link/index.ts), and
+[`FastLinkRegion`](../../packages/next/src/fast-link-region/index.tsx).
+The [FastLink tests](../../packages/next/src/fast-link/index.test.tsx) and
+[FastLinkRegion tests](../../packages/next/src/fast-link-region/index.test.tsx) check
 routing inputs and base-path handling.

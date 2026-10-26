@@ -65,16 +65,30 @@ export function attachRouterNavigation(
 Core validates the link before it calls the router. The adapter remains
 responsible for history, scroll, route state, and transitions.
 
+## Initialize inside each iframe
+
+Load the Fast Link module and call `createFastLink` inside each iframe whose
+links it controls, using that frame's elements. For example, run the document
+navigation quickstart above from the iframe's own script.
+
+A controller on the parent document does not receive events from a child
+document. Parent-loaded controllers attached directly to elements inside an
+iframe are unsupported. Broader cross-realm controller support is deferred.
+
 ## Know which interactions Fast Link accepts
 
 Core accepts only a primary mouse `pointerdown` on an eligible same-origin link.
+The anchor's role may be absent, empty/ASCII-whitespace-only, or a single `link`
+token, case-insensitive with surrounding ASCII whitespace allowed. ASCII
+whitespace means tab, LF, FF, CR, or space.
+
 It leaves these interactions to the browser:
 
 - Touch and pen input
 - Middle, right, and modified clicks
 - Links with a `target` other than `_self`
 - Downloads, external URLs, and hash-only links
-- Anchors with a role other than empty or `link`, including role lists
+- Anchors with other roles or role lists
 - Presses that start on `button`, `input`, `label`, `select`, `summary`,
   `textarea`, or an element with a `button` role token
 - An anchor or descendant with `data-no-fast-link`
@@ -97,6 +111,8 @@ bundled copies of core, navigate once.
 | `FastDocumentDecision`   | Type     | Load the validated URL with `assign` or `replace`      |
 
 ### `createFastLink`
+
+API signature fragment (types are exported by `@fast-link/core`):
 
 ```ts
 function createFastLink(

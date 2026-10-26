@@ -20,34 +20,23 @@ Without a `navigate` callback, the controller uses the anchor's window to call
 `location.assign(intent.url.href)`. Call `destroy()` when the root is no longer
 used; repeated destruction is harmless.
 
-Options are copied. Use `controller.update(allOptions)` for configuration
-changes: it replaces every option rather than merging, while retaining any
-pending follow-up click. Mutating the original options object does not update
-the controller.
+Use `controller.update(allOptions)` to replace configuration while preserving a
+pending follow-up click. Use the public controller for eligibility, event
+ownership, cleanup, and suppression; avoid parallel pointer/click listeners.
 
-## Navigation intents
+The adapter chooses authored `intent.href` versus resolved `intent.url` according
+to its router's contract and supplies history, scroll, state, and transitions.
+Core's `onFastNavigate` observes an intent; Next Link's `onNavigate` can cancel.
+For callback ordering, failures, and complete options, read the
+[core API and event contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#api-reference).
 
-The `navigate(intent)` callback receives:
+## Iframes
 
-| Field    | Meaning                      |
-| -------- | ---------------------------- |
-| `anchor` | The source anchor element    |
-| `href`   | The authored href attribute  |
-| `url`    | The resolved same-origin URL |
-
-The adapter supplies the router behavior, including history, scroll, route
-state, and transitions. Choose authored versus resolved destinations according
-to that router's contract; do not treat them as interchangeable.
-
-Core's `onFastNavigate(intent)` runs synchronously before `navigate` and is an
-observation callback. Its argument has no `preventDefault()` method. This
-differs from Next Link's cancellable `onNavigate` event. Returning a value from
-either core callback does not control navigation. Decide opt-outs before the
-pointerdown is accepted. If observation throws, navigation still runs and the error
-surfaces. If navigation also throws, its error takes precedence.
-
-Use the public controller for eligibility, event ownership, cleanup, and follow-up
-click suppression. Anchor lookup and event resolution are internal.
+Load and initialize Fast Link inside each iframe it controls. A controller on
+the parent document does not receive child-document events. Parent-loaded
+controllers attached directly to elements inside an iframe are unsupported.
+See the [core iframe guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#initialize-inside-each-iframe)
+for setup; broader cross-realm controller support is deferred.
 
 ## React lifecycle
 
@@ -71,18 +60,13 @@ export function NavigationRegion({
 }
 ```
 
-The hook returns stable `{ ref, onClickCapture }` bindings and renders nothing
-itself. Spread both on the same DOM element after its other props. Pass a caller
-capture handler into the hook; it runs after suppression, including for prevented
-clicks. A ref alone misses clicks stopped by descendant React capture. It accepts
-core options plus `forwardedRef`, attaches a controller to the current root,
-updates options after a React commit, and destroys the controller when the root
-changes or unmounts. It attaches no controller during server rendering.
-
-Pass the application's current navigation callback and caller ref into the hook.
-Let it compose refs and cleanup rather than adding a second controller in an
-effect. It preserves pending click suppression across option updates and runs
-callback-ref cleanup when replacing a caller ref.
+Forward both returned bindings to the same DOM element and spread them last.
+Pass caller capture handlers and refs into the hook so it can compose them with
+suppression and cleanup. A ref alone misses clicks stopped by descendant React
+capture. Pass the application's current navigation callback on each render;
+the hook preserves pending suppression across committed option changes.
+See the [React lifecycle contract](https://github.com/vercel-labs/fast-link/tree/main/packages/react#understand-the-hook-lifecycle)
+for root replacement, unmount, and ref cleanup.
 
 ## Router or document navigation
 

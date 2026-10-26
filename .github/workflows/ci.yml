@@ -60,7 +60,7 @@ jobs:
 
       - name: Validate formatting, builds, types, tests, and size
         if: ${{ needs.paths.outputs.lightweight != 'true' }}
-        run: pnpm exec turbo run //#format //#lint //#test:root build typecheck test size
+        run: pnpm exec turbo run //#format //#lint //#test:root build typecheck //#typecheck:examples test size
 
       - name: Prepare and inspect release archives
         if: ${{ needs.paths.outputs.lightweight != 'true' }}

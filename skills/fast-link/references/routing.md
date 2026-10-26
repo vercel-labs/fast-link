@@ -27,24 +27,15 @@ Check existing callers and routing configuration before transforming prefixes.
 
 ## Choose a supported decision
 
-The policy runs synchronously and returns one of:
+Return a synchronous router decision (`{ kind: 'router' }`, optionally overriding
+`scroll`) or document decision (`{ kind: 'document', method: 'assign' }` or
+`'replace'`). Choose history behavior from the application's requirement.
+Policies cannot cancel, defer, or replace the destination. Use synchronous
+managed-link `onNavigate` cancellation for press-time validation, or opt out for
+release-time checks.
 
-| Decision                                  | Effect                                                           |
-| ----------------------------------------- | ---------------------------------------------------------------- |
-| `{ kind: 'router' }`                      | Use the proposed router navigation                               |
-| `{ kind: 'router', scroll: false }`       | Use the proposed route and preserve scroll position              |
-| `{ kind: 'document', method: 'assign' }`  | Load the validated URL with a new history entry                  |
-| `{ kind: 'document', method: 'replace' }` | Load the validated URL while replacing the current history entry |
-
-A router decision can override scroll with a boolean, but cannot replace the
-destination, history method, or transition settings. A document decision uses
-the captured validated URL. Choose assign versus replace from the application's
-history requirement.
-
-There is no policy decision to cancel or defer to a later click. Use a managed
-Next.js link's synchronous `onNavigate` cancellation, or opt out before the
-press for interactions that need click-time validation. Policies must be
-synchronous. Extra decision properties are ignored.
+Read the [complete decision contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
+for accepted fields, defaults, and custom-adapter usage.
 
 ## Share the application policy deliberately
 
@@ -54,21 +45,14 @@ A managed link owns its press and does not inherit the
 surrounding region's policy. Ordinary links use the region policy. Nested
 regions use outer-first capture ordering.
 
-Use `onFastNavigate(intent, decision)` to observe the frozen decision before
-navigation. It cannot change the action, cancel it, or supply a replacement
-destination. Its return value is ignored.
+Use `onFastNavigate(intent, decision)` for observation before navigation.
+It cannot change or cancel the selected action.
 
 ## Failure behavior
 
-- A throwing policy or invalid decision attempts document assign to the
-  captured URL, then surfaces the policy error. Throwing is not cancellation.
-- An observer error still permits the selected navigation attempt.
-- A router error surfaces without an additional document fallback.
-- If navigation also throws after a policy or observer error, the navigation
-  error takes precedence.
-
-For a custom adapter, `runFastNavigation(intent, options)` from
-`@fast-link/core` accepts a caller-supplied `defaultRouterDecision`, a `policy`
-callback without arguments, an `observe` callback, and a `route` callback.
-Capture the application's intent and proposed route in those callbacks. The
-default applies only when the policy is absent.
+Throwing is not cancellation: policy failures attempt document navigation, and
+observer failures still permit navigation. Use the
+[canonical sequencing and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
+when implementing or reviewing failure paths; it defines validation, fallback,
+and error precedence. [ADR 0003](https://github.com/vercel-labs/fast-link/blob/main/docs/adr/0003-let-applications-choose-navigation.md)
+explains why adapters share this ordering.

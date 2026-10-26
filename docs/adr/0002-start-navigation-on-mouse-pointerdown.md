@@ -23,7 +23,7 @@ navigation benefit, so touch and pen keep native activation.
   a click. Use `data-no-fast-link` for links whose behavior depends on release
   or on dragging the URL.
 
-Implementation: [eligibility](../../packages/core/src/interaction/index.ts#L31)
-and [click suppression](../../packages/core/src/controller/index.ts#L85).
+Implementation: [`resolveFastLink`](../../packages/core/src/interaction/index.ts)
+and [`createFastLink`](../../packages/core/src/controller/index.ts).
 The [browser tests](../../scripts/browser/core.pw.mjs)
 check trusted navigation timing, click targeting, and propagation.

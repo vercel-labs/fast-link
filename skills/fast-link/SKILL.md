@@ -1,6 +1,6 @@
 ---
 name: fast-link
-description: Integrate, migrate, troubleshoot, or review Fast Link when named, when the project uses or is adopting @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on mousedown" or "navigate on press". General navigation performance requests alone are outside this skill's scope.
+description: Integrate, migrate, troubleshoot, or review Fast Link when named, when the project uses or is adopting @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on pointerdown", "navigate on mousedown", or "navigate on press". General navigation performance requests alone are outside this skill's scope.
 license: MIT
 ---
 
@@ -78,6 +78,10 @@ policy only for a demonstrated application requirement.
 - Core accepts primary mouse presses. Touch, pen, keyboard activation, modified
   clicks, downloads, external URLs, non-`_self` targets, hash-only links, and
   presses on nested controls stay on their normal path.
+- Anchor roles may be absent, empty/ASCII-whitespace-only, or a single `link`
+  token, case-insensitive with surrounding ASCII whitespace allowed. Other roles
+  and role lists stay native. Presses inside descendants with a `button` role
+  token also stay native. ASCII whitespace here is tab, LF, FF, CR, or space.
 - After accepted early navigation, the follow-up pointer click is
   default-prevented but still propagates. Click handlers may run if the elements
   remain mounted; navigation can unmount them before release. A drag away can
@@ -92,7 +96,9 @@ policy only for a demonstrated application requirement.
 For custom React adapters, forward both hook bindings (`ref` and
 `onClickCapture`) to the same DOM element. Pass caller capture handlers into the
 hook and spread its bindings last to retain suppression and handler composition.
-Place regions inside the portal or shadow DOM subtree they control.
+Place regions inside the portal or shadow DOM subtree they control. For iframes,
+load and initialize Fast Link inside each controlled frame; see
+[iframe setup](references/adapters.md#iframes).
 
 Keep the browser and framework responsible for native activation. Use the
 package's controller or hook instead of adding parallel pointer/click listeners
@@ -111,8 +117,9 @@ with source evidence; keep uncertain links native until their contract is known.
 Run the consumer's existing install, typecheck, build, and browser checks as
 applicable. Derive commands from its package scripts and configuration. Verify:
 
-- Mouse navigation begins on press and the follow-up click does not navigate
-  twice; keyboard and modified activation retain their normal behavior.
+- Press and hold an eligible link. Observe navigation before release, then
+  release and confirm there is no second navigation. Keyboard and modified
+  activation retain their normal behavior.
 - Guards, opt-outs, and disabled managed links remain effective inside regions.
 - History, scroll, base paths, and routing across applications match the
   application's requirements when those features are present.

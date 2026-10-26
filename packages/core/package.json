@@ -1,6 +1,6 @@
 {
   "name": "@fast-link/core",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "DOM controller for same-origin mouse navigation on pointerdown",
   "author": "Vercel",
   "license": "MIT",

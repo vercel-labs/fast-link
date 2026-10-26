@@ -76,6 +76,16 @@
     "//#test:compatibility": {
       "dependsOn": ["@fast-link/next#build"],
       "cache": false
+    },
+    "//#typecheck:examples": {
+      "dependsOn": ["@fast-link/next#build"],
+      "inputs": [
+        "scripts/documentation/**",
+        "README.md",
+        "packages/*/README.md",
+        "skills/fast-link/**",
+        "pnpm-lock.yaml"
+      ]
     }
   }
 }

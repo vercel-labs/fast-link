@@ -45,7 +45,7 @@ A single script unrelated to existing groups may stay directly under `scripts/`.
   navigation. Keyboard clicks remain native, and prevented clicks continue to
   propagate.
 - Core marks accepted native events so nested roots and separately bundled core
-  copies navigate once. Preserve both the symbol marker and local fallback.
+  copies navigate once. Preserve both the symbol marker and shared `WeakSet` fallback.
 
 ## Verification
 

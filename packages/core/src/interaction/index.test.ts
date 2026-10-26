@@ -266,7 +266,7 @@ describe('findAnchor', () => {
   });
 });
 
-it('deduplicates a non-extensible event through the local fallback', () => {
+it('deduplicates a non-extensible event through the shared WeakSet fallback', () => {
   const anchor = createAnchor({ href: '/pricing' });
   const event = createPointerEvent();
   Object.preventExtensions(event);

@@ -1,5 +1,9 @@
 # @fast-link/react
 
+## 0.0.10
+
+- Label the API signature as a partial reference and depend on core 0.0.9.
+
 ## 0.0.9
 
 - Document that sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.

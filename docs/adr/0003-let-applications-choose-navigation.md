@@ -39,7 +39,7 @@ Duplicating this sequence in each adapter would let callback ordering and
 failure behavior differ. Sharing it in core keeps those rules consistent while
 leaving framework routes and application ownership with their callers.
 
-Implementation: [decision runner](../../packages/core/src/navigation/index.ts#L33)
-and [Next policy](../../packages/next/src/use-fast-link/index.ts#L70).
-The [policy tests](../../packages/next/src/navigation-policy/index.test.tsx#L9)
+Implementation: [`runFastNavigation`](../../packages/core/src/navigation/index.ts)
+and [`useFastLink`](../../packages/next/src/use-fast-link/index.ts).
+The [navigation policy tests](../../packages/next/src/navigation-policy/index.test.tsx)
 check destination preservation and per-link decisions inside regions.

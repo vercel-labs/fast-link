@@ -68,6 +68,8 @@ element in the example belongs to the application.
 
 ## `useFastLink` reference
 
+API signature fragment (types come from `@fast-link/core` and React):
+
 ```ts
 function useFastLink<T extends HTMLElement = HTMLElement>(
   options: FastLinkOptions & {

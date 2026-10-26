@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9
+
+- Document iframe-local initialization and precise anchor role eligibility.
+
 ## 0.0.8
 
 - Document that sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
