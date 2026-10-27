@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
+import { verifyBundledSkill } from './bundled-skill.mjs';
 import { readWorkspaceManifests } from './package-dependencies.mjs';
 import { verifyPackedPackage } from './verify-packed-package.mjs';
 
@@ -53,6 +54,7 @@ export function verifyReleaseArtifacts({
       execute('tar', ['-xOf', archive, 'package/package.json']),
     );
     verifyPackedPackage(packed, manifest, { workspace, commit });
+    verifyBundledSkill({ root, archive, execute });
     return { directory, manifest: packed, archive };
   });
 }

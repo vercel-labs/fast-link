@@ -61,6 +61,7 @@
     "//#test:root": {
       "inputs": [
         "scripts/**",
+        "skills/fast-link/**",
         "vitest.config.mjs",
         ".pnpmfile.cjs",
         ".github/workflows/**",

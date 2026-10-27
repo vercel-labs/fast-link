@@ -75,7 +75,7 @@ function run() {
     readPublishedVersions: getPublishedVersions,
     execute(command, args) {
       const output = execFileSync(command, args, {
-        encoding: 'utf8',
+        encoding: command === 'tar' ? undefined : 'utf8',
         stdio: ['ignore', 'pipe', 'inherit'],
       });
       if (command !== 'tar') process.stdout.write(output);

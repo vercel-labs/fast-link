@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -24,7 +25,7 @@ export const packageManifest = {
   name: '@fast-link/core',
   version: fixtureVersions.current,
   type: 'module',
-  files: ['dist', 'CHANGELOG.md', 'LICENSE', 'README.md'],
+  files: ['dist', 'skills/fast-link', 'CHANGELOG.md', 'LICENSE', 'README.md'],
   exports: { '.': './dist/index.js' },
   scripts: { build: 'tsdown' },
 };
@@ -64,6 +65,15 @@ export function createRepository({
   );
   writeFile(join(root, 'packages/core/README.md'), '# Initial docs\n');
   writeFile(join(root, 'tsconfig.base.json'), '{}\n');
+  writeFile(
+    join(root, 'skills/fast-link/SKILL.md'),
+    '# Fast Link\n\n[Adapters](references/adapters.md#setup)\n',
+  );
+  writeFile(join(root, 'skills/fast-link/references/adapters.md'), '# Setup\n');
+  writeFile(
+    join(root, 'skills/fast-link/agents/openai.yaml'),
+    'interface: {}\n',
+  );
   runGit(root, 'init', '--quiet');
   runGit(root, 'config', 'user.email', 'fast-link@example.com');
   runGit(root, 'config', 'user.name', 'Fast Link test');
@@ -108,6 +118,13 @@ export function createPackageGraph() {
 
 /** Writes package archives and digests matching the release handoff format. */
 export function createArtifacts(root, packages, commit = publishedCommit) {
+  cpSync(
+    join(root, 'skills/fast-link'),
+    join(root, 'package/skills/fast-link'),
+    {
+      recursive: true,
+    },
+  );
   const entries = packages.map(({ directory, manifest }) => {
     writeJson(join(root, 'package/package.json'), {
       ...manifest,

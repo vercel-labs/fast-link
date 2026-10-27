@@ -134,8 +134,28 @@ navigation contracts.
 
 ## Agent skill
 
-The optional [Fast Link skill](skills/fast-link/SKILL.md) helps coding agents
-choose an integration, preserve existing link behavior, and verify navigation:
+The [Fast Link skill](skills/fast-link/SKILL.md) helps coding agents choose an
+integration, preserve existing link behavior, and verify navigation. Each npm
+package includes the complete skill at `skills/fast-link/`, matching that
+package's version. For example, after installing `@fast-link/next`, read
+`node_modules/@fast-link/next/skills/fast-link/SKILL.md` and resolve its relative
+references from that directory.
+
+A repository's own skill can delegate to the installed dependency, then add its
+application conventions:
+
+```md
+Before changing navigation in this application, read
+`node_modules/@fast-link/next/skills/fast-link/SKILL.md` from the application root.
+Follow its relative references within the installed skill directory.
+Then apply this repository's routing ownership, pending UI, and component conventions.
+```
+
+Use the corresponding `@fast-link/core` or `@fast-link/react` path when that is
+the application's direct dependency. In a monorepo, resolve the path from the
+workspace that installs the package.
+
+To install the skill separately:
 
 ```sh
 npx skills add vercel-labs/fast-link --skill fast-link

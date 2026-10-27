@@ -1,6 +1,6 @@
 {
   "name": "@fast-link/react",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "React lifecycle binding for Fast Link DOM controllers",
   "author": "Vercel",
   "license": "MIT",
@@ -43,6 +43,7 @@
   },
   "files": [
     "dist",
+    "skills/fast-link",
     "CHANGELOG.md",
     "LICENSE",
     "README.md"
