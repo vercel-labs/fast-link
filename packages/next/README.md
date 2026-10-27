@@ -27,6 +27,11 @@ Requires the Next.js App Router.
 npm install @fast-link/next
 ```
 
+The package includes the versioned agent skill at
+`node_modules/@fast-link/next/skills/fast-link/SKILL.md`, with its references and
+agent metadata. See [agent skill delegation](https://github.com/vercel-labs/fast-link#agent-skill)
+for using it from a repository skill or installing it separately.
+
 ## Choose an interface
 
 | Interface        | Use it for                                    |

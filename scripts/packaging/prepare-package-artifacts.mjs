@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
+import { prepareBundledSkill } from './bundled-skill.mjs';
 import {
   archiveDigest,
   PACKAGE_DIRECTORIES,
@@ -21,6 +22,7 @@ const packages = PACKAGE_DIRECTORIES.map((directory) => {
   const original = readFileSync(source, 'utf8');
   const manifest = JSON.parse(original);
   const archive = join(archiveDirectory, `${basename(directory)}.tgz`);
+  prepareBundledSkill(process.cwd(), directory);
   execFileSync('pnpm', ['--dir', directory, 'pack', '--out', archive], {
     stdio: 'inherit',
     env: { ...process.env, FAST_LINK_RELEASE_COMMIT: commit },
@@ -46,5 +48,5 @@ verifyReleaseArtifacts({
   archiveDirectory,
   commit,
   root: process.cwd(),
-  execute: (command, args) => execFileSync(command, args, { encoding: 'utf8' }),
+  execute: (command, args) => execFileSync(command, args),
 });

@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { SKILL_DIRECTORY } from '../packaging/bundled-skill.mjs';
 import {
   PUBLISHED_DEPENDENCIES,
   publishedDependencies,
@@ -194,6 +195,7 @@ function isPackageContentInput(path, directory, publishedFiles) {
     );
 
   return (
+    path.startsWith(`${SKILL_DIRECTORY}/`) ||
     path === 'tsconfig.base.json' ||
     path === `${directory}/tsconfig.json` ||
     path === `${directory}/tsdown.config.ts` ||

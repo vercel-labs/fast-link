@@ -321,9 +321,9 @@ function recordingExecutor(events, { commands = [] } = {}) {
   return (command, args) => {
     commands.push({ command, args: [...args] });
     if (command === 'tar') {
-      if (args[0] === '-xOf')
+      if (args[0] === '-xOf' && args[2] === 'package/package.json')
         events.push(`verify:${args[1].split('/').at(-1)}`);
-      return execFileSync(command, args, { encoding: 'utf8' });
+      return execFileSync(command, args);
     }
     if (command !== 'npm' || args[0] !== 'publish')
       throw new Error(`Unexpected command: ${command}`);
