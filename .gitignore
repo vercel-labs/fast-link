@@ -8,6 +8,7 @@ test-results/
 /packages/core/dist/
 /packages/next/dist/
 /packages/react/dist/
+/packages/*/skills/
 /fixtures/*/.next/
 /fixtures/*/next-env.d.ts
 coverage/

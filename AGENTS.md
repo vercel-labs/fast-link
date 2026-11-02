@@ -81,7 +81,8 @@ Publishing is configured.
 ## CI
 
 - `scripts/ci/select-ci-paths.sh` selects lighter PR checks only for non-empty diffs
-  where every path is root `*.md`, `docs/**/*.md`, or `skills/fast-link/**`.
+  where every path is root `*.md` or `docs/**/*.md`.
+- `skills/fast-link/**` ships in every public package and runs full CI.
 - Lightweight PRs run formatting and package release intent. They skip
   boundaries, lint, builds, types, tests, size, packing, browser, and packed
   consumers.

@@ -26,13 +26,10 @@ describe('select-ci-paths.sh', () => {
     [
       'skill Markdown and YAML',
       ['skills/fast-link/SKILL.md', 'skills/fast-link/agents/openai.yaml'],
-      'true',
+      'false',
     ],
-    [
-      'combined allowed paths',
-      ['README.md', 'docs/guide.md', 'skills/fast-link/agents/openai.yaml'],
-      'true',
-    ],
+    ['combined allowed paths', ['README.md', 'docs/guide.md'], 'true'],
+    ['skill reference', ['skills/fast-link/references/next.md'], 'false'],
     ['package README', ['packages/core/README.md'], 'false'],
     ['mixed paths', ['README.md', 'packages/core/src/index.ts'], 'false'],
     ['workflow', ['.github/workflows/ci.yml'], 'false'],
@@ -140,6 +137,17 @@ describe('select-ci-paths.sh', () => {
     commit(root);
 
     expect(detect(root, base).output).toContain('lightweight=false\n');
+  });
+
+  it('keeps full CI when shipped skill content is deleted', () => {
+    const { root } = createRepository();
+    writeFile(root, 'skills/fast-link/SKILL.md', '# Skill\n');
+    commit(root);
+    const base = runGit(root, 'rev-parse', 'HEAD');
+    rmSync(join(root, 'skills/fast-link/SKILL.md'));
+    commit(root);
+
+    expect(detect(root, base).output).toBe('lightweight=false\n');
   });
 
   it('fails when Git cannot compare the revisions', () => {

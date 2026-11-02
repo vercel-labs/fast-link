@@ -194,6 +194,7 @@ function isPackageContentInput(path, directory, publishedFiles) {
     );
 
   return (
+    path.startsWith('skills/fast-link/') ||
     path === 'tsconfig.base.json' ||
     path === `${directory}/tsconfig.json` ||
     path === `${directory}/tsdown.config.ts` ||

@@ -24,6 +24,9 @@ Supports Node.js 22 or later. Navigation requires a browser DOM.
 npm install @fast-link/core
 ```
 
+The [Fast Link agent skill](https://github.com/vercel-labs/fast-link#agent-skill)
+is included at `skills/fast-link/SKILL.md`.
+
 ## Start document navigation on pointerdown
 
 Navigation starts on press, before a click handler can cancel it. Keep links

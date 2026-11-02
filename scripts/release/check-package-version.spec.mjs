@@ -1,4 +1,4 @@
-import { renameSync, writeFileSync } from 'node:fs';
+import { renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { checkPackageVersions } from './check-package-version.mjs';
@@ -16,6 +16,56 @@ import {
 afterEach(removeRepositories);
 
 describe('package release intent', () => {
+  it.each(['SKILL.md', 'references/adapters.md', 'agents/openai.yaml'])(
+    'requires every shipping package to release for a canonical skill edit: %s',
+    (path) => {
+      const { root } = createPackageGraph();
+      const base = runGit(root, 'rev-parse', 'HEAD');
+      writeFile(
+        join(root, 'skills/fast-link', path),
+        'Updated skill resource.\n',
+      );
+
+      expect(() => checkPackageVersions({ base, root })).toThrow(
+        ['core', 'react', 'next']
+          .map(
+            (name) =>
+              `@fast-link/${name} changed without a version bump (still 1.2.3).`,
+          )
+          .join('\n'),
+      );
+    },
+  );
+
+  it('requires release intent when a canonical skill file is deleted', () => {
+    const { root, base } = createRepository();
+    rmSync(join(root, 'skills/fast-link/references/adapters.md'));
+
+    expect(() => checkPackageVersions({ base, root })).toThrow(
+      'changed without a version bump',
+    );
+  });
+
+  it('requires top changelog notes for a skill-only release', () => {
+    const { root, base } = createRepository();
+    writeFile(join(root, 'skills/fast-link/SKILL.md'), '# Updated skill\n');
+    writeJson(join(root, 'packages/core/package.json'), {
+      ...packageManifest,
+      version: fixtureVersions.later,
+    });
+
+    expect(() => checkPackageVersions({ base, root })).toThrow(
+      'Missing changelog notes',
+    );
+    writeFile(
+      join(root, 'packages/core/CHANGELOG.md'),
+      '# Changelog\n\n## 1.2.4\n\n- Bundle the updated skill.\n',
+    );
+    expect(checkPackageVersions({ base, root })).toEqual([
+      'Package release requested for @fast-link/core: 1.2.3 -> 1.2.4.',
+    ]);
+  });
+
   it('requires dependent bumps when pnpm changes their published workspace ranges', () => {
     const { root } = createPackageGraph();
     const base = runGit(root, 'rev-parse', 'HEAD');

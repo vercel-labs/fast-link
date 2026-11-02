@@ -7,6 +7,7 @@ import {
   PACKAGE_DIRECTORIES,
   verifyReleaseArtifacts,
 } from './release-artifacts.mjs';
+import { verifyBundledSkill } from './verify-bundled-skill.mjs';
 
 const [output, commit] = process.argv.slice(2);
 if (!output || !/^[a-f0-9]{40}$/.test(commit ?? '')) {
@@ -28,6 +29,7 @@ const packages = PACKAGE_DIRECTORIES.map((directory) => {
   if (readFileSync(source, 'utf8') !== original) {
     throw new Error(`Packing changed ${source}`);
   }
+  verifyBundledSkill(process.cwd(), archive);
   execFileSync('pnpm', ['exec', 'publint', archive, '--strict'], {
     stdio: 'inherit',
   });

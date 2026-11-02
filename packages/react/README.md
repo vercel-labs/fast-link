@@ -24,6 +24,9 @@ Supports Node.js 22 or later, with React 19 (`>=19 <20`).
 npm install @fast-link/react
 ```
 
+The [Fast Link agent skill](https://github.com/vercel-labs/fast-link#agent-skill)
+is included at `skills/fast-link/SKILL.md`.
+
 ## Bind navigation to a React region
 
 Navigation starts on press, before a click handler can cancel it. Keep links

@@ -64,6 +64,15 @@ export function createRepository({
   );
   writeFile(join(root, 'packages/core/README.md'), '# Initial docs\n');
   writeFile(join(root, 'tsconfig.base.json'), '{}\n');
+  writeFile(
+    join(root, 'skills/fast-link/SKILL.md'),
+    '# Fast Link\n\n[Adapters](references/adapters.md#setup)\n',
+  );
+  writeFile(join(root, 'skills/fast-link/references/adapters.md'), '# Setup\n');
+  writeFile(
+    join(root, 'skills/fast-link/agents/openai.yaml'),
+    'interface: {}\n',
+  );
   runGit(root, 'init', '--quiet');
   runGit(root, 'config', 'user.email', 'fast-link@example.com');
   runGit(root, 'config', 'user.name', 'Fast Link test');

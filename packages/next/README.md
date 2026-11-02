@@ -27,6 +27,9 @@ Requires the Next.js App Router.
 npm install @fast-link/next
 ```
 
+The [Fast Link agent skill](https://github.com/vercel-labs/fast-link#agent-skill)
+is included at `skills/fast-link/SKILL.md`.
+
 ## Choose an interface
 
 | Interface        | Use it for                                    |
