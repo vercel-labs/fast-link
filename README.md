@@ -134,32 +134,15 @@ navigation contracts.
 
 ## Agent skill
 
-The [Fast Link skill](skills/fast-link/SKILL.md) helps coding agents choose an
-integration, preserve existing link behavior, and verify navigation. Each npm
-package includes the complete skill at `skills/fast-link/`. The version in that
-package's `package.json` also identifies the bundled skill. Skill updates ship
-with package releases and changelog entries.
+Each npm package includes the [Fast Link skill](skills/fast-link/SKILL.md) to help
+coding agents integrate and review navigation. The skill uses the package's
+version and changelog.
 
-For example, after installing `@fast-link/next`, read
-`node_modules/@fast-link/next/skills/fast-link/SKILL.md` and resolve its relative
-references from that directory.
-
-A repository's own skill can delegate to the installed dependency, then add its
-application conventions:
-
-```md
-Before changing navigation in this application, read
-`node_modules/@fast-link/next/skills/fast-link/SKILL.md` from the application root.
-Follow its relative references within the installed skill directory.
-Then apply this repository's routing ownership, pending UI, and component conventions.
-```
-
-Use the corresponding `@fast-link/core` or `@fast-link/react` path when that is
-the application's direct dependency. In a monorepo, resolve the path from the
-workspace that installs the package.
-
-Installing an npm package does not activate the skill. The skill supports
-Next.js App Router integrations and custom core or React adapters.
+- Add the installed skill's path to your repository's agent instructions. For
+  Next.js, use `node_modules/@fast-link/next/skills/fast-link/SKILL.md`.
+- Use one copy, from the package your application imports: `@fast-link/next`,
+  `@fast-link/react`, or `@fast-link/core`.
+- In a monorepo, resolve the path from the workspace that installs the package.
 
 ## Performance benchmarks
 

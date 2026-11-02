@@ -24,11 +24,8 @@ Supports Node.js 22 or later, with React 19 (`>=19 <20`).
 npm install @fast-link/react
 ```
 
-The package includes the versioned agent skill at
-`node_modules/@fast-link/react/skills/fast-link/SKILL.md`, with its references and
-agent metadata. The version in this package's `package.json` also identifies the
-bundled skill. See [agent skill delegation](https://github.com/vercel-labs/fast-link#agent-skill)
-for using it from a repository skill.
+The [Fast Link agent skill](https://github.com/vercel-labs/fast-link#agent-skill)
+is included at `skills/fast-link/SKILL.md`.
 
 ## Bind navigation to a React region
 
