@@ -15,7 +15,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { SKILL_DIRECTORY } from './bundled-skill.mjs';
 import { verifyReleaseArtifacts } from './release-artifacts.mjs';
 
 const [archiveDirectory, commit, mode] = process.argv.slice(2);
@@ -31,7 +30,7 @@ const artifacts = verifyReleaseArtifacts({
   archiveDirectory,
   commit,
   root: process.cwd(),
-  execute: (command, args) => execFileSync(command, args),
+  execute: (command, args) => execFileSync(command, args, { encoding: 'utf8' }),
 });
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const fixture = fileURLToPath(
@@ -101,20 +100,6 @@ try {
     '--no-audit',
     '--no-fund',
   ]);
-  for (const { manifest } of artifacts) {
-    const skill = await readFile(
-      join(
-        consumer,
-        'node_modules',
-        manifest.name,
-        SKILL_DIRECTORY,
-        'SKILL.md',
-      ),
-    );
-    const canonical = await readFile(join(root, SKILL_DIRECTORY, 'SKILL.md'));
-    if (!skill.equals(canonical))
-      throw new Error(`Installed skill differs: ${manifest.name}`);
-  }
   run(process.execPath, [
     '--input-type=module',
     '-e',

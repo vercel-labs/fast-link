@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -25,7 +24,7 @@ export const packageManifest = {
   name: '@fast-link/core',
   version: fixtureVersions.current,
   type: 'module',
-  files: ['dist', 'skills/fast-link', 'CHANGELOG.md', 'LICENSE', 'README.md'],
+  files: ['dist', 'CHANGELOG.md', 'LICENSE', 'README.md'],
   exports: { '.': './dist/index.js' },
   scripts: { build: 'tsdown' },
 };
@@ -118,13 +117,6 @@ export function createPackageGraph() {
 
 /** Writes package archives and digests matching the release handoff format. */
 export function createArtifacts(root, packages, commit = publishedCommit) {
-  cpSync(
-    join(root, 'skills/fast-link'),
-    join(root, 'package/skills/fast-link'),
-    {
-      recursive: true,
-    },
-  );
   const entries = packages.map(({ directory, manifest }) => {
     writeJson(join(root, 'package/package.json'), {
       ...manifest,

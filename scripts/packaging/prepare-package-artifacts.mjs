@@ -2,12 +2,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { prepareBundledSkill } from './bundled-skill.mjs';
 import {
   archiveDigest,
   PACKAGE_DIRECTORIES,
   verifyReleaseArtifacts,
 } from './release-artifacts.mjs';
+import { verifyBundledSkill } from './verify-bundled-skill.mjs';
 
 const [output, commit] = process.argv.slice(2);
 if (!output || !/^[a-f0-9]{40}$/.test(commit ?? '')) {
@@ -22,7 +22,6 @@ const packages = PACKAGE_DIRECTORIES.map((directory) => {
   const original = readFileSync(source, 'utf8');
   const manifest = JSON.parse(original);
   const archive = join(archiveDirectory, `${basename(directory)}.tgz`);
-  prepareBundledSkill(process.cwd(), directory);
   execFileSync('pnpm', ['--dir', directory, 'pack', '--out', archive], {
     stdio: 'inherit',
     env: { ...process.env, FAST_LINK_RELEASE_COMMIT: commit },
@@ -30,6 +29,7 @@ const packages = PACKAGE_DIRECTORIES.map((directory) => {
   if (readFileSync(source, 'utf8') !== original) {
     throw new Error(`Packing changed ${source}`);
   }
+  verifyBundledSkill(process.cwd(), archive);
   execFileSync('pnpm', ['exec', 'publint', archive, '--strict'], {
     stdio: 'inherit',
   });
@@ -48,5 +48,5 @@ verifyReleaseArtifacts({
   archiveDirectory,
   commit,
   root: process.cwd(),
-  execute: (command, args) => execFileSync(command, args),
+  execute: (command, args) => execFileSync(command, args, { encoding: 'utf8' }),
 });

@@ -19,6 +19,7 @@
     "test:browser": "playwright test --config ../../scripts/browser/core.config.mjs",
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
+    "prepack": "node ../../scripts/packaging/prepare-bundled-skill.mjs",
     "prepublishOnly": "pnpm build",
     "test:coverage": "vitest run --project=unit --coverage"
   },

@@ -62,6 +62,7 @@
       "inputs": [
         "scripts/**",
         "skills/fast-link/**",
+        "packages/*/package.json",
         "vitest.config.mjs",
         ".pnpmfile.cjs",
         ".github/workflows/**",
