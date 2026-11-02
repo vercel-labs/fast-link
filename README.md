@@ -136,8 +136,11 @@ navigation contracts.
 
 The [Fast Link skill](skills/fast-link/SKILL.md) helps coding agents choose an
 integration, preserve existing link behavior, and verify navigation. Each npm
-package includes the complete skill at `skills/fast-link/`, matching that
-package's version. For example, after installing `@fast-link/next`, read
+package includes the complete skill at `skills/fast-link/`. The version in that
+package's `package.json` also identifies the bundled skill. Skill updates ship
+with package releases and changelog entries.
+
+For example, after installing `@fast-link/next`, read
 `node_modules/@fast-link/next/skills/fast-link/SKILL.md` and resolve its relative
 references from that directory.
 
@@ -154,12 +157,6 @@ Then apply this repository's routing ownership, pending UI, and component conven
 Use the corresponding `@fast-link/core` or `@fast-link/react` path when that is
 the application's direct dependency. In a monorepo, resolve the path from the
 workspace that installs the package.
-
-To install the skill separately:
-
-```sh
-npx skills add vercel-labs/fast-link --skill fast-link
-```
 
 Installing an npm package does not activate the skill. The skill supports
 Next.js App Router integrations and custom core or React adapters.

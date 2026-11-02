@@ -26,8 +26,9 @@ npm install @fast-link/react
 
 The package includes the versioned agent skill at
 `node_modules/@fast-link/react/skills/fast-link/SKILL.md`, with its references and
-agent metadata. See [agent skill delegation](https://github.com/vercel-labs/fast-link#agent-skill)
-for using it from a repository skill or installing it separately.
+agent metadata. The version in this package's `package.json` also identifies the
+bundled skill. See [agent skill delegation](https://github.com/vercel-labs/fast-link#agent-skill)
+for using it from a repository skill.
 
 ## Bind navigation to a React region
 
