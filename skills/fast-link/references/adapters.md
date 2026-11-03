@@ -27,6 +27,15 @@ does not update the controller.
 Use the public controller for eligibility, event ownership, cleanup, and
 suppression; avoid parallel pointer/click listeners.
 
+## Prepare before accepted click
+
+For adapters that wait for click acceptance, use core `createClickPreparation`
+or React `useClickPreparation`. The adapter supplies speculative work and owns
+synchronous guards, default prevention, and routing. Match the native click
+before guards and consume or discard every candidate afterward. Revalidate
+router-specific options before reusing preparation. See the
+[core preparation contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#createclickpreparation).
+
 ## Navigation intents
 
 The `navigate(intent)` callback receives:

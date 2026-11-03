@@ -12,13 +12,14 @@ import { FastLink } from '../fast-link';
 import { pointerDown, router, routing } from '../testing';
 import { FastLinkRegion } from './index';
 
-it('suppresses a managed follow-up click before a stopping wrapper', () => {
+it('leaves a managed click to a stopping ancestor guard', () => {
   const observed: boolean[] = [];
   const { getByRole } = render(
     <FastLinkRegion>
       <div
         onClickCapture={(event) => {
           observed.push(event.defaultPrevented);
+          event.preventDefault();
           event.stopPropagation();
         }}
       >
@@ -30,9 +31,9 @@ it('suppresses a managed follow-up click before a stopping wrapper', () => {
   pointerDown(anchor);
   const allowed = fireEvent.click(anchor, { detail: 1 });
 
-  expect(observed).toEqual([true]);
+  expect(observed).toEqual([false]);
   expect(allowed).toBe(false);
-  expect(router.push).toHaveBeenCalledTimes(1);
+  expect(router.push).not.toHaveBeenCalled();
 });
 
 describe('FastLinkRegion', () => {
@@ -258,13 +259,14 @@ it('preserves managed ownership and cleans up composed controllers in StrictMode
   );
   const anchor = getByRole('link');
   pointerDown(anchor);
+  expect(managedPolicy).not.toHaveBeenCalled();
+  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
   expect(managedPolicy).toHaveBeenCalledTimes(1);
   expect(regionPolicy).not.toHaveBeenCalled();
   expect(router.push).toHaveBeenCalledExactlyOnceWith('/managed', {
     scroll: undefined,
     transitionTypes: undefined,
   });
-  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
   // Retain the old subtree so a live region can expose stale pending ownership.
   const subtree = anchor.parentElement;
   if (!subtree) throw new Error('Missing managed link region');
@@ -284,8 +286,8 @@ it('preserves managed ownership and cleans up composed controllers in StrictMode
   });
   fireEvent.click(anchor, { detail: 1 });
   expect(click).toHaveBeenCalledExactlyOnceWith(false);
-  expect(managedPolicy).toHaveBeenCalledTimes(2);
-  expect(router.push).toHaveBeenCalledTimes(2);
+  expect(managedPolicy).toHaveBeenCalledTimes(1);
+  expect(router.push).toHaveBeenCalledTimes(1);
   expect(regionPolicy).not.toHaveBeenCalled();
   live.unmount();
 });

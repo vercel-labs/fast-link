@@ -1,11 +1,16 @@
-import { coordination, type FollowupClick } from '../coordination';
+import {
+  coordination,
+  hasAnchorOwner,
+  registerAnchorOwner,
+  type FollowupClick,
+} from '../coordination';
 import {
   findAnchor,
   resolveFastLink,
   type FastLinkIntent,
 } from '../interaction';
 
-const { anchorOwners, pendingClickOwners, suppressedClicks } = coordination;
+const { pendingClickOwners, suppressedClicks } = coordination;
 
 /** Options copied by a Fast Link controller. */
 export interface FastLinkOptions {
@@ -53,8 +58,7 @@ export function createFastLink(
   let currentOptions = { ...options };
   let pendingAnchor: HTMLAnchorElement | null = null;
   let destroyed = false;
-  const ownsAnchor = root.tagName === 'A';
-  if (ownsAnchor) anchorOwners.set(root, (anchorOwners.get(root) ?? 0) + 1);
+  const releaseAnchor = registerAnchorOwner(root);
 
   const clearPendingClick = (): void => {
     if (
@@ -85,7 +89,7 @@ export function createFastLink(
 
     const anchor = findAnchor(event.target, root);
     if (!anchor) return;
-    if (anchor !== root && anchorOwners.has(anchor)) return;
+    if (anchor !== root && hasAnchorOwner(anchor)) return;
 
     const intent = resolveFastLink(event, anchor);
     if (!intent) return;
@@ -119,11 +123,7 @@ export function createFastLink(
       if (destroyed) return;
       destroyed = true;
       clearPendingClick();
-      if (ownsAnchor) {
-        const remaining = (anchorOwners.get(root) ?? 1) - 1;
-        if (remaining) anchorOwners.set(root, remaining);
-        else anchorOwners.delete(root);
-      }
+      releaseAnchor?.();
       root.removeEventListener('pointerdown', onPointerDown, { capture: true });
       root.removeEventListener('click', consumeClick, { capture: true });
     },

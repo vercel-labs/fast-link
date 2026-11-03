@@ -4,7 +4,7 @@ import { FastLink, FastLinkRegion } from '@fast-link/next';
 import Link from 'next/link';
 import { useLinkStatus } from 'next/link';
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 
 export function ClientLinks(): JSX.Element {
   const [events, setEvents] = useState<string[]>([]);
@@ -12,6 +12,7 @@ export function ClientLinks(): JSX.Element {
 
   return (
     <div>
+      <GuardPolicyLink />
       <FastLink
         href="/fast"
         data-testid="cancel"
@@ -164,6 +165,28 @@ export function ClientLinks(): JSX.Element {
       <div style={{ height: 800 }} />
       <output data-testid="events">{events.join(',')}</output>
     </div>
+  );
+}
+
+function GuardPolicyLink(): JSX.Element {
+  const [documentNavigation, setDocumentNavigation] = useState(false);
+  return (
+    <FastLink
+      href="/fast?from=guard-policy"
+      data-testid="guard-policy"
+      prefetch={false}
+      navigationPolicy={() =>
+        documentNavigation
+          ? { kind: 'document', method: 'assign' }
+          : { kind: 'router' }
+      }
+      onNavigate={() => flushSync(() => setDocumentNavigation(true))}
+      onFastNavigate={(_, decision) =>
+        sessionStorage.setItem('guard-policy', decision.kind)
+      }
+    >
+      Guard changes policy
+    </FastLink>
   );
 }
 

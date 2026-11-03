@@ -1,8 +1,8 @@
 # ▲ @fast-link/next
 
-`@fast-link/next` starts eligible primary-mouse navigation on `pointerdown` in
-a Next.js App Router application. It provides components for existing link
-regions and individual links, plus a hook for custom renderers.
+`FastLink` prepares eligible primary-mouse navigation on press and navigates
+after Next Link's click guards pass. `FastLinkRegion` and the custom-renderer
+`useFastLink` hook currently retain navigation on press.
 
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
@@ -13,13 +13,23 @@ For press timing and opt-outs, see
 [Routing policies](#route-links-across-application-boundaries) ·
 [Custom renderers](#build-a-custom-renderer) · [API reference](#api-reference)
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
-See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
+See the [timing and accessibility limitations](https://github.com/vercel-labs/fast-link#known-limitations)
+before adopting an interface that navigates on press.
 
 ## Requirements
 
-Supports Node.js 22 or later, with Next.js 16 (`>=16 <17`) and React 19 (`>=19 <20`).
+Supports Node.js 22 or later, with stable Next.js 16, the exact prerelease
+`16.5.0-canary.37`, and React 19 (`>=19 <20`).
 Requires the Next.js App Router.
+
+Early preparation requires Next `16.5.0-canary.37` with
+`experimental: { prepareNavigation: true }` in `next.config`. It uses the
+public optional `router.experimental_prepare` API. Without that API, or if
+preparation throws, managed links execute the normal router/document decision
+at accepted click. A failed commit is never retried.
+
+Preparation is experimental. Discarding a handle does not abort Next's request,
+and this runtime does not establish correct Chrome soft-navigation attribution.
 
 ## Install the package
 
@@ -55,12 +65,16 @@ export function AccountLink() {
 ```
 
 - Supports [Next Link options](#fastlink), including object `href`.
+- Runs caller `onClick` and `onNavigate` guards before navigation.
 - Preserves Next Link prefetching and native activation.
 - Keeps its own options and policy inside a `FastLinkRegion`, even when disabled.
 
 ## Add Fast Link to a navigation region
 
 Wrap existing `next/link` or anchor elements that share one navigation policy:
+
+Regions currently navigate on press. Use managed `FastLink` for click-time
+guards and release-away cancellation.
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
@@ -137,33 +151,32 @@ export function AccountLink() {
 
 ## Understand navigation and click behavior
 
-- Click-time guards: opt out if they must run before navigation.
+- Managed links honor click-time guards. Ordinary region links and the custom
+  hook still require an opt-out when later click handlers must veto navigation.
 - API routes or another application's pages: choose an explicit routing policy
   or opt out. See [application boundaries](#route-links-across-application-boundaries).
 
-For an accepted primary mouse press, a managed link calls Next.js Link's
-`onNavigate` prop before selecting navigation. Ordinary region links skip that
-callback.
+For managed links, press classifies ownership and prepares router-owned routes
+without changing URL, history, or route UI. Click runs caller `onClick`, Next's
+native checks, and caller `onNavigate`, then rechecks current policy/options and
+consumes matching preparation once. Changed inputs use normal click-time routing.
 
-| Condition                                     | Navigation                                                                   |
-| --------------------------------------------- | ---------------------------------------------------------------------------- |
-| Managed `onNavigate` calls `preventDefault()` | Cancel early navigation; skip policy and `onFastNavigate`.                   |
-| No `navigationPolicy`                         | Use the current App Router.                                                  |
-| Policy chooses `{ kind: 'router' }`           | Use Next's destination and history method, with an optional scroll override. |
-| Policy chooses `{ kind: 'document', method }` | Load the validated URL using document `assign` or `replace`.                 |
+| Condition                                                  | Navigation                                                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Managed `onClick` or `onNavigate` calls `preventDefault()` | Cancel navigation; skip click-time policy and observation. A press-time policy call may already have occurred. |
+| No `navigationPolicy`                                      | Use the current App Router.                                                                                    |
+| Policy chooses `{ kind: 'router' }`                        | Use Next's destination and history method, with an optional scroll override.                                   |
+| Policy chooses `{ kind: 'document', method }`              | Load the validated URL using document `assign` or `replace`.                                                   |
 
 - For uncanceled navigation, `onFastNavigate(intent, decision)` observes the
   selected decision before navigation is attempted.
 - Policy cannot cancel navigation or rewrite the router destination or history
   method.
-- The matching follow-up pointer click is default-prevented, even after managed
-  `onNavigate` cancellation. It cannot trigger default navigation but still
-  propagates to mounted link and ancestor handlers.
-- A route may unmount handlers before release. Dragging away may navigate
-  without producing a click.
-- An `onPointerDown` bubble guard runs after early navigation. Use synchronous
-  `onNavigate` cancellation for press-time validation; opt out for release-time
-  validation.
+- Managed links discard preparation on release away, drag, cancellation, root
+  replacement, or unmount. A click stopped before Next Link's handler retains
+  browser default behavior unless the stopping handler also prevents default.
+- Region and custom-hook navigation still runs on press and suppresses the
+  matching follow-up click. Dragging away cannot undo that navigation.
 
 Native behavior remains for:
 
@@ -181,8 +194,9 @@ Other integration rules:
 - With `as` or `legacyBehavior`, `FastLink` stays on the normal Link path.
   Legacy behavior attaches no controller to the anchor; add `data-no-fast-link`
   when that anchor needs native handling inside a region.
-- Committed option updates preserve pending click suppression. Removing or
-  replacing the root destroys the old controller and clears pending suppression.
+- Ordinary committed updates preserve preparation; changed destination, policy,
+  router, or routing options prevent stale handle reuse. Removing or replacing
+  the root destroys the old controller.
 
 ### Pending state
 
@@ -244,11 +258,15 @@ Fast Link does not infer ownership from paths or metadata. Classify foreign or
 unknown ownership as document navigation. An ordinary link inside `AppRegion`
 uses the region policy, while `AppLink` uses its own policy and Link options.
 
-Link `onNavigate` runs before the policy. Cancellation skips policy, observation,
-and navigation. A link that needs a click-time guard must opt out before
-`pointerdown`; a policy cannot return control to the original click.
+Policies must be synchronous and side-effect-free. Managed links classify once
+on eligible press when preparation is available and again after accepted-click
+guards. Read current metadata on each call. Move analytics, state updates, and
+other effects to `onNavigate` or `onFastNavigate`. The latter runs once per
+accepted navigation attempt. Region and custom-hook policies currently run at
+press-time acceptance.
 
-A throwing policy or invalid decision attempts document assign to the captured
+A preparation-time error cannot navigate. At accepted navigation, a throwing
+policy or invalid decision attempts document assign to the captured
 URL, then surfaces the policy error. Extra decision properties are ignored.
 Observer errors still permit navigation. Router errors surface without a document
 fallback. If navigation also throws after a policy or observer error, the
@@ -259,6 +277,9 @@ navigation error takes precedence.
 Prefer `FastLink` for reusable wrappers that forward refs and Link props. Use
 `useFastLink` when an existing renderer must control the anchor, prefetching,
 click handlers, or pending state:
+
+This hook currently navigates on press. Its supplied `onNavigate` runs then;
+later child click guards cannot cancel an accepted navigation.
 
 ```tsx
 'use client';
@@ -293,11 +314,11 @@ loading UI is not enough.
 
 ### Options shared by links, regions, and hooks
 
-| Option             | Type                         | Default | Behavior                                               |
-| ------------------ | ---------------------------- | ------- | ------------------------------------------------------ |
-| `enabled`          | `boolean`                    | `true`  | Controls whether new pointerdowns can start navigation |
-| `navigationPolicy` | `FastNavigationPolicy`       | None    | Selects App Router or document navigation              |
-| `onFastNavigate`   | `(intent, decision) => void` | None    | Observes the frozen decision before navigation         |
+| Option             | Type                         | Default | Behavior                                                  |
+| ------------------ | ---------------------------- | ------- | --------------------------------------------------------- |
+| `enabled`          | `boolean`                    | `true`  | Controls preparation or press navigation for new gestures |
+| `navigationPolicy` | `FastNavigationPolicy`       | None    | Pure classification of App Router or document navigation  |
+| `onFastNavigate`   | `(intent, decision) => void` | None    | Observes the frozen decision before navigation            |
 
 `onFastNavigate` cannot change the selected action. Its return value is ignored,
 and navigation is still attempted if it throws.
@@ -310,8 +331,8 @@ options above. `href` remains required.
 Fast navigation preserves `replace`, `scroll`, and `transitionTypes` options.
 `transitionTypes` follows the installed `next/link` types; it is omitted from
 hook options on Next versions that do not declare it.
-`onNavigate` can cancel Fast Link before policy evaluation, observation, or
-navigation.
+`onNavigate` can cancel before click-time policy, observation, or navigation;
+preparation-time classification may already have run.
 
 ### `FastLinkRegion`
 
@@ -345,7 +366,7 @@ cleans up composed refs.
 
 ### Navigation policy types
 
-`FastNavigationPolicy(intent, proposed)` runs synchronously and returns a
+`FastNavigationPolicy(intent, proposed)` runs synchronously without side effects and returns a
 `FastNavigationDecision`. `FastRouterProposal` describes the route the adapter
 would take without policy:
 

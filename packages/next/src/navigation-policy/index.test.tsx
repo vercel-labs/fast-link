@@ -4,7 +4,7 @@
  * while keeping each adapter's destination and history choices intact.
  */
 
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { FastLink } from '../fast-link';
 import { FastLinkRegion } from '../fast-link-region';
@@ -50,6 +50,8 @@ describe('navigation policy', () => {
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    expect(order).toEqual([]);
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(order).toEqual(['navigate', 'policy', 'observe:router']);
     expect(regionPolicy).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/pricing', {
@@ -120,6 +122,7 @@ it.each([undefined, false, true])(
       </FastLink>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(router.replace).toHaveBeenCalledExactlyOnceWith(
       '/guide?ref=a+b#read',
       { scroll: scroll ?? false, transitionTypes: ['slide'] },
@@ -159,11 +162,13 @@ it.each(['link', 'region', 'hook'] as const)(
       value: {
         baseURI: 'https://example.com/',
         defaultView: {
+          MouseEvent,
           location: { origin: 'https://example.com', assign, replace },
         },
       },
     });
     pointerDown(anchor);
+    if (binding === 'link') fireEvent.click(anchor, { detail: 1 });
     expect(replace).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );
@@ -172,7 +177,12 @@ it.each(['link', 'region', 'hook'] as const)(
       method: 'replace',
     });
     fail = true;
-    expect(captureErrors(() => pointerDown(anchor))).toEqual([failure]);
+    expect(
+      captureErrors(() => {
+        pointerDown(anchor);
+        if (binding === 'link') fireEvent.click(anchor, { detail: 1 });
+      }),
+    ).toEqual([failure]);
     expect(assign).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );

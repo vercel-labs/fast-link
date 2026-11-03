@@ -48,6 +48,7 @@ const run = (command, args) =>
       ...process.env,
       NEXT_TELEMETRY_DISABLED: '1',
       FAST_LINK_FIXTURE_DIR: consumer,
+      FAST_LINK_EXPECT_PREPARATION: minimum ? 'false' : 'true',
     },
   });
 
@@ -171,6 +172,18 @@ try {
   ]);
   for (const path of ['app', 'next.config.ts', 'tsconfig.json']) {
     await cp(join(fixture, path), join(consumer, path), { recursive: true });
+  }
+  if (minimum) {
+    const configPath = join(consumer, 'next.config.ts');
+    await writeFile(
+      configPath,
+      replaceOnce(
+        await readFile(configPath, 'utf8'),
+        '  experimental: { prepareNavigation: true },\n',
+        '',
+        'minimum next.config.ts',
+      ),
+    );
   }
   run(process.execPath, ['node_modules/next/dist/bin/next', 'build']);
   run(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit']);

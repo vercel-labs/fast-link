@@ -11,8 +11,12 @@ export type FastRouterProposal = Readonly<{
 }>;
 
 /**
- * Selects navigation synchronously for an accepted press.
+ * Classifies navigation synchronously without side effects.
  *
+ * - Managed FastLink calls it on eligible press when preparation is available and again after
+ *   accepted-click guards. Reads current inputs each time; cancellation can
+ *   leave only the press-time call. Keep effects in navigation callbacks.
+ * - Region and custom-hook adapters currently classify at press-time acceptance.
  * - The application determines whether its router owns the destination.
  * - Use document navigation when ownership is foreign or unknown.
  * - Router decisions can override only the proposed scroll behavior.
@@ -24,9 +28,9 @@ export type FastNavigationPolicy = (
 
 /** Navigation controls shared by Next links and regions. */
 export type NavigationOptions = {
-  /** Set `false` to disable early navigation. Defaults to `true`. */
+  /** Set `false` to leave new gestures to normal navigation. Defaults to `true`. */
   enabled?: boolean;
-  /** Selects navigation for an eligible press. Omit to use the App Router. */
+  /** Pure, repeatable classification for preparation and accepted navigation. */
   navigationPolicy?: FastNavigationPolicy;
   /** Observes the decision before navigation. Navigation still runs if it throws. */
   onFastNavigate?: (

@@ -13,7 +13,7 @@ interface CoordinationState {
   >;
   /** Clicks already consumed by a controller during capture. */
   readonly suppressedClicks: WeakSet<FollowupClick>;
-  /** Accepted presses, including events that cannot hold the symbol marker. */
+  /** Accepted presses and prepared clicks, including events that cannot hold the marker. */
   readonly handledEvents: WeakSet<Event>;
 }
 
@@ -35,3 +35,22 @@ export const coordination: CoordinationState = Reflect.get(
   handledEvents: new WeakSet<Event>(),
 };
 Reflect.set(globalThis, COORDINATION, coordination);
+
+/** Registers a managed anchor until its controller is destroyed; containing roots do not register. */
+export function registerAnchorOwner(
+  root: HTMLElement,
+): (() => void) | undefined {
+  if (root.tagName !== 'A') return undefined;
+  const { anchorOwners } = coordination;
+  anchorOwners.set(root, (anchorOwners.get(root) ?? 0) + 1);
+  return () => {
+    const remaining = (anchorOwners.get(root) ?? 1) - 1;
+    if (remaining) anchorOwners.set(root, remaining);
+    else anchorOwners.delete(root);
+  };
+}
+
+/** Includes disabled controllers, whose anchors still take priority over regions. */
+export function hasAnchorOwner(anchor: HTMLAnchorElement): boolean {
+  return coordination.anchorOwners.has(anchor);
+}

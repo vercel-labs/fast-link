@@ -1,5 +1,9 @@
 # Start navigation on primary mouse pointerdown
 
+This decision applies to `createFastLink`, React `useFastLink`, and the current
+Next Region/custom-hook adapters. Managed Next `FastLink` now prepares on press
+and waits for accepted click, as described in [ADR 0004](./0004-use-public-next-routing-interfaces.md).
+
 Fast Link starts eligible same-origin navigation on primary mouse `pointerdown`
 rather than waiting for `click`. This removes the wait for release and gives up
 release-time cancellation for those interactions.

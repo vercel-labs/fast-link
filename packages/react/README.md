@@ -11,8 +11,8 @@ instead.
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
-See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
+For interfaces that navigate on press, see the
+[accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
 
 ## Requirements
 
@@ -136,6 +136,26 @@ Replace root
 Core owns [eligibility, click suppression, and event ordering](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering).
 Add `data-no-fast-link` to an anchor or descendant when the browser must retain
 the interaction.
+
+## `useClickPreparation` reference
+
+`useClickPreparation<P, T>(options)` binds core's preparation controller to a
+React-owned element. Pass `enabled`, `prepare(intent)`, and an optional
+`forwardedRef`. It returns stable `{ ref, matchClick, discard }` bindings.
+
+Attach `ref` to the controlled root and call `matchClick(event.nativeEvent)`
+before synchronous click guards. Finalize the returned candidate with
+`consume()` after acceptance or `discard()` on cancellation, errors, or a native
+framework path. The adapter owns default prevention and navigation.
+
+Committed option updates preserve valid preparation. Ref replacement and
+unmount destroy the controller. Caller refs are composed, including cleanup
+callbacks; server rendering attaches no controller. Preparation does not cause
+a React state update. The existing `useFastLink` press-navigation behavior is
+unchanged.
+
+See the [core preparation contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#createclickpreparation)
+for matching, invalidation, errors, and provider-work lifetime.
 
 ## Related packages
 

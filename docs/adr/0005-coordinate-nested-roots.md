@@ -32,12 +32,17 @@ realm share one registry on `globalThis`, under
 | `anchorOwners`       | Number of live controllers for each managed anchor, including disabled controllers. |
 | `pendingClickOwners` | Callback that consumes an anchor's pending follow-up click.                         |
 | `suppressedClicks`   | Click events already consumed during capture.                                       |
-| `handledEvents`      | Accepted presses, including non-extensible events.                                  |
+| `handledEvents`      | Accepted presses and consumed prepared clicks, including non-extensible events.     |
 
 Core also attempts to set `Symbol.for('@fast-link/core/handled-event')` to
 `true` on accepted events. The shared `handledEvents` collection covers events
 that cannot accept this marker. The registry and marker are internal
 coordination contracts between independently bundled package versions.
+
+Prepared-click consumption uses the same event identity marker. Earlier
+press-navigation versions inspect press events only, so these additional click
+entries do not change their ownership or follow-up suppression behavior. The
+other collections retain their existing roles; no registry or collection is replaced.
 
 Compatible versions reuse the same registry object and collection instances.
 A version that adds compatible fields must initialize missing fields on the

@@ -9,6 +9,13 @@ establishing a supported integration.
 Import public exports from `@fast-link/next`; Fast Link does not need private
 Next.js modules.
 
+Managed `FastLink` prepares on press and navigates after click guards. Early
+preparation requires the exact supported Next canary and flag documented in
+the [package requirements](https://github.com/vercel-labs/fast-link/tree/main/packages/next#requirements).
+Absent or throwing preparation falls back at accepted click. Regions and the
+custom hook currently retain press navigation. Preparation does not establish
+correct soft-navigation attribution on the supported canary.
+
 ## Select the integration first
 
 Apply the skill's early-navigation safety gate to each option below. An adapter
@@ -104,14 +111,14 @@ export function AccountLink() {
 `FastLink` renders Next Link and inherits its native prefetch behavior,
 including the `prefetch` setting. Its early path supports object `href`,
 `replace`, `scroll`, `transitionTypes`, and synchronous
-`onNavigate` cancellation. Calling the event's `preventDefault()` in
-`onNavigate` cancels before policy evaluation, observation, and navigation.
+`onNavigate` cancellation. Caller `onClick`, Next's native checks, and caller
+`onNavigate` run before click-time policy, observation, and navigation. A pure
+policy may already have classified ownership at press time.
 Define callback props in a Client Component.
 
-An `onPointerDown` bubble guard or `onClick` guard cannot cancel navigation that
-already started on pointerdown. For a managed link, use synchronous `onNavigate`
-cancellation when validation belongs on press. Keep links requiring release-time
-validation opted out. `onFastNavigate` is an observer: its return value is ignored
+Use managed `onClick` or `onNavigate` guards for release-time validation.
+Release away discards preparation without navigating; it does not abort the
+provider's request. `onFastNavigate` is an observer: its return value is ignored
 and navigation is still attempted if it throws. See the
 [callback and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/next#route-links-across-application-boundaries)
 for full failure ordering.
@@ -195,8 +202,8 @@ navigate again on release. Preserve the application's rules for keyboard,
 modified clicks, downloads, and targets. Verify those native paths separately.
 
 Use `navigationPolicy` to select early router or document navigation, rather
-than canceling in `onNavigate` and navigating as a side effect. `onNavigate`
-runs on both early and native Link navigation. A native fallback alone does
+than canceling in `onNavigate` and navigating as a side effect. Managed `onNavigate`
+runs at click for both prepared and native Link navigation. A native fallback alone does
 not require a custom renderer or `useFastLink`.
 
 ## Custom renderers

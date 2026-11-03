@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3
+
+- Add `useClickPreparation` with composed refs and committed controller options.
+- Preserve the current capture handler when a replacement ref dispatches a click.
+- Update the core dependency to `^0.0.3`.
+
 ## 0.0.2
 
 - Bundle the canonical Fast Link agent skill, references, and agent metadata at

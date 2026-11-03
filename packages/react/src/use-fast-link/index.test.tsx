@@ -134,6 +134,44 @@ it('updates caller refs without replacing the controller', () => {
   expect(navigate).toHaveBeenCalledTimes(1);
 });
 
+it('updates the capture handler before a replacement ref dispatches a click', () => {
+  const observed: string[] = [];
+  const firstRef = vi.fn();
+  const secondRef = (element: HTMLDivElement | null) => {
+    const anchor = element?.querySelector('a');
+    anchor?.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        detail: 1,
+      }),
+    );
+  };
+  function Region({
+    label,
+    callerRef,
+  }: {
+    label: string;
+    callerRef: typeof secondRef;
+  }) {
+    const binding = useFastLink<HTMLDivElement>({
+      forwardedRef: callerRef,
+      onClickCapture: (event) => {
+        event.preventDefault();
+        observed.push(label);
+      },
+    });
+    return (
+      <div {...binding}>
+        <a href="/guide">Guide</a>
+      </div>
+    );
+  }
+  const { rerender } = render(<Region label="first" callerRef={firstRef} />);
+  rerender(<Region label="second" callerRef={secondRef} />);
+  expect(observed).toEqual(['second']);
+});
+
 it('replaces and removes its root, including in Strict Mode', () => {
   const navigate = vi.fn();
   function Region({ section }: { section: boolean }): JSX.Element {

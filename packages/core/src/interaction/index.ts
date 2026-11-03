@@ -12,9 +12,9 @@ const NESTED_CONTROL_TAGS = new Set([
   'TEXTAREA',
 ]);
 
-/** A validated same-origin destination for a primary mouse pointerdown. */
+/** A validated same-origin destination for an eligible link interaction. */
 export interface FastLinkIntent {
-  /** The link selected for early navigation. */
+  /** The source link for the interaction. */
   readonly anchor: HTMLAnchorElement;
   /** The authored `href` attribute, before URL resolution. */
   readonly href: string;
@@ -47,7 +47,17 @@ export function resolveFastLink(
     return null;
   }
 
-  if (isOptedOut(event.target, anchor)) return null;
+  const intent = getLinkIntent(event.target, anchor);
+  if (intent) markHandled(event);
+  return intent;
+}
+
+/** Rechecks the live destination and native opt-outs without claiming an event. */
+export function getLinkIntent(
+  targetElement: EventTarget | null,
+  anchor: HTMLAnchorElement,
+): FastLinkIntent | null {
+  if (isOptedOut(targetElement, anchor)) return null;
 
   const target = anchor.getAttribute('target');
   if (target && target !== '_self') return null;
@@ -67,7 +77,6 @@ export function resolveFastLink(
     return null;
   }
 
-  markHandled(event);
   return { anchor, href, url };
 }
 
@@ -98,11 +107,11 @@ export function findAnchor(
   return boundary.contains(anchor) ? anchor : null;
 }
 
-function isHandled(event: Event): boolean {
+export function isHandled(event: Event): boolean {
   return handledEvents.has(event) || Reflect.get(event, HANDLED_EVENT) === true;
 }
 
-function markHandled(event: Event): void {
+export function markHandled(event: Event): void {
   handledEvents.add(event);
   Reflect.set(event, HANDLED_EVENT, true);
 }

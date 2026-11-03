@@ -14,6 +14,124 @@ import { expect, test } from './test-fixtures.mjs';
 const fixtureOrigin = process.env.FAST_LINK_FIXTURE_ORIGIN;
 
 const scenarios = [
+  ...['pending', 'ready'].map((state) => [
+    `managed preparation reuses ${state} work only after release`,
+    async (page) => {
+      test.skip(
+        process.env.FAST_LINK_EXPECT_PREPARATION === 'false',
+        'The minimum supported Next version has no preparation API',
+      );
+      const gate = Promise.withResolvers();
+      let requests = 0;
+      await page.route('**/docs/slow?*', async (route) => {
+        requests++;
+        await gate.promise;
+        await route.continue();
+      });
+      const requested = page.waitForRequest(
+        (request) => new URL(request.url()).pathname === '/docs/slow',
+      );
+      const completed = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/docs/slow',
+      );
+      requested.catch(() => undefined);
+      completed.catch(() => undefined);
+      try {
+        await pressAndHold(page, 'slow');
+        await requested;
+        if (state === 'ready') {
+          gate.resolve();
+          await completed;
+          await page.waitForFunction(
+            () =>
+              performance
+                .getEntriesByType('resource')
+                .some(
+                  (entry) =>
+                    new URL(entry.name).pathname === '/docs/slow' &&
+                    entry.responseEnd > 0,
+                ),
+            undefined,
+            { timeout: 5000 },
+          );
+        }
+        assert.equal(new URL(page.url()).pathname, '/docs');
+        await expectOutput(page, 'events', '');
+        await expect(
+          page.getByRole('heading', { name: 'Home', exact: true }),
+        ).toBeVisible();
+        await page.mouse.up();
+        if (state === 'pending') {
+          await expectOutput(page, 'events', 'slow-fast');
+          gate.resolve();
+        }
+        await page.waitForURL(/\/docs\/slow$/);
+        await expect(
+          page.getByRole('heading', { name: 'Slow destination' }),
+        ).toBeVisible();
+        assert.equal(
+          requests,
+          1,
+          'commit must reuse the request started on press',
+        );
+      } finally {
+        gate.resolve();
+      }
+    },
+  ]),
+  [
+    'managed release away discards completed preparation',
+    async (page) => {
+      test.skip(
+        process.env.FAST_LINK_EXPECT_PREPARATION === 'false',
+        'The minimum supported Next version has no preparation API',
+      );
+      const completed = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/docs/slow',
+      );
+      completed.catch(() => undefined);
+      await pressAndHold(page, 'slow');
+      await completed;
+      await page.waitForFunction(
+        () =>
+          performance
+            .getEntriesByType('resource')
+            .some(
+              (entry) =>
+                new URL(entry.name).pathname === '/docs/slow' &&
+                entry.responseEnd > 0,
+            ),
+        undefined,
+        { timeout: 5000 },
+      );
+      await page.mouse.move(1, 1);
+      await page.mouse.up();
+      await expectOutput(page, 'events', '');
+      assert.equal(new URL(page.url()).pathname, '/docs');
+    },
+  ],
+  [
+    'managed guard uses the policy committed during onNavigate',
+    async (page) => {
+      let documentRequests = 0;
+      page.on('request', (request) => {
+        if (
+          request.isNavigationRequest() &&
+          request.frame() === page.mainFrame()
+        )
+          documentRequests++;
+      });
+      await pressAndHold(page, 'guard-policy');
+      assert.equal(new URL(page.url()).pathname, '/docs');
+      await page.mouse.up();
+      await page.waitForURL(/\/docs\/fast\?from=guard-policy$/);
+      assert.equal(
+        await page.evaluate(() => sessionStorage.getItem('guard-policy')),
+        'document',
+      );
+      assert.equal(documentRequests, 1);
+    },
+  ],
   [
     'benchmark interactions use the supplied measurement and warmup counts',
     async (page) => {
@@ -58,14 +176,14 @@ const scenarios = [
     ['fast', /\/docs\/fast\?from=home#destination$/],
     ['object', /\/docs\/object\?ref=a\+b$/],
   ].map(([testId, destination]) => [
-    `${testId}: routes before release with one base path`,
-    (page) => pressBeforeRelease(page, testId, destination),
+    `${testId}: routes after release with one base path`,
+    (page) => pressAfterRelease(page, testId, destination),
   ]),
   [
     'onNavigate cancellation preserves click handlers',
     async (page) => {
       await page.getByTestId('cancel').click();
-      await expectOutput(page, 'events', 'navigate,click');
+      await expectOutput(page, 'events', 'click,navigate');
       assert.equal(new URL(page.url()).pathname, '/docs');
     },
   ],
@@ -91,19 +209,22 @@ const scenarios = [
     `${testId}: starts only after release`,
     (page) => pressAfterRelease(page, testId, /\/docs\/fast$/),
   ]),
-  ['slow fast route starts while Link status stays idle', checkSlowStatus],
   [
-    'inline ref churn preserves follow-up suppression',
+    'slow managed route commits on release while Link status stays idle',
+    checkSlowStatus,
+  ],
+  [
+    'inline ref churn preserves a single accepted click',
     async (page) => {
       await pressAndHold(page, 'churn');
-      await expectOutput(page, 'events', 'fast');
+      await expectOutput(page, 'events', '');
+      await page.mouse.up();
+      await expectOutput(page, 'events', 'allowed,fast');
       assert.ok(
         Number(
           await page.getByTestId('churn').getAttribute('data-ref-calls'),
         ) >= 2,
       );
-      await page.mouse.up();
-      await expectOutput(page, 'events', 'fast,prevented');
       await page.waitForURL(/\/docs\/slow$/);
     },
   ],
@@ -111,8 +232,8 @@ const scenarios = [
     ['capture-stop', /\/docs\/slow\?from=capture$/],
     ['closed-capture-host', /\/docs\/slow\?from=closed-capture$/],
   ].map(([testId, destination]) => [
-    `${testId}: suppresses before stopping capture`,
-    (page) => checkCaptureSuppression(page, testId, destination),
+    `${testId}: leaves a stopped managed click to native navigation`,
+    (page) => checkStoppedManagedClick(page, testId, destination),
   ]),
   [
     'ordinary region link inside a closed shadow root navigates before release once',
@@ -173,7 +294,7 @@ const scenarios = [
     },
   ],
   ...[
-    ['options', /\/docs\/fast\?from=options$/, 'pointerdown'],
+    ['options', /\/docs\/fast\?from=options$/, 'click'],
     ['region-options', /\/docs\/fast\?from=region-options$/, 'click'],
   ].map(([testId, destination, starts]) => [
     `${testId}: replaces history and preserves scroll`,
@@ -213,18 +334,27 @@ const scenarios = [
   [
     'region rerender preserves pending suppression and idle Link status',
     async (page) => {
-      await pressAndHold(page, 'region-churn');
-      await expectOutput(page, 'events', 'region-fast');
-      assert.equal(
-        await page.getByTestId('region-pending').textContent(),
-        'idle',
-      );
-      await page.mouse.up();
-      await expectOutput(
-        page,
-        'events',
-        'region-fast,region-prevented,region-parent',
-      );
+      const gate = Promise.withResolvers();
+      await page.route('**/docs/slow?*', async (route) => {
+        await gate.promise;
+        await route.continue();
+      });
+      try {
+        await pressAndHold(page, 'region-churn');
+        try {
+          await expectOutput(page, 'events', 'region-fast');
+          await expect(page.getByTestId('region-pending')).toHaveText('idle');
+        } finally {
+          await page.mouse.up();
+        }
+        await expectOutput(
+          page,
+          'events',
+          'region-fast,region-prevented,region-parent',
+        );
+      } finally {
+        gate.resolve();
+      }
       await page.waitForURL(/\/docs\/slow$/);
     },
   ],
@@ -396,6 +526,8 @@ async function checkSlowStatus(page) {
     // Observe rejection immediately if the positive signal fails first.
     requested.catch(() => undefined);
     await pressAndHold(page, 'slow');
+    await expectOutput(page, 'events', '');
+    await page.mouse.up();
     await expectOutput(page, 'events', 'slow-fast');
     await requested;
     assert.equal(
@@ -404,7 +536,6 @@ async function checkSlowStatus(page) {
       'response must still be held',
     );
     assert.equal(await page.getByTestId('pending').textContent(), 'idle');
-    await page.mouse.up();
   } finally {
     gate.resolve();
   }
@@ -420,7 +551,7 @@ async function pressBeforeRelease(page, testId, destination) {
   }
 }
 
-async function checkCaptureSuppression(page, testId, destination) {
+async function checkStoppedManagedClick(page, testId, destination) {
   await waitForHydration(page);
   const target = page.getByTestId(testId);
   await target.scrollIntoViewIfNeeded();
@@ -438,12 +569,14 @@ async function checkCaptureSuppression(page, testId, destination) {
       box.y + (testId === 'closed-capture-host' ? 20 : box.height / 2),
     );
     await page.mouse.down();
-    await expectOutput(page, 'events', 'capture-fast');
+    await expectOutput(page, 'events', '');
     await page.mouse.up();
-    await expectOutput(page, 'events', 'capture-fast,capture-prevented');
     await page.waitForURL(destination);
-    if (documentRequests !== 0)
-      throw new Error(`${testId}: follow-up click activated the document`);
+    assert.equal(
+      documentRequests,
+      1,
+      'stopped propagation leaves browser activation intact',
+    );
   } finally {
     page.off('request', onRequest);
   }

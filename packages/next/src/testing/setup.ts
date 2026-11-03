@@ -16,7 +16,7 @@ type TestLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> &
     | 'transitionTypes'
   >;
 
-type Router = { push: Mock; replace: Mock };
+type Router = { push: Mock; replace: Mock; experimental_prepare?: Mock };
 
 /** Switchable App Router mock, reset before each test. */
 const routing: { defaultRouter: Router; current: Router } = vi.hoisted(() => {
@@ -59,8 +59,10 @@ vi.mock('next/link', async () => {
         ref,
         onClick(event) {
           onClick?.(event);
-          if (!event.defaultPrevented)
+          if (!event.defaultPrevented) {
+            event.preventDefault();
             onNavigate?.({ preventDefault: () => event.preventDefault() });
+          }
         },
       });
     }),
@@ -80,6 +82,7 @@ beforeEach(() => {
   routing.current = router;
   router.push.mockClear();
   router.replace.mockClear();
+  delete router.experimental_prepare;
 });
 
 export { router, routing };

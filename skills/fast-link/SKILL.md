@@ -6,8 +6,9 @@ license: MIT
 
 # Fast Link
 
-Fast Link starts eligible primary-mouse navigation on `pointerdown`. Use it
-where pressing the link is enough to commit. For press timing and opt-outs, see
+Managed Next `FastLink` prepares on eligible primary-mouse press and navigates
+after click guards. Regions, custom-renderer hooks, and direct core/React
+navigation currently commit on press. For timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
 Discuss the [press-time cancellation limitation](https://github.com/vercel-labs/fast-link#known-limitations)
@@ -48,9 +49,8 @@ establish router ownership.
 Inspect click-time behavior before wrapping existing links. A region's capture
 listener can navigate before an ordinary link's `onClick` or `onNavigate` runs.
 Use `data-no-fast-link` on that anchor to retain its normal behavior. Use a
-managed `FastLink` when the existing behavior can run synchronously on press
-and its Next.js options should be preserved. Do not move a release-time guard
-earlier without agreement that the timing change fits the interaction.
+managed `FastLink` to retain synchronous click guards and per-link Next options.
+Region and custom-hook press navigation still requires opt-outs for later guards.
 
 ## Select the interface
 
@@ -83,7 +83,10 @@ policy only for a demonstrated application requirement.
   surrounding ASCII whitespace: tab, line feed, form feed, carriage return, or
   space. Other roles and role lists stay native. Presses inside descendants
   with a `button` role token also stay native.
-- After accepted early navigation, the follow-up pointer click is
+- Managed Next links wait for click acceptance and discard preparation on
+  release away. Verify the experimental runtime and pure-policy contract in
+  the Next.js reference before enabling preparation.
+- After accepted press navigation, the follow-up pointer click is
   default-prevented but still propagates. Click handlers may run if the elements
   remain mounted; navigation can unmount them before release. A drag away can
   navigate without producing a click. Required work cannot depend on that click.
@@ -118,9 +121,10 @@ with source evidence; keep uncertain links native until their contract is known.
 Run the consumer's existing install, typecheck, build, and browser checks as
 applicable. Derive commands from its package scripts and configuration. Verify:
 
-- Press and hold an eligible link. Observe navigation before release, then
-  release and confirm there is no second navigation. Keyboard and modified
-  activation retain their normal behavior.
+- For managed Next links, press and hold without URL/history/route UI change,
+  then release and verify one navigation; release away must cancel. For press
+  interfaces, verify navigation before release and no duplicate on click.
+  Keyboard and modified activation retain their normal behavior.
 - Guards, opt-outs, and disabled managed links remain effective inside regions.
 - History, scroll, base paths, and routing across applications match the
   application's requirements when those features are present.

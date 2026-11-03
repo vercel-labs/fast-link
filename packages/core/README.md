@@ -2,7 +2,8 @@
 
 `@fast-link/core` starts eligible same-origin link navigation on primary mouse
 `pointerdown`. Use it with plain DOM elements or as the interaction layer for a
-framework adapter.
+framework adapter. `createClickPreparation` is an additive controller for
+adapters that prepare on press and navigate only after accepted click.
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
@@ -11,8 +12,8 @@ instead.
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
-See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
+For interfaces that navigate on press, see the
+[accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
 
 ## Requirements
 
@@ -106,16 +107,21 @@ bundled copies of core, navigate once.
 
 ## API reference
 
-| Export                   | Kind     | Purpose                                                |
-| ------------------------ | -------- | ------------------------------------------------------ |
-| `createFastLink`         | Function | Attach navigation behavior to an anchor or region      |
-| `runFastNavigation`      | Function | Apply a router or document navigation decision         |
-| `FastLinkController`     | Type     | Update, suppress clicks, or destroy a controller       |
-| `FastLinkOptions`        | Type     | Configure controller eligibility and callbacks         |
-| `FastLinkIntent`         | Type     | Describe an accepted anchor and destination            |
-| `FastNavigationDecision` | Type     | Select router or document navigation                   |
-| `FastRouterDecision`     | Type     | Use the adapter route with an optional scroll override |
-| `FastDocumentDecision`   | Type     | Load the validated URL with `assign` or `replace`      |
+| Export                           | Kind     | Purpose                                                |
+| -------------------------------- | -------- | ------------------------------------------------------ |
+| `createFastLink`                 | Function | Attach navigation behavior to an anchor or region      |
+| `createClickPreparation`         | Function | Prepare a gesture and consume its accepted click       |
+| `runFastNavigation`              | Function | Apply a router or document navigation decision         |
+| `validateFastNavigationDecision` | Function | Validate a decision without navigation or observation  |
+| `ClickPreparationController`     | Type     | Match, update, discard, or destroy preparation         |
+| `ClickPreparationOptions`        | Type     | Configure eligibility and speculative preparation      |
+| `PreparedClick`                  | Type     | Consume or discard a matched activation once           |
+| `FastLinkController`             | Type     | Update, suppress clicks, or destroy a controller       |
+| `FastLinkOptions`                | Type     | Configure controller eligibility and callbacks         |
+| `FastLinkIntent`                 | Type     | Describe an accepted anchor and destination            |
+| `FastNavigationDecision`         | Type     | Select router or document navigation                   |
+| `FastRouterDecision`             | Type     | Use the adapter route with an optional scroll override |
+| `FastDocumentDecision`           | Type     | Load the validated URL with `assign` or `replace`      |
 
 ### `createFastLink`
 
@@ -180,6 +186,41 @@ clicks and detail-zero clicks remain native, and calls after destroy do nothing.
 Use `@fast-link/react` to supply this capture binding in React rather than
 implementing it in an app.
 
+### `createClickPreparation`
+
+```ts
+function createClickPreparation<P>(
+  root: HTMLElement,
+  options: { enabled?: boolean; prepare(intent: FastLinkIntent): P | null },
+): ClickPreparationController<P>;
+```
+
+`prepare` runs on eligible primary mouse press. It must not navigate; errors
+are swallowed so click-time fallback remains available. Core stores the opaque
+result without a readiness or abort protocol.
+
+Pass the native click to `controller.matchClick(event)` before synchronous
+adapter guards. If a candidate is returned, call `candidate.consume()` after
+those guards accept, or `candidate.discard()` when they cancel. Always finalize
+the candidate, including when a guard throws or the framework takes a native path.
+Consuming returns `{ intent, prepared }` once, or `null` if invalidated. Core
+rechecks live eligibility and managed-anchor priority; changed destinations
+return `prepared: null`. The adapter owns default prevention and routing.
+
+New input, cancellation, dragging, release away, destruction, and disabling
+invalidate preparation, including while a candidate is awaiting guards.
+`update(options)` replaces copied options; other updates preserve the gesture
+for the adapter to revalidate. `discard()` drops the current gesture.
+`destroy()` also removes listeners and anchor ownership. Discarding a result
+does not abort provider work. Keep matching and acceptance synchronous.
+
+### `validateFastNavigationDecision`
+
+Validates an unknown value and returns a frozen copy of a supported router or
+document decision. Invalid values, including thenables, throw `TypeError`.
+Extra fields are ignored. This function performs no navigation or observation;
+use it for speculative classification without the runner's document fallback.
+
 ### `FastLinkIntent`
 
 | Field    | Type                | Value                                                              |
@@ -194,7 +235,7 @@ base path may need to derive its route from `href` or application metadata on
 
 ## Understand event ordering
 
-Core checks eligibility and claims an accepted primary mouse press before
+`createFastLink` checks eligibility and claims an accepted primary mouse press before
 calling navigation callbacks. It remembers the anchor so it can prevent the
 later pointer click's default navigation:
 

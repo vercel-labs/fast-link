@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3
+
+- Add click preparation with synchronous acceptance, gesture cancellation, live
+  managed-anchor priority, and cleanup through consumption.
+- Export decision validation for speculative policy classification.
+
 ## 0.0.2
 
 - Bundle the canonical Fast Link agent skill, references, and agent metadata at

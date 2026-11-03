@@ -12,6 +12,7 @@ import {
   type MouseEventHandler,
 } from 'react';
 
+import { getLinkDestination } from '../link-destination';
 import type {
   FastRouterProposal,
   NavigationOptions,
@@ -81,7 +82,7 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
       });
       if (canceled) return;
 
-      const destination = getRouterDestination(link.href, intent.url);
+      const destination = getLinkDestination(link.href, intent.url);
       const method = link.replace ? 'replace' : 'push';
       const options = {
         scroll: link.scroll,
@@ -127,13 +128,4 @@ export function useFastLink<T extends HTMLElement = HTMLElement>({
     () => ({ ref: attach, onClickCapture: attachAnchor.onClickCapture }),
     [attach, attachAnchor.onClickCapture],
   );
-}
-
-function getRouterDestination(
-  href: LinkProps['href'],
-  resolvedUrl: URL,
-): string {
-  if (typeof href === 'string') return href;
-  if (href.protocol || href.host) return resolvedUrl.href;
-  return (href.pathname ?? '') + resolvedUrl.search + resolvedUrl.hash;
 }

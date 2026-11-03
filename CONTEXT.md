@@ -1,7 +1,8 @@
 # Fast Link
 
-Fast Link starts eligible mouse navigation when a link is pressed, while other
-interactions keep their native behavior.
+Fast Link starts work for eligible mouse navigation when a link is pressed.
+Managed Next links prepare on press and navigate after accepted click; the
+other navigation interfaces currently commit on press.
 
 ## Language
 
