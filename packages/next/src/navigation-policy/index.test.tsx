@@ -62,19 +62,27 @@ describe('navigation policy', () => {
   });
 });
 
-it.each([{ enabled: false }, { as: '/display' }, { 'data-no-fast-link': '' }])(
+it.each([{ enabled: false }, { 'data-no-fast-link': '' }])(
   'keeps a native managed Link inside a Region native: %o',
   (options) => {
     const policy = vi.fn();
+    const observe = vi.fn();
+    router.experimental_prepare = vi.fn(() => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+    }));
     const { getByRole } = render(
-      <FastLinkRegion navigationPolicy={policy}>
-        <FastLink href="/pricing" {...options}>
+      <FastLinkRegion navigationPolicy={policy} onFastNavigate={observe}>
+        <FastLink href="/pricing" {...options} onFastNavigate={observe}>
           Pricing
         </FastLink>
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
+    expect(router.experimental_prepare).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
+    expect(observe).not.toHaveBeenCalled();
     expect(policy).not.toHaveBeenCalled();
   },
 );
@@ -89,6 +97,7 @@ it.each([undefined, false, true])(
       expect(proposed).toEqual({
         destination: '/docs/guide?q=yes#read',
         method: 'push',
+        scroll: undefined,
       });
       Reflect.set(proposed, 'destination', '/changed');
       return { kind: 'router', scroll };
@@ -99,10 +108,9 @@ it.each([undefined, false, true])(
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(router.push.mock.calls).toEqual([
-      scroll === undefined
-        ? ['/docs/guide?q=yes#read']
-        : ['/docs/guide?q=yes#read', { scroll }],
+      ['/docs/guide?q=yes#read', { scroll, transitionTypes: undefined }],
     ]);
   },
 );
@@ -168,7 +176,7 @@ it.each(['link', 'region', 'hook'] as const)(
       },
     });
     pointerDown(anchor);
-    if (binding === 'link') fireEvent.click(anchor, { detail: 1 });
+    fireEvent.click(anchor, { detail: 1 });
     expect(replace).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );
@@ -180,7 +188,7 @@ it.each(['link', 'region', 'hook'] as const)(
     expect(
       captureErrors(() => {
         pointerDown(anchor);
-        if (binding === 'link') fireEvent.click(anchor, { detail: 1 });
+        fireEvent.click(anchor, { detail: 1 });
       }),
     ).toEqual([failure]);
     expect(assign).toHaveBeenCalledExactlyOnceWith(

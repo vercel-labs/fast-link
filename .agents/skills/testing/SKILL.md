@@ -22,7 +22,7 @@ Inspect the production owner, callers, and neighboring tests. State:
 
 Keep exhaustive cases with their owner:
 
-- **Core:** eligibility, event ordering, click suppression, cleanup.
+- **Core:** eligibility, event ordering, gesture cancellation, cleanup.
 - **React:** refs and controller lifecycle.
 - **Next:** Link and region adaptation to App Router.
 - Test adapter failures without replaying core's eligibility matrix.

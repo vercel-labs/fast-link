@@ -22,14 +22,32 @@ export function useClickPreparation<P, T extends HTMLElement = HTMLElement>({
   matchClick(event: MouseEvent): PreparedClick<P> | null;
   discard(): void;
 } {
-  const { ref, controller } = useController<
+  const { ref, element, controller } = useController<
     T,
     ClickPreparationOptions<P>,
     ReturnType<typeof createClickPreparation<P>>
   >(createClickPreparation, options, forwardedRef);
   const matchClick = useCallback(
-    (event: MouseEvent) => controller.current?.matchClick(event) ?? null,
-    [controller],
+    (event: MouseEvent): PreparedClick<P> | null => {
+      if (!element.current) {
+        controller.current?.discard();
+        return null;
+      }
+      const candidate = controller.current?.matchClick(event);
+      if (!candidate) return null;
+      return {
+        consume() {
+          // A guard may detach the root before deferred controller cleanup.
+          if (!element.current) {
+            candidate.discard();
+            return null;
+          }
+          return candidate.consume();
+        },
+        discard: candidate.discard,
+      };
+    },
+    [controller, element],
   );
   const discard = useCallback(
     () => controller.current?.discard(),

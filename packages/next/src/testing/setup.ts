@@ -7,12 +7,10 @@ type TestLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> &
   Pick<
     LinkProps,
     | 'href'
-    | 'as'
     | 'replace'
     | 'scroll'
     | 'prefetch'
     | 'onNavigate'
-    | 'legacyBehavior'
     | 'transitionTypes'
   >;
 
@@ -36,19 +34,17 @@ vi.mock('next/link', async () => {
     default: forwardRef<HTMLAnchorElement, TestLinkProps>(function TestLink(
       {
         href,
-        as,
         replace: _replace,
         scroll: _scroll,
         prefetch: _prefetch,
         onNavigate,
-        legacyBehavior: _legacyBehavior,
         transitionTypes: _transitionTypes,
         onClick,
         ...props
       },
       ref,
     ) {
-      const destination = toMockHref(as ?? href);
+      const destination = toMockHref(href);
       const renderedHref = destination.startsWith('/')
         ? `/docs${destination}`
         : destination;

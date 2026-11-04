@@ -2,12 +2,14 @@
 
 ## 0.0.3
 
-- Prepare managed `FastLink` on eligible press and navigate after click guards.
-  Require pure, repeatable policies; move effects to navigation callbacks.
-- Recheck committed policy, guards, and routing options before accepting a click.
-- Support experimental preparation on Next `16.5.0-canary.37`; fall back at click
-  when preparation is unavailable. Region and custom-hook timing is unchanged.
-- Update the core and React dependencies to `^0.0.3`.
+- Prepare all integrations on press and navigate at accepted click. `FastLink`
+  accepts after Next guards; regions and custom hooks accept during click capture.
+- Require pure, repeatable policies. Read current policy and commit options after guards.
+- Reuse preparation by router and destination; callback identity does not invalidate it.
+- Remove `as`, `legacyBehavior`, optional-href, and non-anchor custom-hook support.
+- Use experimental preparation on Next `16.5.0-canary.37`; fall back at accepted
+  click when preparation is unavailable or fails. Never retry a failed commit.
+- Update core and React dependencies to `^0.0.3`.
 
 ## 0.0.2
 

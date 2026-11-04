@@ -16,9 +16,9 @@ consumer purity migration, but keeps one authoritative ownership rule. Effects
 belong in navigation callbacks. Guards can commit new props synchronously, so
 acceptance reads current committed configuration before reusing a handle.
 
-The Next `useFastLink` hook currently retains press navigation while leaving
-rendering and prefetching to its caller. Region and custom-hook click-capture
-migration remains undecided; their current behavior is not a managed-click contract.
+The Next `useFastLink` hook and `FastLinkRegion` prepare on press and accept
+navigation during click capture. `FastLink` owns Next guard composition; capture
+adapters cannot wait for later child guards. See [ADR 0006](./0006-prepare-on-press-navigate-on-click.md).
 
 `FastLinkRegion` delegates early navigation for ordinary anchors. Rendered
 anchors do not expose every Next Link prop, so they share the region's policy
@@ -38,9 +38,8 @@ routing options, policy binding, and framework callback composition. Discarding
 a handle does not abort provider work. The preparation API alone does not repair
 Chrome attribution on the supported runtime; renderer fixes remain upstream.
 
-Rendering modes the adapter does not accelerate stay on the normal Link path.
-See the [navigation rules](../../packages/next/README.md#understand-navigation-and-click-behavior)
-for `as`, `legacyBehavior`, and native opt-outs.
+`as` and `legacyBehavior` are outside the public Fast Link contract. Custom
+renderers require an anchor and `href`; they own native activation and prefetching.
 
 Implementation: [`FastLink`](../../packages/next/src/fast-link/index.tsx),
 [`useFastLink`](../../packages/next/src/use-fast-link/index.ts), and

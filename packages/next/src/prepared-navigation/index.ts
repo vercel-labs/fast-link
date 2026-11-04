@@ -24,10 +24,6 @@ type PreparingRouter = Router & {
 export type PreparedNavigation = {
   router: Router;
   destination: string;
-  policy: NavigationOptions['navigationPolicy'];
-  method: 'push' | 'replace';
-  scroll?: boolean;
-  transitionTypes?: string[];
   handle: PreparedHandle;
 };
 
@@ -37,7 +33,7 @@ type RoutingOptions = NavigationOptions &
     method: 'push' | 'replace';
   };
 
-/** Owns Next preparation, routing snapshots, and click-time policy execution. */
+/** Owns Next preparation and click-time policy execution. Commit options stay current. */
 export function createPreparedNavigation(
   router: PreparingRouter,
   options: RoutingOptions,
@@ -70,12 +66,6 @@ export function createPreparedNavigation(
       return {
         router,
         destination: proposed.destination,
-        policy: options.navigationPolicy,
-        method: options.method,
-        scroll: options.scroll,
-        transitionTypes: options.transitionTypes
-          ? [...options.transitionTypes]
-          : undefined,
         handle,
       };
     },
@@ -93,11 +83,7 @@ export function createPreparedNavigation(
       const canReuse =
         prepared !== null &&
         prepared.router === router &&
-        prepared.destination === proposed.destination &&
-        prepared.policy === options.navigationPolicy &&
-        prepared.method === proposed.method &&
-        prepared.scroll === proposed.scroll &&
-        sameTransitions(prepared.transitionTypes, transitionTypes);
+        prepared.destination === proposed.destination;
       const { navigationPolicy } = options;
       runFastNavigation(intent, {
         defaultRouterDecision: { kind: 'router' },
@@ -117,17 +103,4 @@ export function createPreparedNavigation(
       });
     },
   };
-}
-
-function sameTransitions(
-  first: string[] | undefined,
-  second: string[] | undefined,
-): boolean {
-  return (
-    first === second ||
-    (first !== undefined &&
-      second !== undefined &&
-      first.length === second.length &&
-      first.every((value, index) => value === second[index]))
-  );
 }

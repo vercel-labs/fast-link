@@ -135,7 +135,6 @@ describe('FastLink', () => {
 
   it.each([
     ['disabled', { enabled: false }],
-    ['as', { as: '/display' }],
     ['external', { href: 'https://other.example/pricing' }],
     ['hash', { href: '#pricing' }],
   ])('leaves %s links to Link', (_name, props) => {

@@ -2,8 +2,10 @@
 
 ## 0.0.3
 
-- Add click preparation with synchronous acceptance, gesture cancellation, live
-  managed-anchor priority, and cleanup through consumption.
+- Replace `createFastLink` with `createClickPreparation`. Prepare on press;
+  adapters accept matching clicks and own default prevention and navigation.
+- Remove press navigation and follow-up suppression APIs and state.
+- Preserve gesture cancellation, live anchor ownership, and cross-copy event claims.
 - Export decision validation for speculative policy classification.
 
 ## 0.0.2

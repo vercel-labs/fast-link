@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { useFastLink } from '@fast-link/react';
+import { useClickPreparation } from '@fast-link/react';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 
@@ -10,15 +10,15 @@ test('the built React hook renders on the server without DOM globals or ref atta
   assert.equal(typeof document, 'undefined');
   const ref = { current: null as HTMLDivElement | null };
   function Region() {
-    const binding = useFastLink<HTMLDivElement>({
+    const binding = useClickPreparation<never, HTMLDivElement>({
       forwardedRef: ref,
-      navigate: () => {
+      prepare: () => {
         throw new Error('Server rendering must not navigate');
       },
     });
     return createElement(
       'div',
-      binding,
+      { ref: binding.ref },
       createElement('a', { href: '/first' }, 'First'),
     );
   }

@@ -270,3 +270,77 @@ it.each(['consume', 'discard'] as const)(
     }
   },
 );
+
+it('copies options and applies replacements only through update', () => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const first = vi.fn(() => 'first');
+  const second = vi.fn(() => 'second');
+  const options = { prepare: first };
+  const controller = createClickPreparation(anchor, options);
+  try {
+    options.prepare = second;
+    press(anchor);
+    expect(controller.matchClick(click(anchor))?.consume()?.prepared).toBe(
+      'first',
+    );
+    controller.update(options);
+    press(anchor);
+    expect(controller.matchClick(click(anchor))?.consume()?.prepared).toBe(
+      'second',
+    );
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
+it('retains anchor ownership until the last controller is destroyed', () => {
+  const root = document.body.appendChild(document.createElement('div'));
+  const anchor = root.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => null);
+  const region = createClickPreparation(root, { prepare });
+  const first = createClickPreparation(anchor, { enabled: false, prepare });
+  const second = createClickPreparation(anchor, { enabled: false, prepare });
+  try {
+    first.destroy();
+    first.destroy();
+    press(anchor);
+    expect(prepare).not.toHaveBeenCalled();
+    second.destroy();
+    press(anchor);
+    expect(prepare).toHaveBeenCalledTimes(1);
+  } finally {
+    first.destroy();
+    second.destroy();
+    region.destroy();
+    root.remove();
+  }
+});
+
+it('drops preparation when relative URL resolution changes without an href change', () => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = 'next';
+  const controller = createClickPreparation(anchor, {
+    prepare: () => 'request',
+  });
+  const base = document.head.appendChild(document.createElement('base'));
+  try {
+    base.href = '/first/';
+    press(anchor);
+    base.href = '/second/';
+    expect(controller.matchClick(click(anchor))?.consume()).toEqual({
+      intent: {
+        anchor,
+        href: 'next',
+        url: new URL('https://example.com/second/next'),
+      },
+      prepared: null,
+    });
+  } finally {
+    controller.destroy();
+    anchor.remove();
+    base.remove();
+  }
+});

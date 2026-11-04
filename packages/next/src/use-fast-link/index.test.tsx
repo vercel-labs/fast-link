@@ -1,103 +1,105 @@
-/*
- * Tests the Next hook with custom renderers that switch between anchors and
- * fallback elements. Ref updates and pending clicks must follow the active
- * element without intercepting links inside a non-anchor fallback.
- */
-
 import { fireEvent, render } from '@testing-library/react';
+import { useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import { HookLink, pointerDown, router } from '../testing';
 import { useFastLink } from './index';
 
-it('leaves descendant links native when the hook ref is on a non-anchor', () => {
-  const forwardedRef = { current: null as HTMLSpanElement | null };
-  const policy = vi.fn(() => ({ kind: 'router' as const }));
+it('prepares on press and commits at click capture after the caller guard', () => {
+  const events: string[] = [];
+  const push = vi.fn(() => events.push('commit'));
+  router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));
+  const { getByRole } = render(
+    <HookLink href="/guide" onClickCapture={() => events.push('guard')} />,
+  );
+  const anchor = getByRole('link');
+  pointerDown(anchor);
+  expect(router.experimental_prepare).toHaveBeenCalledExactlyOnceWith('/guide');
+  expect(router.push).not.toHaveBeenCalled();
+  expect(events).toEqual([]);
+  fireEvent.click(anchor, { detail: 1 });
+  expect(events).toEqual(['guard', 'commit']);
+  expect(router.push).not.toHaveBeenCalled();
+});
+
+it.each(['onClickCapture', 'onNavigate'] as const)(
+  'allows %s to cancel before policy and navigation',
+  (guard) => {
+    const push = vi.fn();
+    router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));
+    const policy = vi.fn(() => ({ kind: 'router' as const }));
+    const { getByRole } = render(
+      <HookLink
+        href="/guide"
+        navigationPolicy={policy}
+        {...{
+          [guard]: (event: { preventDefault(): void }) =>
+            event.preventDefault(),
+        }}
+      />,
+    );
+    const anchor = getByRole('link');
+    pointerDown(anchor);
+    fireEvent.click(anchor, { detail: 1 });
+    expect(policy).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  },
+);
+
+it('reads policy and commit options after a capture guard synchronously commits new props', () => {
+  const replace = vi.fn();
+  router.experimental_prepare = vi.fn(() => ({ push: vi.fn(), replace }));
+  const nextPolicy = vi.fn(() => ({ kind: 'router' as const, scroll: false }));
   function Renderer() {
-    const attach = useFastLink({
-      href: '/proposed',
-      navigationPolicy: policy,
-      forwardedRef,
+    const [changed, setChanged] = useState(false);
+    const binding = useFastLink({
+      href: '/guide',
+      replace: changed,
+      navigationPolicy: changed ? nextPolicy : () => ({ kind: 'router' }),
+      onClickCapture: () => flushSync(() => setChanged(true)),
     });
     return (
-      <span {...attach}>
-        <a href="/actual">Child</a>
-      </span>
+      <a href="/guide" {...binding}>
+        Guide
+      </a>
     );
   }
-  const { getByRole, unmount } = render(<Renderer />);
+  const { getByRole } = render(<Renderer />);
   const anchor = getByRole('link');
-  expect(forwardedRef.current?.tagName).toBe('SPAN');
   pointerDown(anchor);
-  expect(policy).not.toHaveBeenCalled();
-  expect(router.push).not.toHaveBeenCalled();
-  const click = vi.fn();
-  anchor.addEventListener('click', (event) => {
-    click(event.defaultPrevented);
-    event.preventDefault();
-  });
   fireEvent.click(anchor, { detail: 1 });
-  expect(click).toHaveBeenCalledExactlyOnceWith(false);
-  unmount();
-  expect(forwardedRef.current).toBeNull();
+  expect(nextPolicy).toHaveBeenCalledTimes(1);
+  expect(replace).toHaveBeenCalledExactlyOnceWith({
+    scroll: false,
+    transitionTypes: undefined,
+  });
+  expect(router.replace).not.toHaveBeenCalled();
 });
 
-it('keeps the hook policy, pending click, and forwarded refs current across anchor/span replacement', () => {
-  const first = vi.fn(() => ({ kind: 'router' as const, scroll: false }));
-  const second = vi.fn(() => ({ kind: 'router' as const }));
-  const ref = { current: null as HTMLAnchorElement | HTMLSpanElement | null };
-  const { getByText, rerender, unmount } = render(
-    <HookLink forwardedRef={ref} />,
-  );
-  const span = getByText('Custom');
-  expect(ref.current).toBe(span);
-  pointerDown(span);
-  expect(router.push).not.toHaveBeenCalled();
-  rerender(
-    <HookLink href="/first" navigationPolicy={first} forwardedRef={ref} />,
-  );
-  const anchor = getByText('Custom');
-  pointerDown(anchor);
-  rerender(
-    <HookLink href="/second" navigationPolicy={second} forwardedRef={ref} />,
-  );
-  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
-  pointerDown(anchor);
-  expect(first).toHaveBeenCalledTimes(1);
-  expect(second).toHaveBeenCalledTimes(1);
-  expect(router.push.mock.calls).toEqual([
-    ['/first', { scroll: false, transitionTypes: undefined }],
-    ['/second', { scroll: undefined, transitionTypes: undefined }],
-  ]);
-  rerender(<HookLink forwardedRef={ref} />);
-  pointerDown(anchor);
-  expect(router.push).toHaveBeenCalledTimes(2);
-  expect(ref.current?.tagName).toBe('SPAN');
-  unmount();
-  expect(ref.current).toBeNull();
-});
-
-it('leaves legacy rendering to click navigation without early policy or suppression', () => {
-  const policy = vi.fn(() => ({ kind: 'router' as const }));
-  const observe = vi.fn();
-  const { getByRole } = render(
+it('publishes the capture guard before a replacement ref dispatches a click', () => {
+  const observed: string[] = [];
+  const firstRef = vi.fn();
+  const secondRef = (anchor: HTMLAnchorElement | null) => {
+    anchor?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }),
+    );
+  };
+  const { getByRole, rerender } = render(
     <HookLink
-      href="/legacy"
-      legacyBehavior
-      navigationPolicy={policy}
-      onFastNavigate={observe}
+      href="/guide"
+      forwardedRef={firstRef}
+      onClickCapture={() => observed.push('first')}
     />,
   );
-  const anchor = getByRole('link');
-  pointerDown(anchor);
-  expect(router.push).not.toHaveBeenCalled();
-  expect(router.replace).not.toHaveBeenCalled();
-  expect(policy).not.toHaveBeenCalled();
-  expect(observe).not.toHaveBeenCalled();
-  const click = vi.fn();
-  anchor.addEventListener('click', (event) => {
-    click(event.defaultPrevented);
-    event.preventDefault();
-  });
-  fireEvent.click(anchor, { detail: 1 });
-  expect(click).toHaveBeenCalledExactlyOnceWith(false);
+  pointerDown(getByRole('link'));
+  rerender(
+    <HookLink
+      href="/guide"
+      forwardedRef={secondRef}
+      onClickCapture={() => observed.push('second')}
+    />,
+  );
+  expect(observed).toEqual(['second']);
+  expect(router.push).toHaveBeenCalledTimes(1);
 });

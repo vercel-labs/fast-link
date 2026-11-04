@@ -14,6 +14,38 @@ import { expect, test } from './test-fixtures.mjs';
 const fixtureOrigin = process.env.FAST_LINK_FIXTURE_ORIGIN;
 
 const scenarios = [
+  ...['onClick', 'onNavigate', 'prefetch', 'hook'].map((guard) => [
+    `ref reattachment during ${guard} preserves current click acceptance`,
+    async (page) => {
+      let documentRequests = 0;
+      page.on('request', (request) => {
+        if (
+          request.isNavigationRequest() &&
+          request.frame() === page.mainFrame()
+        )
+          documentRequests++;
+      });
+      await pressAndHold(page, `ref-${guard}`);
+      assert.equal(new URL(page.url()).pathname, '/docs');
+      await page.mouse.up();
+      await page.waitForURL(`${fixtureOrigin}/docs/fast?from=ref-${guard}`);
+      await expect(
+        page.getByRole('heading', { name: 'Fast destination' }),
+      ).toBeVisible();
+      assert.equal(
+        await page.evaluate(() => sessionStorage.getItem('ref-actions')),
+        '1',
+      );
+      assert.equal(documentRequests, 0);
+      if (guard === 'prefetch')
+        assert.deepEqual(
+          await page.evaluate(() =>
+            JSON.parse(sessionStorage.getItem('ref-decision')),
+          ),
+          { kind: 'router', scroll: false },
+        );
+    },
+  ]),
   ...['pending', 'ready'].map((state) => [
     `managed preparation reuses ${state} work only after release`,
     async (page) => {
@@ -162,7 +194,7 @@ const scenarios = [
       for (const { variant, counts, metrics } of observations) {
         // Core probes cleanup before removing its anchor; React unmounts first.
         const mouse = variant === 'bare' || variant === 'core' ? 11 : 10;
-        assert.deepEqual(counts, { mouse, touch: 10, clicks: 10 }, variant);
+        assert.deepEqual(counts, { mouse, touch: 10, clicks: mouse }, variant);
         assert.equal(metrics.accepted.correct, true, variant);
         assert.equal(metrics.ignored.correct, true, variant);
       }
@@ -205,10 +237,6 @@ const scenarios = [
       );
     },
   ]),
-  ...['as', 'legacy'].map((testId) => [
-    `${testId}: starts only after release`,
-    (page) => pressAfterRelease(page, testId, /\/docs\/fast$/),
-  ]),
   [
     'slow managed route commits on release while Link status stays idle',
     checkSlowStatus,
@@ -236,7 +264,7 @@ const scenarios = [
     (page) => checkStoppedManagedClick(page, testId, destination),
   ]),
   [
-    'ordinary region link inside a closed shadow root navigates before release once',
+    'ordinary region link inside a closed shadow root prepares before release and commits once',
     async (page) => {
       const host = page.getByTestId('closed-capture-host');
       await host.scrollIntoViewIfNeeded();
@@ -267,8 +295,9 @@ const scenarios = [
       try {
         await page.mouse.down();
         try {
-          await expectOutput(page, 'events', 'shadow-region-fast');
-          await requested;
+          await expectOutput(page, 'events', '');
+          if (process.env.FAST_LINK_EXPECT_PREPARATION !== 'false')
+            await requested;
           assert.equal(
             new URL(page.url()).pathname,
             '/docs',
@@ -294,16 +323,15 @@ const scenarios = [
     },
   ],
   ...[
-    ['options', /\/docs\/fast\?from=options$/, 'click'],
-    ['region-options', /\/docs\/fast\?from=region-options$/, 'click'],
-  ].map(([testId, destination, starts]) => [
+    ['options', /\/docs\/fast\?from=options$/],
+    ['region-options', /\/docs\/fast\?from=region-options$/],
+  ].map(([testId, destination]) => [
     `${testId}: replaces history and preserves scroll`,
     (page) =>
       checkBrowserNavigation(page, {
         origin: fixtureOrigin,
         testId,
         destination,
-        starts,
         history: 'replace',
         scroll: 'preserve',
       }),
@@ -315,7 +343,6 @@ const scenarios = [
         origin: fixtureOrigin,
         testId: 'region-fast',
         destination: /\/docs\/fast\?from=region#destination$/,
-        starts: 'pointerdown',
         history: 'push',
         kind: 'router',
       }),
@@ -332,7 +359,7 @@ const scenarios = [
     },
   ]),
   [
-    'region rerender preserves pending suppression and idle Link status',
+    'region click rerender preserves one navigation and idle Link status',
     async (page) => {
       const gate = Promise.withResolvers();
       await page.route('**/docs/slow?*', async (route) => {
@@ -342,7 +369,7 @@ const scenarios = [
       try {
         await pressAndHold(page, 'region-churn');
         try {
-          await expectOutput(page, 'events', 'region-fast');
+          await expectOutput(page, 'events', '');
           await expect(page.getByTestId('region-pending')).toHaveText('idle');
         } finally {
           await page.mouse.up();
@@ -373,7 +400,6 @@ const scenarios = [
       checkBrowserNavigation(page, {
         origin: fixtureOrigin,
         testId,
-        starts: 'pointerdown',
         kind,
         history,
         actions: 1,
@@ -395,9 +421,10 @@ const scenarios = [
         'contents',
       );
       await pressAndHold(page, 'policy-pending');
-      await expect(pending).toHaveAttribute('data-pending', 'true');
+      await expect(pending).toHaveAttribute('data-pending', 'false');
       assert.equal(await pending.getAttribute('data-attached'), 'true');
       await page.mouse.up();
+      await expect(pending).toHaveAttribute('data-pending', 'true');
       await expectOutput(
         page,
         'policy-events',
@@ -416,7 +443,6 @@ const scenarios = [
       checkBrowserNavigation(page, {
         origin: fixtureOrigin,
         testId,
-        starts: 'pointerdown',
         scroll,
       }),
   ]),
@@ -542,15 +568,6 @@ async function checkSlowStatus(page) {
   await page.waitForURL(/\/docs\/slow$/);
 }
 
-async function pressBeforeRelease(page, testId, destination) {
-  await pressAndHold(page, testId);
-  try {
-    await page.waitForURL(destination);
-  } finally {
-    await page.mouse.up();
-  }
-}
-
 async function checkStoppedManagedClick(page, testId, destination) {
   await waitForHydration(page);
   const target = page.getByTestId(testId);
@@ -610,7 +627,7 @@ async function checkBrowserNavigation(page, expectation) {
 
 async function observeBrowserNavigation(
   page,
-  { origin, testId, destination, starts, scroll, kind, actions, history },
+  { origin, testId, destination, scroll, kind, actions, history },
 ) {
   const markerOptions = {
     shouldTrackKind: kind !== undefined,
@@ -657,11 +674,7 @@ async function observeBrowserNavigation(
   if (markerOptions.shouldTrackKind) page.on('request', onRequest);
 
   try {
-    if (starts === 'pointerdown') {
-      await pressBeforeRelease(page, testId, expectedDestination);
-    } else {
-      await pressAfterRelease(page, testId, expectedDestination);
-    }
+    await pressAfterRelease(page, testId, expectedDestination);
     if (scroll === 'reset') {
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     }

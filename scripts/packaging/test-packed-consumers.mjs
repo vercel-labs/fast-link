@@ -121,17 +121,19 @@ try {
   if (minimum) {
     // Reuse the lifecycle suite through the installed public React export.
     const tests = await readFile(
-      join(root, 'packages/react/src/use-fast-link/index.test.tsx'),
+      join(root, 'packages/react/src/use-click-preparation/index.test.tsx'),
       'utf8',
     );
-    await mkdir(join(consumer, 'src/use-fast-link'), { recursive: true });
+    await mkdir(join(consumer, 'src/use-click-preparation'), {
+      recursive: true,
+    });
     await writeFile(
-      join(consumer, 'src/use-fast-link/index.test.tsx'),
+      join(consumer, 'src/use-click-preparation/index.test.tsx'),
       replaceOnce(
         tests,
         "from './index'",
         "from '@fast-link/react'",
-        'packages/react/src/use-fast-link/index.test.tsx',
+        'packages/react/src/use-click-preparation/index.test.tsx',
       ),
     );
     const config = await readFile(

@@ -29,35 +29,37 @@ const navigationPolicy: FastNavigationPolicy = (intent, proposed) => {
     : { kind: 'router' };
 };
 
-type AppLinkProps = Omit<ComponentPropsWithoutRef<typeof Link>, 'href'> &
+type AppLinkProps = Omit<
+  ComponentPropsWithoutRef<typeof Link>,
+  'href' | 'as' | 'legacyBehavior'
+> &
   Pick<UseFastLinkOptions, 'href' | 'enabled'>;
 
-const AppLink = forwardRef<HTMLAnchorElement | HTMLSpanElement, AppLinkProps>(
-  function AppLink({ href, enabled, children, ...props }, forwardedRef) {
-    const [pending, setPending] = useState(false);
-    const attach = useFastLink({
-      href,
-      ...props,
-      enabled,
-      forwardedRef,
-      navigationPolicy,
-      onFastNavigate: (_, decision) => {
-        sessionStorage.setItem(
-          'policy-actions',
-          String(Number(sessionStorage.getItem('policy-actions') ?? 0) + 1),
-        );
-        if (decision.kind === 'router') setPending(true);
-      },
-    });
-    return href ? (
-      <Link {...props} href={href} {...attach} data-pending={pending}>
-        {children}
-      </Link>
-    ) : (
-      <span {...attach}>{children}</span>
-    );
-  },
-);
+const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(function AppLink(
+  { href, enabled, children, ...props },
+  forwardedRef,
+) {
+  const [pending, setPending] = useState(false);
+  const attach = useFastLink({
+    href,
+    ...props,
+    enabled,
+    forwardedRef,
+    navigationPolicy,
+    onFastNavigate: (_, decision) => {
+      sessionStorage.setItem(
+        'policy-actions',
+        String(Number(sessionStorage.getItem('policy-actions') ?? 0) + 1),
+      );
+      if (decision.kind === 'router') setPending(true);
+    },
+  });
+  return (
+    <Link {...props} href={href} {...attach} data-pending={pending}>
+      {children}
+    </Link>
+  );
+});
 
 function AppRegion({ children }: { children: ReactNode }) {
   return (
@@ -183,7 +185,6 @@ export function PolicyLinks(): JSX.Element {
           >
             Pending
           </AppLink>
-          <AppLink>Optional href</AppLink>
           <button
             onClick={() => setShowPrefetch(true)}
             data-testid="show-prefetch"

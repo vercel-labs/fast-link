@@ -5,12 +5,13 @@ router cannot handle. Fast Link validates link eligibility; applications
 classify router ownership through a synchronous navigation policy. Adapters
 construct router proposals, and core runs the selected decision.
 
-Plain core controllers default to document navigation through
-`location.assign()`. The Next adapter defaults to the current App Router when
+Core controllers prepare and match gestures; adapters own navigation.
+The Next adapter defaults to the current App Router when
 no policy is supplied. A supplied policy should choose document navigation for
 foreign or unknown ownership; Fast Link does not infer that ownership.
 
-A policy selects router or document navigation synchronously. It cannot change
+A pure policy selects router or document navigation synchronously. Next calls it
+for speculative preparation and again at accepted click. It cannot change
 the destination or router history method, or return control to the original
 click. The Next adapter captures its router destination before policy runs;
 core captures the document destination. This keeps application ownership
@@ -18,7 +19,7 @@ decisions separate from destination construction.
 
 Core shares sequencing and error handling across adapters:
 
-- Policy errors and invalid decisions skip observation, attempt document
+- At accepted click, policy errors and invalid decisions skip observation, attempt document
   `assign` to the captured URL, and surface the error.
 - Observation receives a frozen decision before navigation. Navigation is
   still attempted if the observer throws.

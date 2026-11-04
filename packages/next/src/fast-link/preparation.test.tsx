@@ -277,14 +277,16 @@ it.each(['onClick', 'onNavigate'] as const)(
 
 it('uses routing options and observation committed during onNavigate', () => {
   const push = vi.fn();
+  const replace = vi.fn();
   const firstObserver = vi.fn();
   const nextObserver = vi.fn();
-  router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));
+  router.experimental_prepare = vi.fn(() => ({ push, replace }));
   function Consumer() {
     const [changed, setChanged] = useState(false);
     return (
       <FastLink
         href="/guide"
+        navigationPolicy={() => ({ kind: 'router' })}
         replace={changed}
         scroll={!changed}
         transitionTypes={changed ? ['updated'] : ['original']}
@@ -301,10 +303,11 @@ it('uses routing options and observation committed during onNavigate', () => {
   fireEvent.click(anchor, { detail: 1 });
 
   expect(push).not.toHaveBeenCalled();
-  expect(router.replace).toHaveBeenCalledExactlyOnceWith('/guide', {
+  expect(replace).toHaveBeenCalledExactlyOnceWith({
     scroll: false,
     transitionTypes: ['updated'],
   });
+  expect(router.replace).not.toHaveBeenCalled();
   expect(firstObserver).not.toHaveBeenCalled();
   expect(nextObserver).toHaveBeenCalledTimes(1);
 });

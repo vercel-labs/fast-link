@@ -13,11 +13,11 @@ All commits must be signed. CI runs the checks required for each pull request.
 
 ## Package boundaries
 
-| Package            | Owns                                                    | Workspace dependencies |
-| ------------------ | ------------------------------------------------------- | ---------------------- |
-| `@fast-link/core`  | Eligibility, event ordering, click suppression, cleanup | None                   |
-| `@fast-link/react` | React ref lifecycle for core controllers                | Core                   |
-| `@fast-link/next`  | App Router Link, region navigation, routing decisions   | Core and React         |
+| Package            | Owns                                                       | Workspace dependencies |
+| ------------------ | ---------------------------------------------------------- | ---------------------- |
+| `@fast-link/core`  | Eligibility, event ordering, gesture cancellation, cleanup | None                   |
+| `@fast-link/react` | React ref lifecycle for core controllers                   | Core                   |
+| `@fast-link/next`  | App Router Link, region navigation, routing decisions      | Core and React         |
 
 Core must not import React or Next.js; the React package must not import Next.js.
 Keep eligibility rules in core.

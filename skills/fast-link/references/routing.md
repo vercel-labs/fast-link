@@ -27,11 +27,10 @@ Check existing callers and routing configuration before transforming prefixes.
 
 ## Choose a supported decision
 
-The policy is synchronous and side-effect-free. Managed Next links call it on
+The policy is synchronous and side-effect-free. All Next integrations call it on
 eligible press when preparation is available, then again after accepted-click
 guards. Read current ownership metadata on each call; keep effects in
-`onNavigate` or `onFastNavigate`. Region and custom-hook policies currently run
-at press-time acceptance. The policy returns one of:
+`onNavigate` or `onFastNavigate`. The policy returns one of:
 
 | Decision                                  | Effect                                                           |
 | ----------------------------------------- | ---------------------------------------------------------------- |
@@ -47,7 +46,7 @@ at press-time acceptance. The policy returns one of:
 
 Policies cannot cancel, defer, or replace the destination. Use synchronous
 managed-link `onClick` or `onNavigate` cancellation for click-time validation.
-Opt out of press-navigation interfaces when later guards must veto navigation.
+Use `FastLink` or opt out when later child guards must veto capture acceptance.
 
 Read the [core decision contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
 for accepted fields, defaults, and custom-adapter usage.

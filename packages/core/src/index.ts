@@ -1,8 +1,3 @@
-export {
-  createFastLink,
-  type FastLinkController,
-  type FastLinkOptions,
-} from './controller';
 export { type FastLinkIntent } from './interaction';
 export {
   createClickPreparation,

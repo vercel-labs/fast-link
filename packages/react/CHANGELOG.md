@@ -2,8 +2,9 @@
 
 ## 0.0.3
 
-- Add `useClickPreparation` with composed refs and committed controller options.
-- Preserve the current capture handler when a replacement ref dispatches a click.
+- Replace `useFastLink` with `useClickPreparation`, the only controller binding.
+- Preserve gestures through same-anchor ref reattachment, including Next Link
+  href and prefetch updates. Retain cleanup on root replacement and unmount.
 - Update the core dependency to `^0.0.3`.
 
 ## 0.0.2

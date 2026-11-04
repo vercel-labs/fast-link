@@ -1,8 +1,8 @@
 [
   {
-    "name": "createFastLink",
+    "name": "createClickPreparation",
     "path": "src/index.ts",
-    "import": "{ createFastLink }",
+    "import": "{ createClickPreparation }",
     "limit": "2 kB"
   }
 ]

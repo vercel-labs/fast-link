@@ -44,7 +44,7 @@ function assignRef<T>({
   }
 }
 
-/** Shares committed options, ref composition, and teardown across controller bindings. */
+/** Owns committed options, ref composition, and controller teardown. */
 export function useController<
   T extends HTMLElement,
   O,
@@ -53,11 +53,29 @@ export function useController<
   create: (root: T, options: O) => C,
   options: O,
   forwardedRef: ForwardedRef<T> = null,
-): { ref: (element: T | null) => void; controller: RefObject<C | null> } {
+): {
+  ref: (element: T | null) => void;
+  element: RefObject<T | null>;
+  controller: RefObject<C | null>;
+} {
   const element = useRef<T | null>(null);
+  const controllerRoot = useRef<T | null>(null);
   const controller = useRef<C | null>(null);
   const committed = useRef({ options, forwardedRef });
   const assigned = useRef<AssignedRef<T>>({ ref: null, cleanup: null });
+  const destroyController = useCallback(() => {
+    controller.current?.destroy();
+    controller.current = null;
+    controllerRoot.current = null;
+  }, []);
+  useClientLayoutEffect(() => {
+    // Strict Mode can replay effect cleanup while retaining the DOM element.
+    if (element.current && !controller.current) {
+      controller.current = create(element.current, committed.current.options);
+      controllerRoot.current = element.current;
+    }
+    return destroyController;
+  }, [create, destroyController]);
   useClientLayoutEffect(() => {
     committed.current = { options, forwardedRef };
     controller.current?.update(options);
@@ -72,8 +90,8 @@ export function useController<
   const ref = useCallback(
     (nextElement: T | null) => {
       if (element.current === nextElement) return;
-      controller.current?.destroy();
-      controller.current = null;
+      if (nextElement && controllerRoot.current !== nextElement)
+        destroyController();
       if (element.current)
         assignRef({ assigned: assigned.current, nextRef: null, element: null });
       element.current = nextElement;
@@ -83,10 +101,20 @@ export function useController<
           nextRef: committed.current.forwardedRef,
           element: nextElement,
         });
-        controller.current = create(nextElement, committed.current.options);
+        if (!controller.current) {
+          controller.current = create(nextElement, committed.current.options);
+          controllerRoot.current = nextElement;
+        }
+      } else {
+        // Renderers such as Next Link reattach refs to the same anchor during
+        // a commit. Keep that gesture; dispose a detached root after the commit.
+        // Component unmount is also covered by the synchronous effect cleanup.
+        queueMicrotask(() => {
+          if (!element.current) destroyController();
+        });
       }
     },
-    [create],
+    [create, destroyController],
   );
-  return { ref, controller };
+  return { ref, element, controller };
 }

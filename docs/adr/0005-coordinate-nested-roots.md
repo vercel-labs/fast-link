@@ -23,44 +23,19 @@ order for anchor priority.
 ## Shared coordination contract
 
 The internal [coordination module](../../packages/core/src/coordination/index.ts)
-owns the keys, types, and initialization. Bundled copies in the same JavaScript
-realm share one registry on `globalThis`, under
-`Symbol.for('@fast-link/core/coordination')`, with four weak collections:
+shares two weak collections between bundled copies of the current contract:
 
-| Field                | Meaning                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `anchorOwners`       | Number of live controllers for each managed anchor, including disabled controllers. |
-| `pendingClickOwners` | Callback that consumes an anchor's pending follow-up click.                         |
-| `suppressedClicks`   | Click events already consumed during capture.                                       |
-| `handledEvents`      | Accepted presses and consumed prepared clicks, including non-extensible events.     |
+- `anchorOwners` counts live controllers for each anchor, including disabled controllers.
+- `handledEvents` records accepted presses and consumed clicks, including events
+  that cannot hold a symbol marker.
 
-Core also attempts to set `Symbol.for('@fast-link/core/handled-event')` to
-`true` on accepted events. The shared `handledEvents` collection covers events
-that cannot accept this marker. The registry and marker are internal
-coordination contracts between independently bundled package versions.
+The registry uses `Symbol.for('@fast-link/core/coordination')`. Accepted events
+also receive `Symbol.for('@fast-link/core/handled-event')` when possible.
+Both mechanisms remain necessary for independently bundled copies and frozen events.
 
-Prepared-click consumption uses the same event identity marker. Earlier
-press-navigation versions inspect press events only, so these additional click
-entries do not change their ownership or follow-up suppression behavior. The
-other collections retain their existing roles; no registry or collection is replaced.
-
-Compatible versions reuse the same registry object and collection instances.
-A version that adds compatible fields must initialize missing fields on the
-existing registry before using them. Preserve the registry and collection
-identities, existing field names and meanings, callback behavior, and live
-ownership and suppression state.
-
-A schema addition must include mixed-version tests through public controllers,
-with versions loaded in either order. Both load orders must preserve live
-anchor ownership, pending click suppression, and event deduplication, including
-non-extensible events.
-
-Use the same keys across package versions. Separate registries would lose
-shared ownership and deduplication. An incompatible change needs an explicit plan for
-versions to coexist, including non-extensible events that rely on the shared
-`handledEvents` collection.
-
-Controllers own registration and cleanup; weak collections do not keep anchors
-or events alive. The [controller tests](../../packages/core/src/controller/index.test.ts)
-cover independently loaded copies, disabled anchors, click suppression, and
-ownership cleanup through controller behavior.
+Controllers own registration and cleanup. Weak collections retain neither
+anchors nor events. The [preparation tests](../../packages/core/src/preparation/index.test.ts)
+cover cross-copy event claims, disabled anchors, live ownership changes, and cleanup.
+The clean break in [ADR 0006](./0006-prepare-on-press-navigate-on-click.md) removes
+the pending-click owner and suppression collections. Coexistence with the removed
+press-navigation contract is not supported.

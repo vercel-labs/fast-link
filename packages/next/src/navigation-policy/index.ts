@@ -13,10 +13,9 @@ export type FastRouterProposal = Readonly<{
 /**
  * Classifies navigation synchronously without side effects.
  *
- * - Managed FastLink calls it on eligible press when preparation is available and again after
+ * - All Next integrations call it on eligible press when preparation is available and again after
  *   accepted-click guards. Reads current inputs each time; cancellation can
  *   leave only the press-time call. Keep effects in navigation callbacks.
- * - Region and custom-hook adapters currently classify at press-time acceptance.
  * - The application determines whether its router owns the destination.
  * - Use document navigation when ownership is foreign or unknown.
  * - Router decisions can override only the proposed scroll behavior.

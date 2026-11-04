@@ -1,25 +1,23 @@
 # ▲ Fast Link
 
 Fast Link starts work for eligible same-origin links when you press the mouse.
-Managed Next.js `FastLink` prepares on press and navigates after click guards.
-Regions, custom-renderer hooks, and the direct core/React navigation APIs
-currently navigate on press.
+Navigation waits for accepted click. Next.js `FastLink` preserves click guards;
+regions and custom hooks accept during click capture.
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages; it starts work earlier.
 
 ## When to use Fast Link
 
-Use Fast Link for ordinary links between pages in your app. For interfaces that
-navigate on press, pressing must be enough to commit. Examples include documentation, product
-pages, dashboard views, and links to form or checkout pages.
+Use Fast Link for ordinary links between pages in your app, such as
+documentation, product pages, dashboard views, and links to form pages.
 
 Keep ordinary click behavior for:
 
 - Links that perform actions, such as submitting a form, placing an order, signing
   out, or deleting something.
-- Click guards on interfaces that navigate on press. Managed Next `FastLink`
-  supports synchronous `onClick` and `onNavigate` cancellation.
+- Ordinary region links whose later click handlers must veto navigation.
+  Use `FastLink` to preserve synchronous `onClick` and `onNavigate` cancellation.
 - Links that open or toggle UI, such as a modal, menu, or tab.
 - Downloads and links that require native URL dragging.
 
@@ -114,10 +112,9 @@ Fast Link accepts unmodified primary-mouse `pointerdown` on eligible same-origin
 - Native behavior: touch, pen, keyboard, middle, right, and modified clicks.
 - Also native: downloads, external or hash-only URLs, non-`_self` targets,
   nested controls, and `data-no-fast-link` opt-outs.
-- Managed Next links wait for accepted click and discard preparation on release
+- All integrations wait for accepted click and discard preparation on release
   away. Preparation requires the [supported experimental Next runtime](./packages/next/README.md#requirements).
-- Interfaces that navigate on press suppress the follow-up click while letting
-  it propagate. Dragging away cannot cancel their navigation.
+- Accepted clicks are default-prevented while continuing to propagate.
 
 See core's [eligibility rules](./packages/core/README.md#know-which-interactions-fast-link-accepts).
 
@@ -148,8 +145,8 @@ version and changelog.
 
 ## Performance benchmarks
 
-Press-navigation interfaces start eligible mouse navigation one press-to-release interval earlier.
-These historical measurements do not measure the prepared-navigation path.
+The historical measurements cover navigation on press, which has been removed.
+They do not measure the current preparation path.
 The historical benchmark configured an **85 ms mouse hold** for every variant;
 that setting is not a typical-user gain or evidence of faster JavaScript execution.
 
@@ -165,14 +162,9 @@ conditions, and environment in the report before using it to support a claim.
 - Next.js `useLinkStatus().pending` does not update during early navigation.
 - Use route-level loading UI or [manage pending state in your app](./packages/next/README.md#pending-state).
 
-Regions, custom-renderer hooks, and direct core/React navigation start on press.
-Moving away before release won't cancel them, and they provide no built-in undo.
-Managed Next links wait for accepted click; discarding preparation does not
-abort Next's request. This behavior alone does not establish WCAG conformance.
-
-This is an accessibility limitation under
-[WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
-See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for activation on press without cancellation or reversal.
+All integrations wait for an accepted click. Discarding preparation does not
+abort Next's request. Capture acceptance in regions and custom hooks precedes
+later child guards; use `FastLink` when those guards must be able to cancel.
 
 Chrome may not detect Fast Link's client-side navigations as
 [soft navigations](https://developer.chrome.com/docs/web-platform/soft-navigations).

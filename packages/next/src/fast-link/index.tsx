@@ -22,7 +22,8 @@ import {
 type LinkProps = ComponentPropsWithoutRef<typeof Link>;
 
 /** Next.js Link props with controls for preparation and accepted-click navigation. */
-export type FastLinkProps = LinkProps & NavigationOptions;
+export type FastLinkProps = Omit<LinkProps, 'as' | 'legacyBehavior'> &
+  NavigationOptions;
 
 /** Prepares on eligible mouse press and navigates after Next Link's click guards pass. */
 export const FastLink = forwardRef<HTMLAnchorElement, FastLinkProps>(
@@ -53,10 +54,7 @@ export const FastLink = forwardRef<HTMLAnchorElement, FastLinkProps>(
       };
     });
     const attach = useClickPreparation<PreparedNavigation, HTMLAnchorElement>({
-      enabled:
-        enabled !== false &&
-        linkProps.as === undefined &&
-        !linkProps.legacyBehavior,
+      enabled,
       prepare: navigation.prepare,
       forwardedRef,
     });
@@ -64,7 +62,7 @@ export const FastLink = forwardRef<HTMLAnchorElement, FastLinkProps>(
     return (
       <Link
         {...linkProps}
-        ref={linkProps.legacyBehavior ? forwardedRef : attach.ref}
+        ref={attach.ref}
         onClick={(event) => {
           active.current?.discard();
           active.current = null;

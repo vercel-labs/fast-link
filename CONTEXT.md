@@ -1,13 +1,12 @@
 # Fast Link
 
 Fast Link starts work for eligible mouse navigation when a link is pressed.
-Managed Next links prepare on press and navigate after accepted click; the
-other navigation interfaces currently commit on press.
+Preparation starts on press; navigation waits for accepted click.
 
 ## Language
 
 **Fast Link**:
-The project name for early mouse link navigation.
+The project name for mouse link preparation and accepted-click navigation.
 _Avoid_: Mousedown Nav, Mouse Down Nav
 
 **Eligible interaction**:
@@ -49,8 +48,8 @@ _Avoid_: Managed link
 A managed link's priority over containing regions for its interactions.
 _Avoid_: Router ownership, nearest-region priority
 
-**Follow-up click**:
-The pointer-generated click associated with an accepted Fast Link interaction.
+**Matching click**:
+The pointer-generated click associated with a prepared mouse gesture.
 _Avoid_: Synthetic click, duplicate click
 
 **Router ownership**:
