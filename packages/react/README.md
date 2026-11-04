@@ -1,22 +1,13 @@
 # ▲ @fast-link/react
 
-`@fast-link/react` binds a `@fast-link/core` controller to a React-owned
-anchor or navigation region. Use it when an application or framework adapter
-needs its own routing policy.
-
-For Next.js App Router applications, use
-[`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
-instead.
-
-For press timing and opt-outs, see
-[when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
-
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
-See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
+`useClickPreparation` binds core preparation to a React-owned anchor or region.
+It owns committed options, refs, and teardown. Your adapter owns click guards,
+default prevention, and routing. For App Router applications, use
+[`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next).
 
 ## Requirements
 
-Supports Node.js 22 or later, with React 19 (`>=19 <20`).
+Node.js 22 or later and React 19 (`>=19 <20`).
 
 ## Install the package
 
@@ -27,19 +18,12 @@ npm install @fast-link/react
 The [Fast Link agent skill](https://github.com/vercel-labs/fast-link#agent-skill)
 is included at `skills/fast-link/SKILL.md`.
 
-## Bind navigation to a React region
-
-Navigation starts on press, before a click handler can cancel it. Keep links
-that need confirmation, release-time checks, or expected URL dragging native
-by adding `data-no-fast-link` to the anchor.
-
-`useFastLink` returns ref and click-capture bindings. Spread both on the same
-anchor or element containing anchors, after its other props:
+## Bind preparation to a React region
 
 ```tsx
 'use client';
 
-import { useFastLink } from '@fast-link/react';
+import { useClickPreparation } from '@fast-link/react';
 import type { ReactNode } from 'react';
 
 export function AppRegion({
@@ -47,99 +31,61 @@ export function AppRegion({
   route,
 }: {
   children: ReactNode;
-  route: (destination: URL) => void;
+  route: (url: URL) => void;
 }) {
-  const attach = useFastLink<HTMLDivElement>({
-    navigate: ({ url }) => route(url),
-  });
-
+  const binding = useClickPreparation({ prepare: () => null });
   return (
-    <div {...attach} style={{ display: 'contents' }}>
+    <div
+      ref={binding.ref}
+      onClick={(event) => {
+        const candidate = binding.matchClick(event.nativeEvent);
+        try {
+          if (event.defaultPrevented) return;
+          const activation = candidate?.consume();
+          if (!activation) return;
+          event.preventDefault();
+          route(activation.intent.url);
+        } finally {
+          candidate?.discard();
+        }
+      }}
+    >
       {children}
     </div>
   );
 }
 ```
 
-Primary mouse navigation inside the region now calls `route` on `pointerdown`.
-The intent provides the source anchor, its authored `href`, and a resolved
-same-origin `URL`. The application handles routing, history, scroll, route
-state, and transitions.
+This example accepts at bubble time after child handlers. Adapters choose an
+acceptance point that preserves their framework's guards. Supply speculative
+work through `prepare(intent)`; it must not navigate.
 
-The package renders no wrapper and imports no router. The `display: contents`
-element in the example belongs to the application.
+## `useClickPreparation` reference
 
-## `useFastLink` reference
+`useClickPreparation<P, T>(options)` accepts `enabled`, `prepare(intent)`, and
+an optional `forwardedRef`. It returns stable `{ ref, matchClick, discard }`
+bindings and renders no wrapper.
 
-```ts
-function useFastLink<T extends HTMLElement = HTMLElement>(
-  options: FastLinkOptions & {
-    forwardedRef?: ForwardedRef<T>;
-    onClickCapture?: MouseEventHandler<T>;
-  },
-): {
-  ref: (element: T | null) => void;
-  onClickCapture: MouseEventHandler<T>;
-};
-```
-
-| Option           | Type                   | Default                                   | Behavior                                                                |
-| ---------------- | ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
-| `enabled`        | `boolean`              | `true`                                    | Controls whether new pointerdowns can start navigation                  |
-| `navigate`       | `(intent) => void`     | `window.location.assign(intent.url.href)` | Performs navigation after `onFastNavigate`; its return value is ignored |
-| `onFastNavigate` | `(intent) => void`     | None                                      | Runs synchronously before `navigate`                                    |
-| `onClickCapture` | `MouseEventHandler<T>` | None                                      | Runs after core suppression, including for prevented clicks             |
-| `forwardedRef`   | `ForwardedRef<T>`      | `null`                                    | Composes the caller's ref with the controller ref                       |
-
-Core's `onFastNavigate` observes the accepted intent before `navigate`; it cannot
-cancel navigation through a return value or `preventDefault()`. If it throws,
-`navigate` still runs, then the error surfaces. A navigation error takes precedence
-if both callbacks throw. The follow-up click remains suppressed.
-
-The returned object, ref, and capture handler are stable. Pass a caller capture
-handler through `onClickCapture`; the hook runs it after suppression, even when
-the click is prevented. Spreading the bindings last preserves that composition.
-A ref alone cannot suppress a click stopped by descendant React capture.
-
-Place regions inside the DOM subtree they control, including portal and shadow
-trees. React ancestry alone does not extend a region's DOM scope.
+Attach `ref` to the controlled root and pass `event.nativeEvent` to `matchClick`
+before synchronous guards. Call the returned candidate's `consume()` after
+acceptance or `discard()` on cancellation, errors, or a native framework path.
+Always finalize the candidate during the same click dispatch. See the
+[core contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#createclickpreparation)
+for eligibility, matching, cancellation, and preparation errors.
 
 ## Understand the hook lifecycle
 
-React manages the controller attached to the element receiving the returned ref:
+- Attaching the ref creates the controller. Reattaching to the same DOM element
+  within a commit preserves its gesture. Root replacement and component unmount
+  destroy the controller; a detached ref with no replacement is cleared after
+  the commit. Matching and consumption reject a root that remains detached.
+- Committed options replace the controller's copied options. Valid preparation
+  survives updates; disabling discards the gesture.
+- Caller-ref replacement runs the old cleanup before assigning the new ref.
+  Callback cleanup functions and object refs are supported.
+- Server rendering attaches no controller. Preparation causes no React state update.
+- A region controls its DOM subtree. React ancestry does not extend its scope
+  across portals or shadow roots.
 
-```text
-Attach root
-  -> create controller
-
-Commit options
-  -> replace every copied option
-  -> keep pending click
-
-Remove root or unmount
-  -> destroy controller
-
-Replace root
-  -> destroy old controller
-  -> create new controller
-```
-
-- Destroying the controller clears pending click state and removes listeners.
-- Committed caller-ref changes run the old ref's cleanup before assigning the
-  new ref.
-- Server rendering attaches no controller.
-- After an accepted press, the matching pointer click is default-prevented
-  while propagation continues.
-- Touch, pen, keyboard, and modified clicks keep their native behavior and do
-  not call `navigate`.
-
-Core owns [eligibility, click suppression, and event ordering](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering).
-Add `data-no-fast-link` to an anchor or descendant when the browser must retain
-the interaction.
-
-## Related packages
-
-- [`@fast-link/core`](https://github.com/vercel-labs/fast-link/tree/main/packages/core)
-  documents eligibility, controller options, and adapter decisions.
-- [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
-  provides App Router components and a custom-renderer hook.
+The package exports only `useClickPreparation`. There is no press-navigation
+binding or compatibility alias.

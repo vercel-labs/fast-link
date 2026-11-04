@@ -11,7 +11,7 @@ For writing, changing, or reviewing tests, and for test audits or cleanup, use
 When adding tests or changing test/CI configuration, follow
 [Write and run tests](./CONTRIBUTING.md#write-and-run-tests).
 
-- `packages/core` owns all eligibility, event ordering, click suppression, and
+- `packages/core` owns all eligibility, event ordering, gesture cancellation, and
   cleanup behavior. It must not import React or Next.js.
 - `packages/react` owns React ref lifecycle for core controllers. It depends
   on core and must not import Next.js.
@@ -36,14 +36,12 @@ A single script unrelated to existing groups may stay directly under `scripts/`.
 - `FastLinkIntent.href` is the authored attribute, `url` is the resolved
   same-origin destination, and `anchor` is the source element. Each framework
   adapter handles router-specific history, scroll, state, and transitions.
-- `createFastLink` copies options. Adapters change configuration through
-  `controller.update()`, which replaces every option without clearing a pending
-  follow-up pointer click.
+- `createClickPreparation` copies options. `controller.update()` replaces every
+  option; disabling discards the gesture, while other updates preserve it.
 - Core accepts only primary mouse pointerdown. Touch and pen remain native
   because gesture intent is unknown when contact begins.
-- Core prevents only the pointer-generated click that follows accepted
-  navigation. Keyboard clicks remain native, and prevented clicks continue to
-  propagate.
+- Core prepares on press and claims matching clicks after adapter guards. Adapters
+  own default prevention and navigation. Keyboard clicks remain native.
 - Core marks accepted native events so nested roots and separately bundled core
   copies navigate once. Preserve both the symbol marker and shared `WeakSet` fallback.
 

@@ -12,7 +12,7 @@
     "@fast-link/core": "workspace:^",
     "@fast-link/react": "workspace:^",
     "@fast-link/next": "workspace:^",
-    "next": "16.3.6",
+    "next": "16.5.0-canary.37",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

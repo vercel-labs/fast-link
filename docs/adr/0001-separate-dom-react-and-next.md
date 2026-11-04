@@ -4,11 +4,10 @@ Fast Link publishes three packages so adapters share interaction behavior
 without requiring every caller to use React or Next.js.
 
 - `@fast-link/core` owns link eligibility, capture listeners, event
-  deduplication, follow-up click suppression, and controller cleanup. It also
+  deduplication, gesture cancellation, and controller cleanup. It also
   runs navigation decisions without importing a framework.
 - `@fast-link/react` binds a core controller to a React-owned element through a
-  callback ref and click-capture handler. It composes caller refs and capture
-  handlers, applies committed options, and cleans up when the root changes or
+  callback ref. It composes caller refs, applies committed options, and cleans up when the root changes or
   unmounts. It renders no wrapper and imports no router.
 - `@fast-link/next` constructs App Router destinations and provides `FastLink`,
   `FastLinkRegion`, and `useFastLink` for custom renderers. It depends on both
@@ -20,9 +19,9 @@ decision without knowing the application's routes or framework.
 
 The separate React package keeps controller and ref lifecycle in one place.
 Adapters update the existing controller when options change, preserving a
-pending follow-up click across rerenders. Implementing this lifecycle in each
+valid prepared gesture across rerenders. Implementing this lifecycle in each
 adapter would duplicate the same cleanup and update rules.
 
-Implementation: [`createFastLink`](../../packages/core/src/controller/index.ts),
-[`useFastLink`](../../packages/react/src/use-fast-link/index.ts), and
+Implementation: [`createClickPreparation`](../../packages/core/src/preparation/index.ts),
+[`useClickPreparation`](../../packages/react/src/use-click-preparation/index.ts), and
 [`useFastLink`](../../packages/next/src/use-fast-link/index.ts).

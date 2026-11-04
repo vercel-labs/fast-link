@@ -1,29 +1,8 @@
 # Start navigation on primary mouse pointerdown
 
-Fast Link starts eligible same-origin navigation on primary mouse `pointerdown`
-rather than waiting for `click`. This removes the wait for release and gives up
-release-time cancellation for those interactions.
+Superseded by [Prepare on press, navigate on accepted click](./0006-prepare-on-press-navigate-on-click.md).
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
-See the [accessibility limitation](../../README.md#known-limitations).
-
-For touch and pen, `pointerdown` cannot establish whether contact will become a
-tap, scroll, swipe, drag, zoom, or long press. A later `pointercancel` cannot undo
-navigation that has already started. Waiting for `pointerup` gives up the early
-navigation benefit, so touch and pen keep native activation.
-
-- Keyboard activation, modified clicks, and links that require native handling
-  stay on their normal path. Core applies the same eligibility rules to every
-  adapter.
-- The follow-up pointer click is default-prevented without stopping
-  propagation. Click handlers can still run if their elements remain mounted,
-  but cannot cancel navigation that has already started. Keyboard clicks are
-  not suppressed.
-- A mouse press can navigate even if the user then drags away without producing
-  a click. Use `data-no-fast-link` for links whose behavior depends on release
-  or on dragging the URL.
-
-Implementation: [`resolveFastLink`](../../packages/core/src/interaction/index.ts)
-and [`createFastLink`](../../packages/core/src/controller/index.ts).
-The [browser tests](../../scripts/browser/core.pw.mjs)
-check trusted navigation timing, click targeting, and propagation.
+The original design navigated on primary mouse press and suppressed the later
+click. It gave up release-time cancellation to start navigation earlier. The
+current design prepares on press and waits for accepted click; the old controller
+and suppression APIs have been removed.

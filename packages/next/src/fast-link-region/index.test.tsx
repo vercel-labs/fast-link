@@ -12,13 +12,14 @@ import { FastLink } from '../fast-link';
 import { pointerDown, router, routing } from '../testing';
 import { FastLinkRegion } from './index';
 
-it('suppresses a managed follow-up click before a stopping wrapper', () => {
+it('leaves a managed click to a stopping ancestor guard', () => {
   const observed: boolean[] = [];
   const { getByRole } = render(
     <FastLinkRegion>
       <div
         onClickCapture={(event) => {
           observed.push(event.defaultPrevented);
+          event.preventDefault();
           event.stopPropagation();
         }}
       >
@@ -30,13 +31,15 @@ it('suppresses a managed follow-up click before a stopping wrapper', () => {
   pointerDown(anchor);
   const allowed = fireEvent.click(anchor, { detail: 1 });
 
-  expect(observed).toEqual([true]);
+  expect(observed).toEqual([false]);
   expect(allowed).toBe(false);
-  expect(router.push).toHaveBeenCalledTimes(1);
+  expect(router.push).not.toHaveBeenCalled();
 });
 
 describe('FastLinkRegion', () => {
-  it('routes an ordinary Next Link before release with one base path', () => {
+  it('prepares an ordinary Next Link and routes at click capture with one base path', () => {
+    const push = vi.fn();
+    router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));
     const { getByRole } = render(
       <FastLinkRegion basePath="/docs">
         <nav>
@@ -49,7 +52,14 @@ describe('FastLinkRegion', () => {
 
     pointerDown(anchor);
 
-    expect(router.push).toHaveBeenCalledExactlyOnceWith('/pricing?from=region');
+    expect(router.experimental_prepare).toHaveBeenCalledExactlyOnceWith(
+      '/pricing?from=region',
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+    fireEvent.click(anchor, { detail: 1 });
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   it('keeps the follow-up click in the link and ancestor handlers', () => {
@@ -88,8 +98,11 @@ describe('FastLinkRegion', () => {
     );
 
     pointerDown(getByText('Root'));
+    fireEvent.click(getByText('Root'), { detail: 1 });
     pointerDown(getByText('Pricing'));
+    fireEvent.click(getByText('Pricing'), { detail: 1 });
     pointerDown(getByText('Lookalike prefix'));
+    fireEvent.click(getByText('Lookalike prefix'), { detail: 1 });
     pointerDown(getByText('Opt out'));
 
     expect(router.push.mock.calls.map(([destination]) => destination)).toEqual([
@@ -107,6 +120,7 @@ describe('FastLinkRegion', () => {
       </FastLinkRegion>,
     );
     pointerDown(getByText('Pricing'));
+    fireEvent.click(getByText('Pricing'), { detail: 1 });
     expect(router.push).not.toHaveBeenCalled();
 
     rerender(
@@ -139,6 +153,7 @@ describe('FastLinkRegion', () => {
     pointerDown(getByText('Guard'));
     expect(fireEvent.click(getByText('Guard'), { detail: 1 })).toBe(false);
     pointerDown(getByText('Pricing'));
+    fireEvent.click(getByText('Pricing'), { detail: 1 });
 
     expect(events).toEqual(['navigate', 'click guard']);
     expect(router.push).toHaveBeenCalledTimes(1);
@@ -170,7 +185,12 @@ describe('FastLinkRegion', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('uses updated observers and routers without losing a pending click', () => {
+  it('discards the old router handle while keeping current observation and click routing', () => {
+    const preparedPush = vi.fn();
+    router.experimental_prepare = vi.fn(() => ({
+      push: preparedPush,
+      replace: vi.fn(),
+    }));
     const first = vi.fn();
     const second = vi.fn();
     const { getByRole, rerender } = render(
@@ -181,6 +201,9 @@ describe('FastLinkRegion', () => {
     const anchor = getByRole('link');
     pointerDown(anchor);
 
+    expect(router.experimental_prepare).toHaveBeenCalledExactlyOnceWith(
+      '/pricing',
+    );
     const nextRouter = { push: vi.fn(), replace: vi.fn() };
     routing.current = nextRouter;
     rerender(
@@ -192,10 +215,14 @@ describe('FastLinkRegion', () => {
     pointerDown(anchor);
 
     expect(allowed).toBe(false);
-    expect(first).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
-    expect(router.push).toHaveBeenCalledTimes(1);
-    expect(nextRouter.push).toHaveBeenCalledExactlyOnceWith('/pricing');
+    expect(router.push).not.toHaveBeenCalled();
+    expect(preparedPush).not.toHaveBeenCalled();
+    expect(nextRouter.push).toHaveBeenCalledExactlyOnceWith('/pricing', {
+      scroll: undefined,
+      transitionTypes: undefined,
+    });
   });
 
   it('claims overlapping roots for one route', () => {
@@ -210,6 +237,7 @@ describe('FastLinkRegion', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(outer).toHaveBeenCalledTimes(1);
     expect(inner).not.toHaveBeenCalled();
@@ -235,12 +263,16 @@ describe('FastLinkRegion', () => {
         </FastLinkRegion>,
       );
       pointerDown(getByRole('link'));
+      fireEvent.click(getByRole('link'), { detail: 1 });
     } finally {
       window.removeEventListener('error', onError);
     }
 
     expect(errors).toEqual([failure]);
-    expect(router.push).toHaveBeenCalledExactlyOnceWith('/pricing');
+    expect(router.push).toHaveBeenCalledExactlyOnceWith('/pricing', {
+      scroll: undefined,
+      transitionTypes: undefined,
+    });
   });
 });
 
@@ -258,13 +290,14 @@ it('preserves managed ownership and cleans up composed controllers in StrictMode
   );
   const anchor = getByRole('link');
   pointerDown(anchor);
+  expect(managedPolicy).not.toHaveBeenCalled();
+  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
   expect(managedPolicy).toHaveBeenCalledTimes(1);
   expect(regionPolicy).not.toHaveBeenCalled();
   expect(router.push).toHaveBeenCalledExactlyOnceWith('/managed', {
     scroll: undefined,
     transitionTypes: undefined,
   });
-  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
   // Retain the old subtree so a live region can expose stale pending ownership.
   const subtree = anchor.parentElement;
   if (!subtree) throw new Error('Missing managed link region');
@@ -284,8 +317,8 @@ it('preserves managed ownership and cleans up composed controllers in StrictMode
   });
   fireEvent.click(anchor, { detail: 1 });
   expect(click).toHaveBeenCalledExactlyOnceWith(false);
-  expect(managedPolicy).toHaveBeenCalledTimes(2);
-  expect(router.push).toHaveBeenCalledTimes(2);
+  expect(managedPolicy).toHaveBeenCalledTimes(1);
+  expect(router.push).toHaveBeenCalledTimes(1);
   expect(regionPolicy).not.toHaveBeenCalled();
   live.unmount();
 });

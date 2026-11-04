@@ -13,6 +13,17 @@ const core = await readFile(
   new URL('../../packages/core/dist/index.js', import.meta.url),
   'utf8',
 );
+// The fixture owns click acceptance and document/router navigation.
+const binding = `import { createClickPreparation } from '/core.js';
+export function bind(root, navigate = ({ url, anchor }) => anchor.ownerDocument.defaultView.location.assign(url.href)) {
+  const controller = createClickPreparation(root, { prepare: () => null });
+  root.addEventListener('click', event => {
+    const activation = controller.matchClick(event)?.consume();
+    if (!activation) return;
+    event.preventDefault();
+    navigate(activation.intent);
+  }, true);
+}`;
 for (const scenario of [
   'descendant',
   'ancestor',
@@ -39,6 +50,8 @@ async function checkScenario(name, page, scenario) {
   const requests = [];
   await page.route('http://fast-link.test/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/binding.js')
+      return route.fulfill({ contentType: 'text/javascript', body: binding });
     if (path === '/core.js')
       return route.fulfill({ contentType: 'text/javascript', body: core });
     if (path !== '/') {
@@ -52,7 +65,7 @@ async function checkScenario(name, page, scenario) {
   });
   await page.goto('http://fast-link.test/');
   await page.evaluate(async (caseName) => {
-    const { createFastLink } = await import('/core.js');
+    const { bind } = await import('/binding.js');
     const root = document.querySelector('#root');
     const anchor = document.querySelector('#a');
     window.observed = { routes: [], events: [], order: [] };
@@ -75,28 +88,30 @@ async function checkScenario(name, page, scenario) {
       });
     });
     if (caseName === 'default-document') {
-      createFastLink(root);
+      bind(root);
       return;
     }
-    createFastLink(root, {
-      navigate: ({ href }) => {
-        window.observed.routes.push(href);
-        window.observed.order.push('navigate');
-        if (caseName === 'remove-target')
-          document.querySelector('#pressed').remove();
-        if (caseName === 'replace-anchor')
-          anchor.replaceWith(anchor.cloneNode(true));
-        if (caseName === 'change-href') anchor.href = '/changed';
-      },
+    bind(root, ({ href }) => {
+      window.observed.routes.push(href);
+      window.observed.order.push('navigate');
     });
     if (caseName.startsWith('copies-')) {
-      const { createFastLink: otherCopy } = await import('/core.js?copy=2');
+      const { createClickPreparation } = await import('/core.js?copy=2');
       const inner = document.createElement('div');
       root.append(inner);
       inner.append(anchor);
-      otherCopy(inner, {
-        navigate: ({ href }) => window.observed.routes.push(href),
-      });
+      const other = createClickPreparation(inner, { prepare: () => null });
+      inner.addEventListener(
+        'click',
+        (event) => {
+          const activation = other.matchClick(event)?.consume();
+          if (activation) {
+            event.preventDefault();
+            window.observed.routes.push(activation.intent.href);
+          }
+        },
+        true,
+      );
       if (caseName === 'copies-nonextensible') {
         document.addEventListener(
           'pointerdown',
@@ -132,14 +147,21 @@ async function checkScenario(name, page, scenario) {
         new URL(request.url()).pathname === '/first',
     );
     await page.mouse.down();
-    assert.equal(new URL((await navigation).url()).pathname, '/first');
+    assert.equal(page.url(), 'http://fast-link.test/');
     await page.mouse.up();
+    assert.equal(new URL((await navigation).url()).pathname, '/first');
     return;
   }
   await page.mouse.down();
-  assert.deepEqual(await page.evaluate(() => window.observed.routes), [
-    '/first',
-  ]);
+  assert.deepEqual(await page.evaluate(() => window.observed.routes), []);
+  await page.evaluate((caseName) => {
+    const anchor = document.querySelector('#a');
+    if (caseName === 'remove-target')
+      document.querySelector('#pressed').remove();
+    if (caseName === 'replace-anchor')
+      anchor.replaceWith(anchor.cloneNode(true));
+    if (caseName === 'change-href') anchor.href = '/changed';
+  }, scenario);
   if (scenario === 'descendant' || scenario === 'sibling') {
     const release = await page
       .locator(scenario === 'sibling' ? '#b' : '#released')
@@ -155,10 +177,11 @@ async function checkScenario(name, page, scenario) {
     await page.mouse.move(anchor.x + 2, anchor.y + 2);
   }
   await page.mouse.up();
-  const expectedClickCount =
-    ['remove-target', 'replace-anchor'].includes(scenario) && name !== 'firefox'
-      ? 0
-      : 1;
+  const expectedClickCount = ['remove-target', 'replace-anchor'].includes(
+    scenario,
+  )
+    ? 0
+    : 1;
   if (expectedClickCount) {
     await expect
       .poll(() => page.evaluate(() => window.observed.events.length))
@@ -169,7 +192,12 @@ async function checkScenario(name, page, scenario) {
     await page.waitForTimeout(100);
   }
   const observed = await page.evaluate(() => window.observed);
-  assert.deepEqual(observed.routes, ['/first']);
+  assert.deepEqual(
+    observed.routes,
+    ['sibling', 'replace-anchor', 'remove-target'].includes(scenario)
+      ? []
+      : [scenario === 'change-href' ? '/changed' : '/first'],
+  );
   assert.deepEqual(
     requests,
     [],
@@ -180,8 +208,8 @@ async function checkScenario(name, page, scenario) {
     descendant: ['a'],
     ancestor: ['a'],
     sibling: ['root'],
-    'remove-target': name === 'firefox' ? ['a'] : [],
-    'replace-anchor': name === 'firefox' ? ['root'] : [],
+    'remove-target': [],
+    'replace-anchor': [],
     'change-href': ['pressed'],
     'stop-capture': ['pressed'],
     'copies-extensible': ['pressed'],
@@ -206,8 +234,8 @@ async function checkScenario(name, page, scenario) {
   if (scenario === 'sibling') assert.equal(observed.events[0].prevented, false);
   if (scenario === 'descendant') {
     assert.deepEqual(observed.order, [
-      'navigate',
       'document-capture',
+      'navigate',
       'anchor-click',
       'document-bubble',
     ]);
@@ -221,6 +249,8 @@ async function checkSvg(page, scenario) {
   const requests = [];
   await page.route('http://fast-link.test/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/binding.js')
+      return route.fulfill({ contentType: 'text/javascript', body: binding });
     if (path === '/core.js')
       return route.fulfill({ contentType: 'text/javascript', body: core });
     if (path !== '/') {
@@ -236,11 +266,11 @@ async function checkSvg(page, scenario) {
   });
   await page.goto('http://fast-link.test/');
   await page.evaluate(async () => {
-    const { createFastLink } = await import('/core.js');
+    const { bind } = await import('/binding.js');
     window.observed = { routes: [], clicks: [] };
-    createFastLink(document.querySelector('#root'), {
-      navigate: ({ href }) => window.observed.routes.push(href),
-    });
+    bind(document.querySelector('#root'), ({ href }) =>
+      window.observed.routes.push(href),
+    );
     document.addEventListener('click', (event) =>
       window.observed.clicks.push({
         prevented: event.defaultPrevented,
@@ -253,10 +283,7 @@ async function checkSvg(page, scenario) {
   assert.ok(box);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  assert.deepEqual(
-    await page.evaluate(() => window.observed.routes),
-    scenario === 'svg-html' ? ['/first'] : [],
-  );
+  assert.deepEqual(await page.evaluate(() => window.observed.routes), []);
   assert.equal(page.url(), 'http://fast-link.test/');
   await page.mouse.up();
   if (scenario === 'svg-standalone')
@@ -275,13 +302,15 @@ async function checkIframe(page) {
   const destinations = [];
   await page.route('http://fast-link.test/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/binding.js')
+      return route.fulfill({ contentType: 'text/javascript', body: binding });
     if (path === '/core.js')
       return route.fulfill({ contentType: 'text/javascript', body: core });
     let body;
     if (path === '/')
       body = '<iframe src="/frame" style="width:400px;height:200px"></iframe>';
     else if (path === '/frame')
-      body = `<base href="/child/base/"><a id="child" href="destination?from=iframe#result">Child destination</a><script type="module">import { createFastLink } from '/core.js'; createFastLink(document.body); document.body.dataset.ready = 'true';</script>`;
+      body = `<base href="/child/base/"><a id="child" href="destination?from=iframe#result">Child destination</a><script type="module">import { bind } from '/binding.js'; bind(document.body); document.body.dataset.ready = 'true';</script>`;
     else {
       destinations.push(route.request().url());
       body = '<h1>Child arrived</h1>';
@@ -296,14 +325,14 @@ async function checkIframe(page) {
   assert.ok(box);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  try {
+  assert.equal(new URL(child.url()).pathname, '/frame');
+  await page.mouse.up();
+  {
     await child.waitForURL(
       'http://fast-link.test/child/base/destination?from=iframe#result',
     );
     await child.getByRole('heading', { name: 'Child arrived' }).waitFor();
     assert.equal(page.url(), 'http://fast-link.test/');
-  } finally {
-    await page.mouse.up();
   }
   assert.equal(destinations.length, 1);
   assert.equal(new URL(destinations[0]).pathname, '/child/base/destination');

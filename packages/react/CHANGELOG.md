@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.3
+
+- Replace `useFastLink` with `useClickPreparation`, the only controller binding.
+- Preserve gestures through same-anchor ref reattachment, including Next Link
+  href and prefetch updates. Retain cleanup on root replacement and unmount.
+- Update the core dependency to `^0.0.3`.
+
 ## 0.0.2
 
 - Bundle the canonical Fast Link agent skill, references, and agent metadata at

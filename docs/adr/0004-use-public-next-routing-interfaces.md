@@ -5,10 +5,20 @@ on private Next modules would couple early navigation to implementation details
 outside Next's public compatibility contract.
 
 `FastLink` delegates rendering, native activation, and prefetching to `next/link`.
-It starts accepted presses through the App Router using the original Link
-routing inputs, honoring `onNavigate` cancellation before policy or observation.
-The Next `useFastLink` hook shares this routing behavior while leaving rendering
-and prefetching to its caller.
+It uses optional public `router.experimental_prepare` on eligible press, then
+commits after caller `onClick`, Next's native checks, and caller `onNavigate`.
+The supported experimental runtime and flag are in the package requirements.
+Without preparation it routes at accepted click. Failed commits are not retried.
+
+One synchronous, side-effect-free navigation policy supplies both early
+ownership classification and the accepted-click decision. This requires a
+consumer purity migration, but keeps one authoritative ownership rule. Effects
+belong in navigation callbacks. Guards can commit new props synchronously, so
+acceptance reads current committed configuration before reusing a handle.
+
+The Next `useFastLink` hook and `FastLinkRegion` prepare on press and accept
+navigation during click capture. `FastLink` owns Next guard composition; capture
+adapters cannot wait for later child guards. See [ADR 0006](./0006-prepare-on-press-navigate-on-click.md).
 
 `FastLinkRegion` delegates early navigation for ordinary anchors. Rendered
 anchors do not expose every Next Link prop, so they share the region's policy
@@ -22,9 +32,14 @@ Applications use route-level loading UI or track pending state through
 `onFastNavigate`. Using private Link internals to set that state would couple
 the adapter to Next implementation details.
 
-Rendering modes the adapter does not accelerate stay on the normal Link path.
-See the [navigation rules](../../packages/next/README.md#understand-navigation-and-click-behavior)
-for `as`, `legacyBehavior`, and native opt-outs.
+Core owns gesture identity, eligibility, cancellation, ownership, and cleanup.
+React owns committed options and ref lifetime. Next owns prepared handles,
+routing options, policy binding, and framework callback composition. Discarding
+a handle does not abort provider work. The preparation API alone does not repair
+Chrome attribution on the supported runtime; renderer fixes remain upstream.
+
+`as` and `legacyBehavior` are outside the public Fast Link contract. Custom
+renderers require an anchor and `href`; they own native activation and prefetching.
 
 Implementation: [`FastLink`](../../packages/next/src/fast-link/index.tsx),
 [`useFastLink`](../../packages/next/src/use-fast-link/index.ts), and

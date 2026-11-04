@@ -4,7 +4,7 @@
  * while keeping each adapter's destination and history choices intact.
  */
 
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { FastLink } from '../fast-link';
 import { FastLinkRegion } from '../fast-link-region';
@@ -50,6 +50,8 @@ describe('navigation policy', () => {
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    expect(order).toEqual([]);
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(order).toEqual(['navigate', 'policy', 'observe:router']);
     expect(regionPolicy).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/pricing', {
@@ -60,19 +62,27 @@ describe('navigation policy', () => {
   });
 });
 
-it.each([{ enabled: false }, { as: '/display' }, { 'data-no-fast-link': '' }])(
+it.each([{ enabled: false }, { 'data-no-fast-link': '' }])(
   'keeps a native managed Link inside a Region native: %o',
   (options) => {
     const policy = vi.fn();
+    const observe = vi.fn();
+    router.experimental_prepare = vi.fn(() => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+    }));
     const { getByRole } = render(
-      <FastLinkRegion navigationPolicy={policy}>
-        <FastLink href="/pricing" {...options}>
+      <FastLinkRegion navigationPolicy={policy} onFastNavigate={observe}>
+        <FastLink href="/pricing" {...options} onFastNavigate={observe}>
           Pricing
         </FastLink>
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
+    expect(router.experimental_prepare).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
+    expect(observe).not.toHaveBeenCalled();
     expect(policy).not.toHaveBeenCalled();
   },
 );
@@ -87,6 +97,7 @@ it.each([undefined, false, true])(
       expect(proposed).toEqual({
         destination: '/docs/guide?q=yes#read',
         method: 'push',
+        scroll: undefined,
       });
       Reflect.set(proposed, 'destination', '/changed');
       return { kind: 'router', scroll };
@@ -97,10 +108,9 @@ it.each([undefined, false, true])(
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(router.push.mock.calls).toEqual([
-      scroll === undefined
-        ? ['/docs/guide?q=yes#read']
-        : ['/docs/guide?q=yes#read', { scroll }],
+      ['/docs/guide?q=yes#read', { scroll, transitionTypes: undefined }],
     ]);
   },
 );
@@ -120,6 +130,7 @@ it.each([undefined, false, true])(
       </FastLink>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(router.replace).toHaveBeenCalledExactlyOnceWith(
       '/guide?ref=a+b#read',
       { scroll: scroll ?? false, transitionTypes: ['slide'] },
@@ -159,11 +170,13 @@ it.each(['link', 'region', 'hook'] as const)(
       value: {
         baseURI: 'https://example.com/',
         defaultView: {
+          MouseEvent,
           location: { origin: 'https://example.com', assign, replace },
         },
       },
     });
     pointerDown(anchor);
+    fireEvent.click(anchor, { detail: 1 });
     expect(replace).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );
@@ -172,7 +185,12 @@ it.each(['link', 'region', 'hook'] as const)(
       method: 'replace',
     });
     fail = true;
-    expect(captureErrors(() => pointerDown(anchor))).toEqual([failure]);
+    expect(
+      captureErrors(() => {
+        pointerDown(anchor);
+        fireEvent.click(anchor, { detail: 1 });
+      }),
+    ).toEqual([failure]);
     expect(assign).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );

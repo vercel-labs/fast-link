@@ -1,8 +1,8 @@
 'use client';
 
-import { createFastLink } from '@fast-link/core';
+import { createClickPreparation } from '@fast-link/core';
 import { FastLink, FastLinkRegion } from '@fast-link/next';
-import { useFastLink } from '@fast-link/react';
+import { useClickPreparation } from '@fast-link/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLayoutEffect, useState, type JSX } from 'react';
@@ -63,13 +63,19 @@ const navigateUpdated = () => {
 
 function ReactAnchor({ version }: { version: number }) {
   const callback = version ? navigateUpdated : navigate;
-  const bindings = useFastLink<HTMLAnchorElement>({
-    navigate: callback,
+  const bindings = useClickPreparation<null, HTMLAnchorElement>({
+    prepare: () => null,
   });
   return (
     <a
       href={`/docs/benchmark/target?v=${version}`}
-      {...bindings}
+      ref={bindings.ref}
+      onClickCapture={(event) => {
+        const activation = bindings.matchClick(event.nativeEvent)?.consume();
+        if (!activation) return;
+        event.preventDefault();
+        callback();
+      }}
       onClick={(event) => {
         if (event.defaultPrevented) suppressedClicks++;
         event.preventDefault();
@@ -85,15 +91,10 @@ function PlainAnchor({ version }: { version: number }) {
   return (
     <a
       href={`/docs/benchmark/target?v=${version}`}
-      onPointerDown={(event) => {
-        if (
-          event.button === 0 &&
-          event.isPrimary &&
-          event.pointerType === 'mouse'
-        )
-          callback();
+      onClick={(event) => {
+        event.preventDefault();
+        callback();
       }}
-      onClick={(event) => event.preventDefault()}
     >
       Link {version}
     </a>
@@ -168,12 +169,9 @@ function click() {
   });
 }
 
-function bareDown(event: PointerEvent) {
-  if (event.pointerType === 'mouse') navigate();
-}
-
 function bareClick(event: MouseEvent) {
   event.preventDefault();
+  navigate();
 }
 
 /** Excludes event construction and warmup from the timed dispatch loop. */
@@ -236,20 +234,31 @@ function measureCore(
   anchor.href = '/docs/benchmark/target';
   area.append(anchor);
   const controller =
-    variant === 'core' ? createFastLink(anchor, { navigate }) : null;
-  if (!controller) {
-    anchor.addEventListener('pointerdown', bareDown);
-    anchor.addEventListener('click', bareClick);
-  }
+    variant === 'core'
+      ? createClickPreparation(anchor, { prepare: () => null })
+      : null;
+  const accept = (event: MouseEvent) => {
+    const activation = controller?.matchClick(event)?.consume();
+    if (activation) {
+      event.preventDefault();
+      navigate();
+    }
+  };
+  const onClick = controller ? accept : bareClick;
+  anchor.addEventListener('click', onClick);
 
   const result = interactions(anchor, workload, true);
 
   controller?.destroy();
-  anchor.removeEventListener('pointerdown', bareDown);
-  anchor.removeEventListener('click', bareClick);
+  if (!controller) anchor.removeEventListener('click', onClick);
+  anchor.addEventListener('click', (event) => event.preventDefault(), {
+    once: true,
+  });
   navigations = 0;
   anchor.dispatchEvent(press());
+  anchor.dispatchEvent(click());
   result.accepted.correct &&= navigations === 0;
+  anchor.removeEventListener('click', onClick);
   anchor.remove();
 
   return result;
@@ -275,8 +284,12 @@ function measureReactInteraction(
   );
 
   render(null);
+  anchor.addEventListener('click', (event) => event.preventDefault(), {
+    once: true,
+  });
   navigations = 0;
   anchor.dispatchEvent(press());
+  anchor.dispatchEvent(click());
   result.accepted.correct &&= navigations === 0;
 
   return result;
@@ -312,9 +325,13 @@ function measureLifecycle(
   }
 
   const unmount = timeCommit(() => render(null));
+  anchor.addEventListener('click', (event) => event.preventDefault(), {
+    once: true,
+  });
   updatedNavigations = 0;
   const acceptedBefore = events.accepted;
   anchor.dispatchEvent(press());
+  anchor.dispatchEvent(click());
   unmount.correct =
     area.querySelectorAll('a').length === 0 &&
     updatedNavigations === 0 &&

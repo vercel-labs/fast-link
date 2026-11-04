@@ -1,24 +1,11 @@
-export type FollowupClick = Pick<
-  MouseEvent,
-  'target' | 'detail' | 'preventDefault'
->;
-
 interface CoordinationState {
   /** Live controller count, including disabled controllers, for each managed anchor. */
   readonly anchorOwners: WeakMap<HTMLElement, number>;
-  /** Sends a containing capture handler's click to the controller that accepted the press. */
-  readonly pendingClickOwners: WeakMap<
-    HTMLAnchorElement,
-    (event: FollowupClick) => void
-  >;
-  /** Clicks already consumed by a controller during capture. */
-  readonly suppressedClicks: WeakSet<FollowupClick>;
-  /** Accepted presses, including events that cannot hold the symbol marker. */
+  /** Accepted presses and prepared clicks, including events that cannot hold the marker. */
   readonly handledEvents: WeakSet<Event>;
 }
 
-// These keys and field meanings are shared between independently bundled versions.
-// Reuse the registry and its collections; compatible additions preserve existing fields.
+// Share ownership and event claims between independently bundled copies.
 const COORDINATION = Symbol.for('@fast-link/core/coordination');
 export const HANDLED_EVENT = Symbol.for('@fast-link/core/handled-event');
 
@@ -27,11 +14,25 @@ export const coordination: CoordinationState = Reflect.get(
   COORDINATION,
 ) ?? {
   anchorOwners: new WeakMap<HTMLElement, number>(),
-  pendingClickOwners: new WeakMap<
-    HTMLAnchorElement,
-    (event: FollowupClick) => void
-  >(),
-  suppressedClicks: new WeakSet<FollowupClick>(),
   handledEvents: new WeakSet<Event>(),
 };
 Reflect.set(globalThis, COORDINATION, coordination);
+
+/** Registers a managed anchor until its controller is destroyed; containing roots do not register. */
+export function registerAnchorOwner(
+  root: HTMLElement,
+): (() => void) | undefined {
+  if (root.tagName !== 'A') return undefined;
+  const { anchorOwners } = coordination;
+  anchorOwners.set(root, (anchorOwners.get(root) ?? 0) + 1);
+  return () => {
+    const remaining = (anchorOwners.get(root) ?? 1) - 1;
+    if (remaining) anchorOwners.set(root, remaining);
+    else anchorOwners.delete(root);
+  };
+}
+
+/** Includes disabled controllers, whose anchors still take priority over regions. */
+export function hasAnchorOwner(anchor: HTMLAnchorElement): boolean {
+  return coordination.anchorOwners.has(anchor);
+}

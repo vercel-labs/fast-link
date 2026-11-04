@@ -1,8 +1,8 @@
 [
   {
-    "name": "useFastLink",
+    "name": "useClickPreparation",
     "path": "src/index.ts",
-    "import": "{ useFastLink }",
+    "import": "{ useClickPreparation }",
     "ignore": ["react"],
     "limit": "2 kB"
   }

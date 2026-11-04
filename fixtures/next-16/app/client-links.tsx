@@ -1,10 +1,10 @@
 'use client';
 
-import { FastLink, FastLinkRegion } from '@fast-link/next';
+import { FastLink, FastLinkRegion, useFastLink } from '@fast-link/next';
 import Link from 'next/link';
 import { useLinkStatus } from 'next/link';
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 
 export function ClientLinks(): JSX.Element {
   const [events, setEvents] = useState<string[]>([]);
@@ -12,6 +12,11 @@ export function ClientLinks(): JSX.Element {
 
   return (
     <div>
+      <GuardPolicyLink />
+      <RefChangingLink guard="onClick" />
+      <RefChangingLink guard="onNavigate" />
+      <RefChangingLink guard="prefetch" />
+      <RefChangingRenderer />
       <FastLink
         href="/fast"
         data-testid="cancel"
@@ -32,23 +37,6 @@ export function ClientLinks(): JSX.Element {
         prefetch={false}
       >
         Native
-      </FastLink>
-      <FastLink
-        href="/slow"
-        as="/fast"
-        data-testid="as"
-        prefetch={false}
-        onFastNavigate={() => record('unexpected-fast')}
-      >
-        As
-      </FastLink>
-      <FastLink
-        href="/fast"
-        legacyBehavior
-        prefetch={false}
-        onFastNavigate={() => record('unexpected-fast')}
-      >
-        <a data-testid="legacy">Legacy</a>
       </FastLink>
       <FastLink
         href="/slow"
@@ -167,6 +155,28 @@ export function ClientLinks(): JSX.Element {
   );
 }
 
+function GuardPolicyLink(): JSX.Element {
+  const [documentNavigation, setDocumentNavigation] = useState(false);
+  return (
+    <FastLink
+      href="/fast?from=guard-policy"
+      data-testid="guard-policy"
+      prefetch={false}
+      navigationPolicy={() =>
+        documentNavigation
+          ? { kind: 'document', method: 'assign' }
+          : { kind: 'router' }
+      }
+      onNavigate={() => flushSync(() => setDocumentNavigation(true))}
+      onFastNavigate={(_, decision) =>
+        sessionStorage.setItem('guard-policy', decision.kind)
+      }
+    >
+      Guard changes policy
+    </FastLink>
+  );
+}
+
 function ShadowCaptureLink({
   record,
 }: {
@@ -233,4 +243,60 @@ function ShadowCaptureLink({
 function Status({ testId = 'pending' }: { testId?: string }): JSX.Element {
   const { pending } = useLinkStatus();
   return <span data-testid={testId}>{pending ? 'pending' : 'idle'}</span>;
+}
+
+// Real Next Link reattaches its merged ref when href or prefetch changes.
+function RefChangingLink({
+  guard,
+}: {
+  guard: 'onClick' | 'onNavigate' | 'prefetch';
+}) {
+  const [changed, setChanged] = useState(false);
+  const update = () => flushSync(() => setChanged(true));
+  return (
+    <FastLink
+      href={
+        changed || guard === 'prefetch'
+          ? `/fast?from=ref-${guard}`
+          : '/object?from=stale-ref'
+      }
+      prefetch={guard === 'prefetch' && changed}
+      data-testid={`ref-${guard}`}
+      onClick={guard === 'onClick' ? update : undefined}
+      onNavigate={guard !== 'onClick' ? update : undefined}
+      navigationPolicy={() =>
+        guard === 'prefetch' && changed
+          ? { kind: 'router', scroll: false }
+          : { kind: 'router' }
+      }
+      onFastNavigate={(_intent, decision) => {
+        sessionStorage.setItem(
+          'ref-actions',
+          String(Number(sessionStorage.getItem('ref-actions') ?? 0) + 1),
+        );
+        sessionStorage.setItem('ref-decision', JSON.stringify(decision));
+      }}
+    >
+      Change {guard}
+    </FastLink>
+  );
+}
+
+function RefChangingRenderer() {
+  const [changed, setChanged] = useState(false);
+  const href = changed ? '/fast?from=ref-hook' : '/object?from=stale-ref';
+  const binding = useFastLink({
+    href,
+    onClickCapture: () => flushSync(() => setChanged(true)),
+    onFastNavigate: () =>
+      sessionStorage.setItem(
+        'ref-actions',
+        String(Number(sessionStorage.getItem('ref-actions') ?? 0) + 1),
+      ),
+  });
+  return (
+    <Link href={href} prefetch={false} {...binding} data-testid="ref-hook">
+      Change custom href
+    </Link>
+  );
 }

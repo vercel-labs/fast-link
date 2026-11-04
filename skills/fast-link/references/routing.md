@@ -27,7 +27,10 @@ Check existing callers and routing configuration before transforming prefixes.
 
 ## Choose a supported decision
 
-The policy runs synchronously and returns one of:
+The policy is synchronous and side-effect-free. All Next integrations call it on
+eligible press when preparation is available, then again after accepted-click
+guards. Read current ownership metadata on each call; keep effects in
+`onNavigate` or `onFastNavigate`. The policy returns one of:
 
 | Decision                                  | Effect                                                           |
 | ----------------------------------------- | ---------------------------------------------------------------- |
@@ -42,8 +45,8 @@ The policy runs synchronously and returns one of:
   from the application's history requirement.
 
 Policies cannot cancel, defer, or replace the destination. Use synchronous
-managed-link `onNavigate` cancellation for press-time validation, or opt out for
-release-time checks.
+managed-link `onClick` or `onNavigate` cancellation for click-time validation.
+Use `FastLink` or opt out when later child guards must veto capture acceptance.
 
 Read the [core decision contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
 for accepted fields, defaults, and custom-adapter usage.
@@ -61,7 +64,8 @@ It cannot change or cancel the selected action.
 
 ## Failure behavior
 
-Throwing is not cancellation: policy failures attempt document navigation, and
+Preparation-time errors cannot navigate. At accepted navigation, throwing is
+not cancellation: policy failures attempt document navigation, and
 observer failures still permit navigation. Use the
 [core decision and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
 for validation, callback ordering, document fallback, and error precedence. [ADR 0003](https://github.com/vercel-labs/fast-link/blob/main/docs/adr/0003-let-applications-choose-navigation.md)

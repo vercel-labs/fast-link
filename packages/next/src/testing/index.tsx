@@ -24,20 +24,15 @@ export function pointerDown(
   anchor.dispatchEvent(event);
 }
 
-/** Test renderer that uses `useFastLink` on an anchor or fallback span. */
-export function HookLink({
-  href,
-  ...options
-}: import('../use-fast-link').UseFastLinkOptions<
-  HTMLAnchorElement | HTMLSpanElement
->): JSX.Element {
-  const attach = useFastLink({ href, ...options });
-  return href ? (
-    <Link href={href} {...attach}>
+/** Test renderer that exposes its anchor to the capture binding. */
+export function HookLink(
+  options: import('../use-fast-link').UseFastLinkOptions,
+): JSX.Element {
+  const attach = useFastLink(options);
+  return (
+    <Link href={options.href} {...attach}>
       Custom
     </Link>
-  ) : (
-    <span {...attach}>Custom</span>
   );
 }
 

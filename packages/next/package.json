@@ -1,7 +1,7 @@
 {
   "name": "@fast-link/next",
-  "version": "0.0.2",
-  "description": "Early mouse navigation for Next.js App Router links",
+  "version": "0.0.3",
+  "description": "Prepare on press and navigate on accepted click with Next.js App Router",
   "author": "Vercel",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,7 @@
     "@fast-link/react": "workspace:^"
   },
   "peerDependencies": {
-    "next": ">=16 <17",
+    "next": ">=16 <17 || 16.5.0-canary.37",
     "react": ">=19 <20"
   },
   "devDependencies": {
@@ -38,7 +38,7 @@
     "@types/react": "19.2.10",
     "@types/react-dom": "19.2.3",
     "jsdom": "23.2.0",
-    "next": "16.3.6",
+    "next": "16.5.0-canary.37",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "size-limit": "12.1.0",

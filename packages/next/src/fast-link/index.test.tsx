@@ -17,6 +17,7 @@ describe('FastLink', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(router.push).toHaveBeenCalledExactlyOnceWith(
       '/pricing?from=nav#plans',
@@ -40,6 +41,7 @@ describe('FastLink', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/pricing', {
       scroll: false,
@@ -58,6 +60,7 @@ describe('FastLink', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(router.push).toHaveBeenCalledWith(
       '/caf%C3%A9?ref=a+b#menu',
@@ -89,7 +92,7 @@ describe('FastLink', () => {
     expect(click).toBe(false);
   });
 
-  it('suppresses the follow-up click while preserving click handlers and bubbling', () => {
+  it('navigates after click handlers while preserving bubbling', () => {
     const events: string[] = [];
     const { getByRole } = render(
       <div onClick={() => events.push('parent')}>
@@ -109,7 +112,7 @@ describe('FastLink', () => {
     const allowed = fireEvent.click(anchor, { detail: 1 });
 
     expect(allowed).toBe(false);
-    expect(events).toEqual(['navigate', 'fast', 'click', 'parent']);
+    expect(events).toEqual(['click', 'navigate', 'fast', 'parent']);
     expect(router.push).toHaveBeenCalledTimes(1);
   });
 
@@ -132,7 +135,6 @@ describe('FastLink', () => {
 
   it.each([
     ['disabled', { enabled: false }],
-    ['as', { as: '/display' }],
     ['external', { href: 'https://other.example/pricing' }],
     ['hash', { href: '#pricing' }],
   ])('leaves %s links to Link', (_name, props) => {
@@ -147,7 +149,7 @@ describe('FastLink', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('updates props without losing pending click suppression', () => {
+  it('uses current props at click after a destination update', () => {
     const { getByRole, rerender } = render(
       <FastLink href="/first">First</FastLink>,
     );
@@ -159,10 +161,7 @@ describe('FastLink', () => {
     pointerDown(anchor);
 
     expect(allowed).toBe(false);
-    expect(router.push.mock.calls.map(([href]) => href)).toEqual([
-      '/first',
-      '/second',
-    ]);
+    expect(router.push.mock.calls.map(([href]) => href)).toEqual(['/second']);
   });
 
   it('uses committed navigation props before parent layout effects run', () => {
@@ -175,6 +174,7 @@ describe('FastLink', () => {
         if (href === '/second' && anchor.current) {
           expect(anchor.current.getAttribute('href')).toBe('/docs/second');
           pointerDown(anchor.current);
+          fireEvent.click(anchor.current, { detail: 1 });
         }
       }, [href]);
 
@@ -201,7 +201,7 @@ describe('FastLink', () => {
     });
   });
 
-  it('preserves the follow-up click when an inline ref changes on rerender', () => {
+  it('keeps the gesture when an inline ref changes on rerender', () => {
     const { getByRole, rerender } = render(
       <FastLink
         href="/first"
@@ -225,7 +225,7 @@ describe('FastLink', () => {
 
     expect(allowed).toBe(false);
     expect(router.push).toHaveBeenCalledExactlyOnceWith(
-      '/first',
+      '/second',
       expect.anything(),
     );
   });
@@ -304,7 +304,7 @@ describe('FastLink', () => {
       'second cleanup',
     ]);
     expect(allowed).toBe(false);
-    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/second', {
       scroll: false,
       transitionTypes: ['slide'],
@@ -472,7 +472,7 @@ it('skips policy and observation after Link cancellation', () => {
   expect(router.push).not.toHaveBeenCalled();
 });
 
-it('keeps Link cancellation errors and follow-up click suppression', () => {
+it('surfaces Link guard errors at click without navigating', () => {
   const failure = new Error('onNavigate failed');
   const policy = vi.fn();
   const { getByRole } = render(
@@ -487,8 +487,10 @@ it('keeps Link cancellation errors and follow-up click suppression', () => {
     </FastLink>,
   );
   const anchor = getByRole('link');
-  expect(captureErrors(() => pointerDown(anchor))).toEqual([failure]);
-  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+  expect(captureErrors(() => pointerDown(anchor))).toEqual([]);
+  expect(captureErrors(() => fireEvent.click(anchor, { detail: 1 }))).toEqual([
+    failure,
+  ]);
   expect(policy).not.toHaveBeenCalled();
   expect(router.push).not.toHaveBeenCalled();
 });

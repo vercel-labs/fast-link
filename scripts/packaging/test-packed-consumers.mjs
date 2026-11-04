@@ -48,6 +48,7 @@ const run = (command, args) =>
       ...process.env,
       NEXT_TELEMETRY_DISABLED: '1',
       FAST_LINK_FIXTURE_DIR: consumer,
+      FAST_LINK_EXPECT_PREPARATION: minimum ? 'false' : 'true',
     },
   });
 
@@ -120,17 +121,19 @@ try {
   if (minimum) {
     // Reuse the lifecycle suite through the installed public React export.
     const tests = await readFile(
-      join(root, 'packages/react/src/use-fast-link/index.test.tsx'),
+      join(root, 'packages/react/src/use-click-preparation/index.test.tsx'),
       'utf8',
     );
-    await mkdir(join(consumer, 'src/use-fast-link'), { recursive: true });
+    await mkdir(join(consumer, 'src/use-click-preparation'), {
+      recursive: true,
+    });
     await writeFile(
-      join(consumer, 'src/use-fast-link/index.test.tsx'),
+      join(consumer, 'src/use-click-preparation/index.test.tsx'),
       replaceOnce(
         tests,
         "from './index'",
         "from '@fast-link/react'",
-        'packages/react/src/use-fast-link/index.test.tsx',
+        'packages/react/src/use-click-preparation/index.test.tsx',
       ),
     );
     const config = await readFile(
@@ -171,6 +174,18 @@ try {
   ]);
   for (const path of ['app', 'next.config.ts', 'tsconfig.json']) {
     await cp(join(fixture, path), join(consumer, path), { recursive: true });
+  }
+  if (minimum) {
+    const configPath = join(consumer, 'next.config.ts');
+    await writeFile(
+      configPath,
+      replaceOnce(
+        await readFile(configPath, 'utf8'),
+        '  experimental: { prepareNavigation: true },\n',
+        '',
+        'minimum next.config.ts',
+      ),
+    );
   }
   run(process.execPath, ['node_modules/next/dist/bin/next', 'build']);
   run(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit']);

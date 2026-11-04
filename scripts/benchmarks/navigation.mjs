@@ -1,15 +1,15 @@
-/** Checks committed content, event suppression, and a single history entry. */
-function navigationCorrect(observed, early, historyBefore) {
+/** Checks committed content, default prevention, and a single history entry. */
+function navigationCorrect(observed, variant, historyBefore) {
   return (
     observed.text === 'Benchmark destination' &&
     observed.destination.text === observed.text &&
     observed.start > 0 &&
     observed.release >= observed.start &&
-    observed.destination.committed >= observed.start &&
+    observed.destination.committed >= observed.release &&
     observed.clicks === 1 &&
     observed.prevented === 1 &&
-    observed.accepted === (early ? 1 : 0) &&
-    observed.suppressed === (early ? 1 : 0) &&
+    observed.accepted === (variant !== 'next' ? 1 : 0) &&
+    observed.suppressed === (variant === 'region' ? 1 : 0) &&
     observed.history === historyBefore + 1
   );
 }
@@ -103,8 +103,7 @@ export async function measureNavigation(
       history: history.length,
       text: document.querySelector('[data-benchmark-destination]')?.textContent,
     }));
-    const early = variant !== 'next';
-    const correct = navigationCorrect(observed, early, historyBefore);
+    const correct = navigationCorrect(observed, variant, historyBefore);
 
     verifyCacheUse(cache, beforeRequests, routeRequests.length);
 
