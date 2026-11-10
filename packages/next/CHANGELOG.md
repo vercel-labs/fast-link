@@ -2,6 +2,7 @@
 
 ## 0.0.3
 
+- Receive `FastLink` refs through React 19's ref prop without a `forwardRef` wrapper.
 - Prepare all integrations on press and navigate at accepted click. `FastLink`
   accepts after Next guards; regions and custom hooks accept during click capture.
 - Require pure, repeatable policies. Read current policy and commit options after guards.

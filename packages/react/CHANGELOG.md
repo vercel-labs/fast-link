@@ -2,6 +2,7 @@
 
 ## 0.0.3
 
+- Keep ref lifetime and detached-root activation checks in the preparation binding.
 - Replace `useFastLink` with `useClickPreparation`, the only controller binding.
 - Preserve gestures through same-anchor ref reattachment, including Next Link
   href and prefetch updates. Retain cleanup on root replacement and unmount.

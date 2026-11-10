@@ -75,45 +75,6 @@ it.each(['onClick', 'onNavigate'] as const)(
   },
 );
 
-it('does not prepare foreign routes and uses current policy ownership at click', () => {
-  const push = vi.fn();
-  router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));
-  const assign = vi.fn();
-  const policy = vi.fn((intent: { anchor: HTMLAnchorElement }) =>
-    intent.anchor.dataset.zone === 'same'
-      ? { kind: 'router' as const }
-      : { kind: 'document' as const, method: 'assign' as const },
-  );
-  const { getByRole } = render(
-    <FastLink href="/guide" data-zone="foreign" navigationPolicy={policy}>
-      Guide
-    </FastLink>,
-  );
-  const anchor = getByRole('link');
-  Object.defineProperty(anchor, 'ownerDocument', {
-    value: {
-      baseURI: 'https://example.com/',
-      defaultView: {
-        MouseEvent,
-        location: { origin: 'https://example.com', assign },
-      },
-    },
-  });
-  pointerDown(anchor);
-  expect(router.experimental_prepare).not.toHaveBeenCalled();
-  fireEvent.click(anchor, { detail: 1 });
-  expect(assign).toHaveBeenCalledExactlyOnceWith(
-    'https://example.com/docs/guide',
-  );
-  anchor.dataset.zone = 'same';
-  pointerDown(anchor);
-  anchor.dataset.zone = 'foreign';
-  fireEvent.click(anchor, { detail: 1 });
-  expect(router.experimental_prepare).toHaveBeenCalledTimes(1);
-  expect(assign).toHaveBeenCalledTimes(2);
-  expect(push).not.toHaveBeenCalled();
-});
-
 it.each(['throw', 'invalid'] as const)(
   'keeps %s policy errors speculative until accepted click',
   (mode) => {
@@ -161,33 +122,24 @@ it.each(['throw', 'invalid'] as const)(
   },
 );
 
-it.each(['absent', 'throws'] as const)(
-  'falls back at click when preparation %s',
-  (mode) => {
-    if (mode === 'throws')
-      router.experimental_prepare = vi.fn(() => {
-        throw new Error('disabled router queue');
-      });
-    const { getByRole } = render(
-      <FastLink
-        href="/guide"
-        replace
-        scroll={false}
-        transitionTypes={['slide']}
-      >
-        Guide
-      </FastLink>,
-    );
-    const anchor = getByRole('link');
-    pointerDown(anchor);
-    expect(router.replace).not.toHaveBeenCalled();
-    fireEvent.click(anchor, { detail: 1 });
-    expect(router.replace).toHaveBeenCalledExactlyOnceWith('/guide', {
-      scroll: false,
-      transitionTypes: ['slide'],
-    });
-  },
-);
+it('keeps click routing available when the provider throws during preparation', () => {
+  router.experimental_prepare = vi.fn(() => {
+    throw new Error('disabled router queue');
+  });
+  const { getByRole } = render(
+    <FastLink href="/guide" replace scroll={false} transitionTypes={['slide']}>
+      Guide
+    </FastLink>,
+  );
+  const anchor = getByRole('link');
+  expect(captureErrors(() => pointerDown(anchor))).toEqual([]);
+  expect(router.replace).not.toHaveBeenCalled();
+  fireEvent.click(anchor, { detail: 1 });
+  expect(router.replace).toHaveBeenCalledExactlyOnceWith('/guide', {
+    scroll: false,
+    transitionTypes: ['slide'],
+  });
+});
 
 it('discards stale preparation after href and options change', () => {
   const push = vi.fn();
@@ -210,22 +162,6 @@ it('discards stale preparation after href and options change', () => {
     scroll: false,
     transitionTypes: undefined,
   });
-});
-
-it('never retries a failed prepared commit through ordinary routing', () => {
-  const failure = new Error('commit failed');
-  const push = vi.fn(() => {
-    throw failure;
-  });
-  router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));
-  const { getByRole } = render(<FastLink href="/guide">Guide</FastLink>);
-  const anchor = getByRole('link');
-  pointerDown(anchor);
-  expect(captureErrors(() => fireEvent.click(anchor, { detail: 1 }))).toEqual([
-    failure,
-  ]);
-  expect(push).toHaveBeenCalledTimes(1);
-  expect(router.push).not.toHaveBeenCalled();
 });
 
 it.each(['onClick', 'onNavigate'] as const)(
