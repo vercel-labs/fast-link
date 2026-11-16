@@ -1,3 +1,4 @@
+import type { FastLinkIntent } from '../interaction';
 import { createClickPreparation } from './index';
 
 function press(target: Element, options: MouseEventInit = {}): void {
@@ -363,6 +364,46 @@ it.each(['consume', 'discard'] as const)(
       expect(current).not.toBeNull();
       press(document.body);
       expect(current?.consume()).toBeNull();
+    } finally {
+      controller.destroy();
+      anchor.remove();
+    }
+  },
+);
+
+it.each(['consume', 'cancel'] as const)(
+  'preserves a gesture started inside prepare until %s',
+  (finish) => {
+    const anchor = document.body.appendChild(document.createElement('a'));
+    anchor.href = '/first';
+    const prepare = vi.fn((intent: FastLinkIntent) => {
+      if (intent.href === '/first') {
+        anchor.href = '/second';
+        press(anchor);
+        return 'first request';
+      }
+      return 'second request';
+    });
+    const controller = createClickPreparation(anchor, { prepare });
+    try {
+      press(anchor);
+      expect(prepare).toHaveBeenCalledTimes(2);
+      const candidate = controller.matchClick(click(anchor));
+      expect(candidate).not.toBeNull();
+      if (finish === 'cancel')
+        document.dispatchEvent(new Event('pointercancel'));
+      expect(candidate?.consume()).toEqual(
+        finish === 'cancel'
+          ? null
+          : {
+              intent: {
+                anchor,
+                href: '/second',
+                url: new URL('https://example.com/second'),
+              },
+              prepared: 'second request',
+            },
+      );
     } finally {
       controller.destroy();
       anchor.remove();
