@@ -102,24 +102,42 @@ function createClickPreparation<P>(
 ): ClickPreparationController<P>;
 ```
 
-`prepare` runs on eligible primary mouse press. It must not navigate; errors
-are swallowed so click-time fallback remains available. Core stores the opaque
-result without a readiness or abort protocol.
+`prepare` runs on eligible primary mouse press and must not navigate. Core stores
+its return value without checking whether the work is ready or providing a way
+to abort it. If `prepare` throws, core ignores the error so the adapter can still
+handle the click.
 
-Pass the native click to `controller.matchClick(event)` before synchronous
-adapter guards. If a candidate is returned, call `candidate.consume()` after
-those guards accept, or `candidate.discard()` when they cancel. Always finalize
-the candidate, including when a guard throws or the framework takes a native path.
-Consuming returns `{ intent, prepared }` once, or `null` if invalidated. Core
-rechecks live eligibility and managed-anchor priority; changed destinations
-return `prepared: null`. The adapter owns default prevention and routing.
+Handle the click in this order:
+
+1. Pass the native click to `controller.matchClick(event)` before running
+   synchronous cancellation handlers.
+2. If it returns a candidate and the handlers allow navigation, call
+   `candidate.consume()`. Navigate only if it returns a result.
+3. Call `candidate?.discard()` in `finally`, including when a handler throws or
+   the framework handles the click.
+
+Complete this sequence synchronously during the click event. The adapter calls
+`preventDefault()` and performs navigation after consuming a valid candidate.
+
+`consume()` rechecks the link's current eligibility and per-link priority over
+containing regions. It returns one of these results:
+
+| Result                        | Meaning                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `null`                        | The candidate was already consumed or is no longer valid. Do not navigate through it.          |
+| `{ intent, prepared: value }` | The click can navigate using the current intent and the stored preparation.                    |
+| `{ intent, prepared: null }`  | The click can navigate, but no preparation can be reused. This includes a changed destination. |
 
 New input, cancellation, dragging, release away, destruction, and disabling
-invalidate preparation, including while a candidate is awaiting guards.
-`update(options)` replaces copied options; other updates preserve the gesture
-for the adapter to revalidate. `discard()` drops the current gesture.
-`destroy()` also removes listeners and anchor ownership. Discarding a result
-does not abort provider work. Keep matching and acceptance synchronous.
+invalidate preparation, including while cancellation handlers run.
+
+| Controller method | Behavior                                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `update(options)` | Copies and replaces every option. Disabling discards the gesture; other updates preserve it for the adapter to revalidate. |
+| `discard()`       | Drops the current gesture.                                                                                                 |
+| `destroy()`       | Discards the gesture, removes listeners, and releases the anchor's priority over containing regions.                       |
+
+Discarding preparation does not abort the work started by `prepare`.
 
 ### `validateFastNavigationDecision`
 

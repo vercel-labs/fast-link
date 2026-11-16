@@ -11,12 +11,13 @@ the root. Both prepare work without navigating and expose click matching.
 - The adapter owns speculative work, synchronous click guards, default prevention,
   routing, history, scroll, route state, and transitions.
 
-Call `matchClick` with the native event before synchronous guards. Finalize the
-candidate with `consume()` after acceptance or `discard()` on cancellation,
-errors, and native framework paths. A consumed activation supplies current
-`intent` and opaque `prepared` work, or `null` work when the destination changed.
-Prevent default only after acceptance; then route once. Keep the whole sequence
-within the click dispatch.
+Match the native click before running cancellation handlers. If they allow
+navigation, consume the candidate and navigate only when it returns a result.
+Call `preventDefault()` before navigating. Always discard any returned candidate in
+`finally`. Complete this sequence synchronously during the click event.
+
+Follow the [core click-handling procedure](https://github.com/vercel-labs/fast-link/tree/main/packages/core#createclickpreparation)
+for return values and cancellation rules.
 
 Preparation must not navigate. Failed preparation leaves click-time fallback
 available. Destroy controllers when roots detach; the React binding does this

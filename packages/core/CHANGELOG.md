@@ -5,8 +5,9 @@
 - Replace `createFastLink` with `createClickPreparation`. Prepare on press;
   adapters accept matching clicks and own default prevention and navigation.
 - Remove press navigation and follow-up suppression APIs and state.
-- Preserve gesture cancellation, live anchor ownership, and cross-copy event claims.
-- Export decision validation for speculative policy classification.
+- Preserve gesture cancellation and per-link priority inside regions.
+- Prevent duplicate navigation when multiple bundled copies of core handle the same interaction.
+- Export `validateFastNavigationDecision` to check policy results without navigating.
 
 ## 0.0.2
 

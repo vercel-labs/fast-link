@@ -1,8 +1,9 @@
 # ▲ Fast Link
 
-Fast Link starts work for eligible same-origin links when you press the mouse.
-Navigation waits for accepted click. Next.js `FastLink` preserves click guards;
-regions and custom hooks accept during click capture.
+Fast Link prepares eligible same-origin navigation on mouse press and waits for
+a click before navigating. With Next.js, use `FastLink` when click handlers must
+be able to cancel navigation. Regions and custom hooks navigate before later
+child click handlers.
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages; it starts work earlier.
@@ -21,7 +22,7 @@ Keep ordinary click behavior for:
 - Links that open or toggle UI, such as a modal, menu, or tab.
 - Downloads and links that require native URL dragging.
 
-Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
+Use `enabled={false}` or `data-no-fast-link` to keep normal link behavior.
 
 See [Known limitations](#known-limitations) for press timing and accessibility details.
 
@@ -146,21 +147,14 @@ version and changelog.
 
 ## Performance benchmarks
 
-The historical measurements cover navigation on press, which has been removed.
-They do not measure the current preparation path.
-The historical benchmark configured an **85 ms mouse hold** for every variant;
-that setting is not a typical-user gain or evidence of faster JavaScript execution.
-
-See [How we benchmark](docs/benchmarks.md) for the manual procedure and measurement
-limits. The [historical raw report](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
-records source revision `fe6fd78dfb572725fccd5b37f555f61b536dda95`, measured on one
-Apple M4 Pro running macOS in five alternating batches. These controlled lab
-measurements do not establish typical-user gains. Read the samples, ranges,
-conditions, and environment in the report before using it to support a claim.
+Published benchmark results cover the removed press-navigation implementation.
+They do not measure the current implementation. See
+[Performance benchmarks](docs/benchmarks.md) for measurement instructions,
+historical results, and their limits.
 
 ## Known limitations
 
-- Next.js `useLinkStatus().pending` does not update during early navigation.
+- Next.js `useLinkStatus().pending` does not update during Fast Link navigation.
 - Use route-level loading UI or [manage pending state in your app](./packages/next/README.md#pending-state).
 
 All integrations wait for an accepted click. Discarding preparation does not

@@ -1,8 +1,9 @@
 # ▲ @fast-link/next
 
 `FastLink`, `FastLinkRegion`, and `useFastLink` prepare eligible mouse navigation
-on press and navigate only at accepted click. `FastLink` accepts after Next Link's
-guards; regions and custom hooks accept during click capture.
+on press and wait for a click before navigating. `FastLink` runs your `onClick`
+and `onNavigate` handlers before navigating. Regions and custom hooks navigate
+during click capture, before later child click handlers.
 
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
@@ -157,12 +158,16 @@ export function AccountLink() {
 - API routes or another application's pages: choose an explicit routing policy
   or opt out. See [application boundaries](#route-links-across-application-boundaries).
 
-For all three integrations, press classifies ownership and prepares router-owned routes
-without changing URL, history, or route UI. `FastLink` click runs caller `onClick`, Next's
-native checks, and caller `onNavigate`, then rechecks current policy/options and
-consumes matching preparation once. A changed destination or router discards
-handle reuse. Current policy, history, scroll, and transition options apply at
-click; callback identity alone does not invalidate preparation.
+When preparation is available, Fast Link checks the navigation policy on mouse
+press. If it chooses App Router navigation, Fast Link prepares the destination
+without changing the URL, history, or page content.
+
+On click, `FastLink` runs your `onClick`, Next Link's checks, and your `onNavigate`.
+Either callback can cancel navigation.
+
+Navigation uses the latest policy, history, scroll, and transition options.
+Fast Link reuses preparation only when the router and destination still match.
+Changing a callback alone does not discard preparation.
 
 | Condition                                                  | Navigation                                                                                                     |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -186,7 +191,7 @@ Native behavior remains for:
   and `data-no-fast-link` opt-outs.
 
 See core's [eligibility rules](https://github.com/vercel-labs/fast-link/tree/main/packages/core#know-which-interactions-fast-link-accepts).
-Use `enabled={false}` to disable a component's early navigation.
+Use `enabled={false}` to keep normal link behavior.
 
 Other integration rules:
 
@@ -263,12 +268,17 @@ guards. Read current metadata on each call. Move analytics, state updates, and
 other effects to `onNavigate` or `onFastNavigate`. The latter runs once per
 accepted navigation attempt.
 
-A preparation-time error cannot navigate. At accepted navigation, a throwing
-policy or invalid decision attempts document assign to the captured
-URL, then surfaces the policy error. Extra decision properties are ignored.
-Observer errors still permit navigation. Router errors surface without a document
-fallback. If navigation also throws after a policy or observer error, the
-navigation error takes precedence.
+### Failure behavior
+
+| Failure                                                                    | Behavior                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Preparation throws                                                         | Navigation still waits for the click.                                    |
+| `navigationPolicy` throws or returns an invalid decision during navigation | Attempt `location.assign()` with the captured URL, then throw the error. |
+| `onFastNavigate` throws                                                    | Still attempt navigation, then throw the error.                          |
+| Router navigation throws                                                   | Throw the error without retrying through document navigation.            |
+
+If navigation also throws, its error takes precedence. Extra decision properties
+are ignored.
 
 ## Build a custom renderer
 
@@ -338,13 +348,13 @@ preparation-time classification may already have run.
 
 ### `FastLinkRegion`
 
-| Prop               | Type                         | Default  | Behavior                                                   |
-| ------------------ | ---------------------------- | -------- | ---------------------------------------------------------- |
-| `children`         | `ReactNode`                  | Required | Supplies the existing link subtree                         |
-| `basePath`         | `string`                     | `''`     | Removes one matching prefix before `router.push`           |
-| `enabled`          | `boolean`                    | `true`   | Controls early navigation for ordinary links in the region |
-| `navigationPolicy` | `FastNavigationPolicy`       | None     | Selects App Router or document navigation                  |
-| `onFastNavigate`   | `(intent, decision) => void` | None     | Observes the selected decision before navigation           |
+| Prop               | Type                         | Default  | Behavior                                                    |
+| ------------------ | ---------------------------- | -------- | ----------------------------------------------------------- |
+| `children`         | `ReactNode`                  | Required | Supplies the existing link subtree                          |
+| `basePath`         | `string`                     | `''`     | Removes one matching prefix before `router.push`            |
+| `enabled`          | `boolean`                    | `true`   | Enables Fast Link behavior for ordinary links in the region |
+| `navigationPolicy` | `FastNavigationPolicy`       | None     | Selects App Router or document navigation                   |
+| `onFastNavigate`   | `(intent, decision) => void` | None     | Observes the selected decision before navigation            |
 
 Nested regions retain outer-first capture ordering. A managed `FastLink` or
 `useFastLink` anchor owns its press before every containing region.

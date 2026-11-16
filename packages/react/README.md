@@ -75,10 +75,11 @@ for eligibility, matching, cancellation, and preparation errors.
 
 ## Understand the hook lifecycle
 
-- Attaching the ref creates the controller. Reattaching to the same DOM element
-  within a commit preserves its gesture. Root replacement and component unmount
-  destroy the controller; a detached ref with no replacement is cleared after
-  the commit. Matching and consumption reject a root that remains detached.
+- Attaching the ref creates a controller.
+- Reattaching the same DOM element within one React commit preserves preparation.
+- While the ref is detached, clicks cannot use its preparation.
+- Replacing the element or unmounting destroys the controller. If the ref stays
+  detached, cleanup runs after the commit.
 - Committed options replace the controller's copied options. Valid preparation
   survives updates; disabling discards the gesture.
 - Caller-ref replacement runs the old cleanup before assigning the new ref.

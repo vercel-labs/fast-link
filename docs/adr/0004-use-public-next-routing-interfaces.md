@@ -10,11 +10,13 @@ commits after caller `onClick`, Next's native checks, and caller `onNavigate`.
 The supported experimental runtime and flag are in the package requirements.
 Without preparation it routes at accepted click. Failed commits are not retried.
 
-One synchronous, side-effect-free navigation policy supplies both early
-ownership classification and the accepted-click decision. This requires a
-consumer purity migration, but keeps one authoritative ownership rule. Effects
-belong in navigation callbacks. Guards can commit new props synchronously, so
-acceptance reads current committed configuration before reusing a handle.
+The same navigation policy runs during preparation and again before navigation.
+It must return synchronously without side effects. Existing policies must move
+side effects, such as analytics and state updates, into navigation callbacks.
+This keeps one routing rule for preparation and navigation.
+
+Click handlers can update props synchronously. The adapter reads the committed
+options after those handlers run, before deciding whether to reuse preparation.
 
 The Next `useFastLink` hook and `FastLinkRegion` prepare on press and accept
 navigation during click capture. `FastLink` owns Next guard composition; capture

@@ -11,11 +11,11 @@ export type FastRouterProposal = Readonly<{
 }>;
 
 /**
- * Classifies navigation synchronously without side effects.
+ * Chooses App Router or document navigation synchronously without side effects.
  *
- * - All Next integrations call it on eligible press when preparation is available and again after
- *   accepted-click guards. Reads current inputs each time; cancellation can
- *   leave only the press-time call. Keep effects in navigation callbacks.
+ * - When preparation is available, called on eligible mouse press and again
+ *   before navigation. A canceled click skips the second call.
+ * - Read current routing data each time. Place side effects in navigation callbacks.
  * - The application determines whether its router owns the destination.
  * - Use document navigation when ownership is foreign or unknown.
  * - Router decisions can override only the proposed scroll behavior.
@@ -29,7 +29,7 @@ export type FastNavigationPolicy = (
 export type NavigationOptions = {
   /** Set `false` to leave new gestures to normal navigation. Defaults to `true`. */
   enabled?: boolean;
-  /** Pure, repeatable classification for preparation and accepted navigation. */
+  /** Chooses router or document navigation. May run on press and click; must have no side effects. */
   navigationPolicy?: FastNavigationPolicy;
   /** Observes the decision before navigation. Navigation still runs if it throws. */
   onFastNavigate?: (
