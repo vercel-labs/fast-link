@@ -113,7 +113,8 @@ Fast Link accepts unmodified primary-mouse `pointerdown` on eligible same-origin
 - Also native: downloads, external or hash-only URLs, non-`_self` targets,
   nested controls, and `data-no-fast-link` opt-outs.
 - All integrations wait for accepted click and discard preparation on release
-  away. Preparation requires the [supported experimental Next runtime](./packages/next/README.md#requirements).
+  away. Preparation through `@fast-link/next` requires the
+  [supported experimental Next runtime](./packages/next/README.md#requirements).
 - Accepted clicks are default-prevented while continuing to propagate.
 
 See core's [eligibility rules](./packages/core/README.md#know-which-interactions-fast-link-accepts).

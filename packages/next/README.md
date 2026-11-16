@@ -18,10 +18,10 @@ See the [runtime limitations](https://github.com/vercel-labs/fast-link#known-lim
 ## Requirements
 
 Supports Node.js 22 or later, with stable Next.js 16, the exact prerelease
-`16.5.0-canary.37`, and React 19 (`>=19 <20`).
+`16.5.0-canary.42`, and React 19 (`>=19 <20`).
 Requires the Next.js App Router.
 
-Early preparation requires Next `16.5.0-canary.37` with
+Early preparation requires Next `16.5.0-canary.42` with
 `experimental: { prepareNavigation: true }` in `next.config`. It uses the
 public optional `router.experimental_prepare` API. Without that API, or if
 preparation throws, all three integrations execute the normal router/document decision

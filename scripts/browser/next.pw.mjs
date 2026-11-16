@@ -111,6 +111,59 @@ const scenarios = [
       }
     },
   ]),
+  ...['fast', 'region-fast'].map((testId) => [
+    `${testId}: reuses completed static preparation after release`,
+    async (page) => {
+      test.skip(
+        process.env.FAST_LINK_EXPECT_PREPARATION === 'false',
+        'The minimum supported Next version has no preparation API',
+      );
+      let requests = 0;
+      page.on('request', (request) => {
+        if (new URL(request.url()).pathname === '/docs/fast') requests++;
+      });
+      const before = await page.evaluate(() => ({
+        timeOrigin: performance.timeOrigin,
+        history: history.length,
+      }));
+      const completed = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/docs/fast',
+      );
+      completed.catch(() => undefined);
+      await pressAndHold(page, testId);
+      const response = await completed;
+      assert.equal(response.status(), 200);
+      await response.finished();
+      await page.waitForFunction(() =>
+        performance
+          .getEntriesByType('resource')
+          .some(
+            (entry) =>
+              new URL(entry.name).pathname === '/docs/fast' &&
+              entry.responseEnd > 0,
+          ),
+      );
+      assert.equal(requests, 1);
+      assert.equal(new URL(page.url()).pathname, '/docs');
+      await expect(
+        page.getByRole('heading', { name: 'Home', exact: true }),
+      ).toBeVisible();
+
+      await page.mouse.up();
+      await page.waitForURL(/\/docs\/fast\?from=(home|region)#destination$/);
+      await expect(
+        page.getByRole('heading', { name: 'Fast destination' }),
+      ).toBeVisible();
+      assert.equal(requests, 1, 'commit must reuse completed static work');
+      assert.deepEqual(
+        await page.evaluate(() => ({
+          timeOrigin: performance.timeOrigin,
+          history: history.length,
+        })),
+        { timeOrigin: before.timeOrigin, history: before.history + 1 },
+      );
+    },
+  ]),
   [
     'managed release away discards completed preparation',
     async (page) => {

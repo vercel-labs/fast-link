@@ -196,6 +196,105 @@ it.each([{ detail: 0 }, { metaKey: true }, { button: 1 }])(
   },
 );
 
+it.each([
+  { pointerType: 'mouse', pointerId: 7, matches: true },
+  { pointerType: 'mouse', pointerId: 8, matches: false },
+  { pointerType: 'touch', pointerId: 7, matches: false },
+  { pointerType: 'pen', pointerId: 7, matches: false },
+])('matches only the prepared mouse pointer: %o', (pointer) => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => 'request');
+  const controller = createClickPreparation(anchor, { prepare });
+  try {
+    const down = new MouseEvent('pointerdown', { bubbles: true });
+    Object.defineProperties(down, {
+      pointerType: { value: 'mouse' },
+      pointerId: { value: 7 },
+    });
+    anchor.dispatchEvent(down);
+    expect(prepare).toHaveBeenCalledTimes(1);
+
+    const event = click(anchor);
+    Object.defineProperties(event, {
+      pointerType: { value: pointer.pointerType },
+      pointerId: { value: pointer.pointerId },
+    });
+    const candidate = controller.matchClick(event);
+    if (pointer.matches) {
+      expect(candidate?.consume()?.prepared).toBe('request');
+    } else {
+      expect(candidate).toBeNull();
+    }
+    expect(event.defaultPrevented).toBe(false);
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
+it.each(['consume', 'cancel', 'destroy'] as const)(
+  'releases gesture listeners and the release timer after %s',
+  (finish) => {
+    vi.useFakeTimers();
+    const host = document.body.appendChild(document.createElement('div'));
+    const shadow = host.attachShadow({ mode: 'closed' });
+    const anchor = shadow.appendChild(document.createElement('a'));
+    anchor.href = '/guide';
+    const rootSubscription = {
+      add: vi.spyOn(anchor, 'addEventListener'),
+      remove: vi.spyOn(anchor, 'removeEventListener'),
+    };
+    const gestureSubscriptions = [document, window, shadow].map((target) => ({
+      add: vi.spyOn(target, 'addEventListener'),
+      remove: vi.spyOn(target, 'removeEventListener'),
+    }));
+    const subscriptions = [rootSubscription, ...gestureSubscriptions];
+    const controller = createClickPreparation(anchor, {
+      prepare: () => 'request',
+    });
+    try {
+      press(anchor);
+      anchor.dispatchEvent(
+        new MouseEvent('pointerup', { bubbles: true, composed: true }),
+      );
+      expect(vi.getTimerCount()).toBe(1);
+      for (const { remove } of subscriptions) remove.mockClear();
+
+      if (finish === 'consume') {
+        expect(controller.matchClick(click(anchor))?.consume()?.prepared).toBe(
+          'request',
+        );
+      } else if (finish === 'cancel') {
+        document.dispatchEvent(new Event('pointercancel'));
+      } else {
+        controller.destroy();
+      }
+
+      expect(vi.getTimerCount()).toBe(0);
+      // Gesture subscriptions end before a reusable controller is destroyed.
+      for (const { add, remove } of gestureSubscriptions) {
+        expect(add).toHaveBeenCalled();
+        for (const registration of add.mock.calls) {
+          expect(remove).toHaveBeenCalledWith(...registration);
+        }
+      }
+      controller.destroy();
+      for (const registration of rootSubscription.add.mock.calls) {
+        expect(rootSubscription.remove).toHaveBeenCalledWith(...registration);
+      }
+    } finally {
+      controller.destroy();
+      for (const { add, remove } of subscriptions) {
+        add.mockRestore();
+        remove.mockRestore();
+      }
+      host.remove();
+      vi.useRealTimers();
+    }
+  },
+);
+
 it.each(['before-match', 'after-match'] as const)(
   'defers to managed ownership acquired %s',
   (phase) => {
