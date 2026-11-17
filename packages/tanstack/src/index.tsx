@@ -1,6 +1,10 @@
 'use client';
 
-import type { FastLinkIntent } from '@fast-link/core';
+import {
+  runFastNavigation,
+  type FastLinkIntent,
+  type FastNavigationDecision,
+} from '@fast-link/core';
 import { useFastLink as useReactFastLink } from '@fast-link/react';
 import {
   useLinkProps,
@@ -13,10 +17,52 @@ import {
 import { useCallback, type ComponentPropsWithRef } from 'react';
 import type { ForwardedRef, MouseEventHandler, ReactNode, JSX } from 'react';
 
-/** Controls early navigation. Click-time guards should use `enabled={false}`. */
+/**
+ * Describes the TanStack navigation before policy. Mutations do not change its
+ * destination or history method.
+ */
+export type FastRouterProposal = Readonly<{
+  /**
+   * URL the router would commit, including the basepath. It differs from the
+   * press URL when the router does not own the destination.
+   */
+  destination: string;
+  method: 'push' | 'replace';
+  /** TanStack `resetScroll`; a router decision's `scroll` overrides it. */
+  scroll?: boolean;
+  /**
+   * Whether the router serves the destination. Region links outside the
+   * basepath, without a matching route, or matching a server-only route are
+   * not owned. Typed links are always owned.
+   */
+  owned: boolean;
+}>;
+
+/**
+ * Selects navigation synchronously for an accepted press.
+ *
+ * - Use document navigation when ownership is foreign or unknown.
+ * - Router decisions can override only the proposed scroll behavior.
+ */
+export type FastNavigationPolicy = (
+  intent: FastLinkIntent,
+  proposed: FastRouterProposal,
+) => FastNavigationDecision;
+
+/** Navigation controls shared by TanStack links, hooks and regions. */
 export type FastNavigationOptions = {
+  /** Set `false` to disable early navigation. Use it for click-time guards. */
   enabled?: boolean;
-  onFastNavigate?: (intent: FastLinkIntent) => void;
+  /**
+   * Selects navigation for an eligible press. Omit to route owned destinations
+   * through TanStack Router and load other URLs as documents.
+   */
+  navigationPolicy?: FastNavigationPolicy;
+  /** Observes the decision before navigation. Navigation still runs if it throws. */
+  onFastNavigate?: (
+    intent: FastLinkIntent,
+    decision: FastNavigationDecision,
+  ) => void;
 };
 
 /** TanStack Link props, including typed destinations, params, search and masks. */
@@ -48,6 +94,7 @@ export function FastLink<
     useLinkProps({ ...props, children: undefined }, forwardElement);
   const {
     enabled: _enabled,
+    navigationPolicy: _policy,
     onFastNavigate: _observe,
     ...anchorProps
   } = rendered;
@@ -81,6 +128,25 @@ export type UseFastLinkOptions<
     onClickCapture?: MouseEventHandler<HTMLAnchorElement>;
   };
 
+// Keys TanStack Link forwards to `router.navigate()` on click.
+const NAVIGATE_OPTION_KEYS = [
+  'to',
+  'from',
+  'params',
+  'search',
+  'hash',
+  'state',
+  'mask',
+  'href',
+  'unsafeRelative',
+  'replace',
+  'resetScroll',
+  'hashScrollIntoView',
+  'viewTransition',
+  'startTransition',
+  'ignoreBlocker',
+] as const;
+
 /** Spread both bindings onto the TanStack Link anchor after other props. */
 export function useFastLink<
   TRouter extends AnyRouter = RegisteredRouter,
@@ -92,14 +158,36 @@ export function useFastLink<
   options: UseFastLinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
 ): ReturnType<typeof useReactFastLink<HTMLAnchorElement>> {
   const router = useRouter();
+  const { navigationPolicy, onFastNavigate } = options;
   return useReactFastLink<HTMLAnchorElement>({
     enabled:
       options.enabled !== false && !options.disabled && !options.reloadDocument,
     forwardedRef: options.forwardedRef ?? options.ref,
     onClickCapture: options.onClickCapture,
-    onFastNavigate: options.onFastNavigate,
-    navigate: () => {
-      router.navigate(options);
+    navigate: (intent) => {
+      const navigation: Record<string, unknown> = {};
+      for (const key of NAVIGATE_OPTION_KEYS) {
+        if (options[key] !== undefined) navigation[key] = options[key];
+      }
+      const proposed: FastRouterProposal = {
+        destination: router.buildLocation(navigation as BuildOptions).href,
+        method: options.replace ? 'replace' : 'push',
+        scroll: options.resetScroll,
+        owned: true,
+      };
+      runFastNavigation(intent, {
+        defaultRouterDecision: { kind: 'router' },
+        policy: navigationPolicy
+          ? () => navigationPolicy(intent, proposed)
+          : undefined,
+        observe: (decision) => onFastNavigate?.(intent, decision),
+        route: (decision) => {
+          router.navigate({
+            ...navigation,
+            resetScroll: decision.scroll ?? options.resetScroll,
+          });
+        },
+      });
     },
   });
 }
@@ -111,10 +199,16 @@ export type FastLinkRegionProps = FastNavigationOptions & {
   resetScroll?: boolean;
 };
 
-/** Applies one navigation policy to ordinary same-origin anchors. */
+/**
+ * Applies one navigation policy to ordinary same-origin anchors.
+ *
+ * - Without a policy, routes owned destinations and loads others as documents.
+ * - Links with their own controllers keep their options, even when disabled.
+ */
 export function FastLinkRegion({
   children,
   enabled,
+  navigationPolicy,
   onFastNavigate,
   replace,
   resetScroll,
@@ -122,12 +216,32 @@ export function FastLinkRegion({
   const router = useRouter();
   const attach = useReactFastLink<HTMLDivElement>({
     enabled,
-    onFastNavigate,
     navigate: (intent) => {
-      router.navigate({
-        href: intent.url.pathname + intent.url.search + intent.url.hash,
-        replace,
-        resetScroll,
+      const href = intent.url.pathname + intent.url.search + intent.url.hash;
+      // `router.navigate({ href })` builds through this untyped `href` path.
+      const location = router.buildLocation({ href } as BuildOptions);
+      const proposed: FastRouterProposal = {
+        destination: location.href,
+        method: replace ? 'replace' : 'push',
+        scroll: resetScroll,
+        owned: isOwned(router, intent.url, location),
+      };
+      const method = replace ? 'replace' : 'assign';
+      runFastNavigation(intent, {
+        defaultRouterDecision: { kind: 'router' },
+        policy: navigationPolicy
+          ? () => navigationPolicy(intent, proposed)
+          : proposed.owned
+            ? undefined
+            : () => ({ kind: 'document', method }),
+        observe: (decision) => onFastNavigate?.(intent, decision),
+        route: (decision) => {
+          router.navigate({
+            href,
+            replace,
+            resetScroll: decision.scroll ?? resetScroll,
+          });
+        },
       });
     },
   });
@@ -138,4 +252,41 @@ export function FastLinkRegion({
   );
 }
 
-export type { FastLinkIntent } from '@fast-link/core';
+type BuildOptions = Parameters<AnyRouter['buildLocation']>[0];
+
+type BuiltLocation = { pathname: string; publicHref: string };
+
+/**
+ * Checks that the router maps the URL back to itself and matches a route that
+ * renders. Input rewrites leave foreign paths unchanged, so the output rewrite
+ * moves them, for example under the basepath.
+ */
+function isOwned(
+  router: AnyRouter,
+  url: URL,
+  location: BuiltLocation,
+): boolean {
+  const publicPath = new URL(location.publicHref, url).pathname;
+  if (normalizePath(publicPath) !== normalizePath(url.pathname)) return false;
+  const [, , route] = router.getMatchedRoutes(location.pathname);
+  if (!route) return false;
+  // TanStack Start server routes without a component are not router pages.
+  return !('server' in route.options && !route.options.component);
+}
+
+function normalizePath(pathname: string): string {
+  let path = pathname;
+  try {
+    path = decodeURI(pathname);
+  } catch {
+    // Keep malformed escapes as written.
+  }
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
+
+export type {
+  FastLinkIntent,
+  FastNavigationDecision,
+  FastRouterDecision,
+  FastDocumentDecision,
+} from '@fast-link/core';

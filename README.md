@@ -1,4 +1,4 @@
-# ▲ Fast Link — TanStack fork
+# ▲ Fast Link
 
 Fast Link helps your application feel faster by starting eligible same-origin
 link navigation when you press the mouse, instead of waiting for release. Your
@@ -6,19 +6,6 @@ application gets the press-to-release interval to start loading the next page.
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages; it starts navigation earlier.
-
-This fork adds [`@fast-link/tanstack`](./packages/tanstack/) for TanStack Router
-and TanStack Start. It includes typed `FastLink`, `FastLinkRegion`, and
-`useFastLink`, a production browser fixture, and package consumer checks.
-The TanStack package is not published to npm yet; see its README for local use.
-
-```tsx
-import { FastLink } from '@fast-link/tanstack';
-
-<FastLink to="/posts/$postId" params={{ postId: '42' }}>
-  Read post
-</FastLink>;
-```
 
 ## When to use Fast Link
 

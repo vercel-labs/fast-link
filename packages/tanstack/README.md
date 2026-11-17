@@ -4,11 +4,9 @@ Early primary-mouse navigation for **TanStack Router** and **TanStack Start**.
 Reuses Fast Link's core interaction rules and React lifecycle; TanStack owns
 routing, preloading, active links, blockers, history, and scroll options.
 
-This package is implemented in [viktorlarsson/fast-link](https://github.com/viktorlarsson/fast-link).
-It is not published to npm yet. Build the workspace with `pnpm install && pnpm build`,
-then use the packed archives for core, React, and TanStack (see the repository's
-packaging commands). Installing this monorepo directly as an npm Git dependency
-does not install this subpackage.
+```sh
+pnpm add @fast-link/tanstack
+```
 
 Requires Node.js >=22, React >=19 <20 and `@tanstack/react-router` >=1.170.46 <2.
 TanStack Start applications use the same adapter through their Router provider.
@@ -70,13 +68,37 @@ import { FastLink, FastLinkRegion } from '@fast-link/tanstack';
 A region routes ordinary same-origin anchors with `router.navigate({ href })`,
 using the rendered public URL, including the router base path. Managed `FastLink`
 anchors retain their own options, even when disabled. Regions can specify
-`replace`, `resetScroll`, `enabled`, and `onFastNavigate` for ordinary anchors.
+`replace`, `resetScroll`, `enabled`, `navigationPolicy` and `onFastNavigate` for
+ordinary anchors.
+
+Without a policy, a region loads a URL as a document when the router does not
+own it: the path is outside the base path, matches no route, or matches a
+TanStack Start server route without a component. Owned URLs use the router.
 
 A region cannot recover `state`, masks, blockers bypass, or other TanStack Link
 props from an ordinary anchor. Use `FastLink` for those options. Keep regions
-narrow and add `data-no-fast-link` to click-time guards, document-reload links,
-API endpoints, or pages owned by another application. Same origin does not
-establish router ownership.
+narrow and add `data-no-fast-link` to click-time guards and document-reload
+links.
+
+## Navigation policy
+
+`FastLink`, `FastLinkRegion` and `useFastLink` accept a synchronous
+`navigationPolicy`. It receives the press intent and a proposal with the router
+`destination`, history `method`, proposed `scroll` (TanStack `resetScroll`) and
+whether the router `owned` the URL. Typed links are always owned.
+
+```tsx
+import type { FastNavigationPolicy } from '@fast-link/tanstack';
+
+const policy: FastNavigationPolicy = (intent, proposed) =>
+  proposed.owned && !intent.url.pathname.startsWith('/legacy/')
+    ? { kind: 'router' }
+    : { kind: 'document', method: 'assign' };
+```
+
+Return `{ kind: 'router', scroll }` to override only scroll reset. A policy
+cannot change the destination. `onFastNavigate(intent, decision)` observes the
+chosen decision before navigation, as in `@fast-link/next`.
 
 ## Custom renderers
 

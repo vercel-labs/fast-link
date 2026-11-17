@@ -1,1 +1,1 @@
-["packages/core", "packages/react", "packages/next"]
+["packages/core", "packages/react", "packages/next", "packages/tanstack"]

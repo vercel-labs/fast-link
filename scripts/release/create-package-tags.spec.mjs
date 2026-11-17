@@ -118,6 +118,7 @@ describe('GitHub package tags', () => {
     expect([...state.tags.keys()]).toEqual([
       'refs/tags/@fast-link/react@1.2.3',
       'refs/tags/@fast-link/next@1.2.3',
+      'refs/tags/@fast-link/tanstack@1.2.3',
     ]);
     fail = false;
     state.writes.length = 0;

@@ -16,7 +16,12 @@ import {
 } from '@testing-library/react';
 import { createRef, useState, type ReactNode } from 'react';
 
-import { FastLink, FastLinkRegion, useFastLink } from './index';
+import {
+  FastLink,
+  FastLinkRegion,
+  useFastLink,
+  type FastNavigationPolicy,
+} from './index';
 
 // Core owns the input eligibility matrix; these tests exercise actual Router wiring.
 function press(anchor: Element, pointerType = 'mouse') {
@@ -49,9 +54,12 @@ async function mount(children: ReactNode, basepath = '/') {
     validateSearch: (search: Record<string, string>) => ({ q: search.q ?? '' }),
     component: () => <p>Post page</p>,
   });
+  // A TanStack Start server route: request handlers and no component.
+  const api = createRoute({ getParentRoute: () => root, path: '/api/export' });
+  Object.assign(api.options, { server: { handlers: {} } });
   const history = createMemoryHistory({ initialEntries: [basepath] });
   const router = createRouter({
-    routeTree: root.addChildren([index, destination]),
+    routeTree: root.addChildren([index, destination, api]),
     history,
     basepath,
   });
@@ -64,6 +72,27 @@ async function mount(children: ReactNode, basepath = '/') {
 beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
+
+// jsdom cannot navigate documents, so capture the source window's location.
+function captureDocumentNavigation(anchor: Element) {
+  const assign = vi.fn();
+  const replace = vi.fn();
+  const view = new Proxy(window, {
+    get: (target, key) =>
+      key === 'location'
+        ? { origin: target.location.origin, assign, replace }
+        : Reflect.get(target, key),
+  });
+  const owner = new Proxy(document, {
+    get(target, key) {
+      if (key === 'defaultView') return view;
+      const value: unknown = Reflect.get(target, key);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  Object.defineProperty(anchor, 'ownerDocument', { value: owner });
+  return { assign, replace };
+}
 
 afterEach(() => {
   cleanup();
@@ -93,7 +122,15 @@ it('navigates before release and suppresses the matching click without stopping 
     expect(view.router.state.location.pathname).toBe('/posts/42'),
   );
   expect(view.router.state.location.search).toEqual({ q: 'hello world' });
-  expect(observe).toHaveBeenCalledTimes(1);
+  expect(observe).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
+    kind: 'router',
+  });
+  // Only routing options reach the router, not anchor props or Fast Link options.
+  expect(view.navigate).toHaveBeenCalledWith({
+    to: '/posts/$postId',
+    params: { postId: '42' },
+    search: { q: 'hello world' },
+  });
   expect(fireEvent.click(anchor, { detail: 1, button: 0 })).toBe(false);
   expect(view.navigate).toHaveBeenCalledTimes(1);
   expect(capture.mock.calls[0]?.[0].defaultPrevented).toBe(true);
@@ -295,4 +332,111 @@ it('uses committed destination updates without losing the pending click', async 
     expect(view.router.state.location.pathname).toBe('/posts/second'),
   );
   expect(view.navigate).toHaveBeenCalledTimes(2);
+});
+
+it('loads region links the router does not own as documents', async () => {
+  const observe = vi.fn();
+  const view = await mount(
+    <FastLinkRegion onFastNavigate={observe}>
+      <a href="/other/page">Outside</a>
+      <a href="/app/missing">Missing</a>
+      <a href="/app/api/export">Server</a>
+      <a href="/app/posts/owned">Owned</a>
+    </FastLinkRegion>,
+    '/app',
+  );
+  const origin = window.location.origin;
+  for (const [name, path] of [
+    ['Outside', '/other/page'],
+    ['Missing', '/app/missing'],
+    ['Server', '/app/api/export'],
+  ] as const) {
+    const anchor = view.getByText(name);
+    const { assign } = captureDocumentNavigation(anchor);
+    press(anchor);
+    expect(assign).toHaveBeenCalledExactlyOnceWith(`${origin}${path}`);
+  }
+  expect(view.navigate).not.toHaveBeenCalled();
+  press(view.getByText('Owned'));
+  await waitFor(() =>
+    expect(view.router.state.location.pathname).toBe('/posts/owned'),
+  );
+  expect(observe.mock.calls.map(([, decision]) => decision)).toEqual([
+    { kind: 'document', method: 'assign' },
+    { kind: 'document', method: 'assign' },
+    { kind: 'document', method: 'assign' },
+    { kind: 'router' },
+  ]);
+});
+
+it('runs navigation policies with TanStack proposals', async () => {
+  const proposals: unknown[] = [];
+  const policy: FastNavigationPolicy = (_intent, proposed) => {
+    proposals.push(proposed);
+    return proposed.owned
+      ? { kind: 'router', scroll: false }
+      : { kind: 'document', method: 'replace' };
+  };
+  const view = await mount(
+    <>
+      <FastLinkRegion navigationPolicy={policy} replace>
+        <a href="/other">Outside</a>
+        <a href="/app/posts/region?q=a">Region</a>
+      </FastLinkRegion>
+      <FastLink
+        to="/posts/$postId"
+        params={{ postId: 'typed' }}
+        search={{ q: 'b' }}
+        navigationPolicy={policy}
+      >
+        Typed
+      </FastLink>
+    </>,
+    '/app',
+  );
+  const outside = view.getByText('Outside');
+  const { replace } = captureDocumentNavigation(outside);
+  press(outside);
+  expect(replace).toHaveBeenCalledExactlyOnceWith(
+    `${window.location.origin}/other`,
+  );
+  press(view.getByText('Region'));
+  await waitFor(() =>
+    expect(view.router.state.location.pathname).toBe('/posts/region'),
+  );
+  expect(view.navigate).toHaveBeenLastCalledWith({
+    href: '/app/posts/region?q=a',
+    replace: true,
+    resetScroll: false,
+  });
+  press(view.getByText('Typed'));
+  await waitFor(() =>
+    expect(view.router.state.location.pathname).toBe('/posts/typed'),
+  );
+  expect(view.navigate).toHaveBeenLastCalledWith({
+    to: '/posts/$postId',
+    params: { postId: 'typed' },
+    search: { q: 'b' },
+    resetScroll: false,
+  });
+  expect(proposals).toEqual([
+    {
+      destination: '/app/other',
+      method: 'replace',
+      scroll: undefined,
+      owned: false,
+    },
+    {
+      destination: '/app/posts/region?q=a',
+      method: 'replace',
+      scroll: undefined,
+      owned: true,
+    },
+    {
+      destination: '/app/posts/typed?q=b',
+      method: 'push',
+      scroll: undefined,
+      owned: true,
+    },
+  ]);
 });

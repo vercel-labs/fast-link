@@ -91,7 +91,7 @@ describe('ordered publishing', () => {
     const events = [];
     const commands = [];
     const execute = recordingExecutor(events, { commands });
-    const archiveBytes = ['core', 'react', 'next'].map((name) =>
+    const archiveBytes = ['core', 'react', 'next', 'tanstack'].map((name) =>
       readFileSync(join(root, `${name}.tgz`)),
     );
     const publishedBytes = [];
@@ -114,6 +114,7 @@ describe('ordered publishing', () => {
       '@fast-link/core@1.2.3',
       '@fast-link/react@1.2.3',
       '@fast-link/next@1.2.3',
+      '@fast-link/tanstack@1.2.3',
     ]);
     expect(events).toEqual([
       'verify:core.tgz',
@@ -123,15 +124,18 @@ describe('ordered publishing', () => {
       'recheck:@fast-link/core',
       'recheck:@fast-link/react',
       'recheck:@fast-link/next',
+      'recheck:@fast-link/tanstack',
       'recheck:@fast-link/core',
       'publish:core.tgz',
       'recheck:@fast-link/react',
       'publish:react.tgz',
       'recheck:@fast-link/next',
       'publish:next.tgz',
+      'recheck:@fast-link/tanstack',
+      'publish:tanstack.tgz',
     ]);
     expect(commands.filter(({ command }) => command === 'npm')).toEqual(
-      ['core', 'react', 'next'].map((name) => ({
+      ['core', 'react', 'next', 'tanstack'].map((name) => ({
         command: 'npm',
         args: [
           'publish',
@@ -147,7 +151,7 @@ describe('ordered publishing', () => {
     );
     expect(publishedBytes).toEqual(archiveBytes);
     expect(
-      ['core', 'react', 'next'].map((name) =>
+      ['core', 'react', 'next', 'tanstack'].map((name) =>
         readFileSync(join(root, `${name}.tgz`)),
       ),
     ).toEqual(archiveBytes);
@@ -208,12 +212,13 @@ describe('ordered publishing', () => {
     expect(publishPackageReleases(packages, options)).toEqual([
       '@fast-link/react@1.2.3',
       '@fast-link/next@1.2.3',
+      '@fast-link/tanstack@1.2.3',
     ]);
     createPackageTags(packages, state.options);
     expect(events.filter((event) => event === 'publish:core.tgz')).toHaveLength(
       1,
     );
-    expect(state.tags.size).toBe(3);
+    expect(state.tags.size).toBe(4);
   });
 
   it.each([

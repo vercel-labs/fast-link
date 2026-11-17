@@ -86,6 +86,7 @@ describe('publishable packages', () => {
       'packages/core',
       'packages/react',
       'packages/next',
+      'packages/tanstack',
     ]);
   });
 

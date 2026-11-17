@@ -27,7 +27,7 @@ describe('package release intent', () => {
       );
 
       expect(() => checkPackageVersions({ base, root })).toThrow(
-        ['core', 'react', 'next']
+        ['core', 'react', 'next', 'tanstack']
           .map(
             (name) =>
               `@fast-link/${name} changed without a version bump (still 1.2.3).`,

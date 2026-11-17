@@ -2,10 +2,10 @@
   "name": "@fast-link/tanstack",
   "version": "0.0.1",
   "description": "Early mouse navigation for TanStack Router and TanStack Start",
-  "author": "Viktor Sarström",
+  "author": "Vercel",
   "license": "MIT",
   "repository": {
-    "url": "git+https://github.com/viktorlarsson/fast-link.git",
+    "url": "git+https://github.com/vercel-labs/fast-link.git",
     "directory": "packages/tanstack"
   },
   "publishConfig": {

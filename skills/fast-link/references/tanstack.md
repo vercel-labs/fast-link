@@ -10,13 +10,14 @@ options and spread both returned bindings after other anchor props.
 
 `FastLinkRegion` routes ordinary anchors using their rendered public URL. It
 cannot infer per-link TanStack options. Managed links keep their own options even
-when disabled. Exclude document reloads, foreign application URLs and click-time
-guards with `data-no-fast-link`.
+when disabled. Without a `navigationPolicy`, URLs outside the base path, without
+a matching route, or matching a server-only Start route load as documents.
+Exclude document reloads and click-time guards with `data-no-fast-link`.
+
+All three bindings accept `navigationPolicy(intent, proposed)`; `proposed.owned`
+reports router ownership. `onFastNavigate(intent, decision)` matches the Next
+adapter.
 
 Use `enabled={false}` for release-time guards. Router blockers remain effective
 on early navigation. TanStack can skip click observers after suppression; use
 `onFastNavigate` when observation must run on an accepted press.
-
-This adapter is not published to npm yet. Build and pack the workspace, then
-install core, React and TanStack archives together. Confirm publication before
-suggesting a registry install.
