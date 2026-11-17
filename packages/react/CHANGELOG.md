@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.3
+
+- Include TanStack Router integration guidance in the bundled Fast Link skill.
+
 ## 0.0.2
 
 - Bundle the canonical Fast Link agent skill, references, and agent metadata at

@@ -25,7 +25,7 @@ router.
 _Avoid_: Router integration, navigation hook
 
 **FastLink**:
-The Next.js App Router link component with per-link Fast Link behavior and
+A framework-specific link component with per-link Fast Link behavior and
 navigation options.
 _Avoid_: NextFastLink, FastLink Link
 
@@ -71,3 +71,6 @@ _Avoid_: Redirect callback, ownership detector
 A choice between the proposed router navigation and document navigation to the
 validated destination, with an optional router scroll override.
 _Avoid_: Navigation result, route override
+
+The TanStack adapter uses the same Fast Link intent and interaction contracts;
+TanStack Router owns typed destinations, route masks and navigation blockers.

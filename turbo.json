@@ -20,6 +20,11 @@
         "dependencies": {
           "allow": ["core", "react"]
         }
+      },
+      "tanstack": {
+        "dependencies": {
+          "allow": ["core", "react"]
+        }
       }
     }
   },
@@ -76,8 +81,13 @@
       "cache": false
     },
     "//#test:compatibility": {
-      "dependsOn": ["@fast-link/next#build"],
+      "dependsOn": ["@fast-link/next#build", "@fast-link/tanstack#build"],
       "cache": false
+    },
+    "@fast-link/fixture-tanstack#test:fixtures": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/browser/**"]
     }
   }
 }

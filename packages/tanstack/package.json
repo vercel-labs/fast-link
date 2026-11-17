@@ -1,0 +1,65 @@
+{
+  "name": "@fast-link/tanstack",
+  "version": "0.0.1",
+  "description": "Early mouse navigation for TanStack Router and TanStack Start",
+  "author": "Viktor Sarström",
+  "license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/viktorlarsson/fast-link.git",
+    "directory": "packages/tanstack"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run --project=unit",
+    "typecheck": "tsc --noEmit",
+    "size": "size-limit",
+    "prepack": "node ../../scripts/packaging/prepare-bundled-skill.mjs",
+    "prepublishOnly": "pnpm build",
+    "test:coverage": "vitest run --project=unit --coverage"
+  },
+  "dependencies": {
+    "@fast-link/core": "workspace:^",
+    "@fast-link/react": "workspace:^"
+  },
+  "peerDependencies": {
+    "@tanstack/react-router": ">=1.170.46 <2",
+    "react": ">=19 <20"
+  },
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "12.1.0",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "25.6.0",
+    "@types/react": "19.2.10",
+    "@types/react-dom": "19.2.3",
+    "jsdom": "23.2.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "size-limit": "12.1.0",
+    "tsdown": "0.21.7",
+    "typescript": "6.0.2",
+    "vitest": "4.1.11",
+    "@tanstack/react-router": "1.170.46"
+  },
+  "files": [
+    "dist",
+    "skills/fast-link",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

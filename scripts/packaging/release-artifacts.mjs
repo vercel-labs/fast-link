@@ -9,6 +9,7 @@ export const PACKAGE_DIRECTORIES = [
   'packages/core',
   'packages/react',
   'packages/next',
+  'packages/tanstack',
 ];
 
 /** Hashes the exact archive bytes transferred between jobs. */

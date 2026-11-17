@@ -1,6 +1,6 @@
 ---
 name: fast-link
-description: Integrate, migrate, troubleshoot, or review Fast Link when named, when the project uses or is adopting @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on pointerdown", "navigate on mousedown", or "navigate on press". General navigation performance requests alone are outside this skill's scope.
+description: Integrate, migrate, troubleshoot, or review Fast Link when named, when the project uses or is adopting @fast-link/tanstack, @fast-link/next, @fast-link/react, or @fast-link/core, or when explicitly asked for early mouse navigation such as "navigate on pointerdown", "navigate on mousedown", or "navigate on press". General navigation performance requests alone are outside this skill's scope.
 license: MIT
 ---
 
@@ -37,6 +37,10 @@ For a Next.js target, read [Next.js integration](references/next.md) before
 selecting imports or changing an integration, including adoption, migration,
 troubleshooting, and review. This applies when links arrive through application
 aliases or shared libraries as well as direct Next Link imports.
+
+For TanStack Router or TanStack Start, read
+[TanStack integration](references/tanstack.md). Use `@fast-link/tanstack` and
+check the installed README and peer range.
 
 ## Decide where early navigation fits
 

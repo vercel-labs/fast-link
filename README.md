@@ -1,4 +1,4 @@
-# ▲ Fast Link
+# ▲ Fast Link — TanStack fork
 
 Fast Link helps your application feel faster by starting eligible same-origin
 link navigation when you press the mouse, instead of waiting for release. Your
@@ -6,6 +6,19 @@ application gets the press-to-release interval to start loading the next page.
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages; it starts navigation earlier.
+
+This fork adds [`@fast-link/tanstack`](./packages/tanstack/) for TanStack Router
+and TanStack Start. It includes typed `FastLink`, `FastLinkRegion`, and
+`useFastLink`, a production browser fixture, and package consumer checks.
+The TanStack package is not published to npm yet; see its README for local use.
+
+```tsx
+import { FastLink } from '@fast-link/tanstack';
+
+<FastLink to="/posts/$postId" params={{ postId: '42' }}>
+  Read post
+</FastLink>;
+```
 
 ## When to use Fast Link
 
@@ -28,11 +41,12 @@ See [Known limitations](#known-limitations) for press timing and accessibility d
 
 ## Choose a package
 
-| Package                                 | Use it for                                      |
-| --------------------------------------- | ----------------------------------------------- |
-| [`@fast-link/next`](./packages/next/)   | Next.js App Router links and navigation regions |
-| [`@fast-link/core`](./packages/core/)   | Plain DOM usage or a custom framework adapter   |
-| [`@fast-link/react`](./packages/react/) | React lifecycle for a custom adapter            |
+| Package                                       | Use it for                                      |
+| --------------------------------------------- | ----------------------------------------------- |
+| [`@fast-link/next`](./packages/next/)         | Next.js App Router links and navigation regions |
+| [`@fast-link/tanstack`](./packages/tanstack/) | TanStack Router and TanStack Start links        |
+| [`@fast-link/core`](./packages/core/)         | Plain DOM usage or a custom framework adapter   |
+| [`@fast-link/react`](./packages/react/)       | React lifecycle for a custom adapter            |
 
 Start with `@fast-link/next` for a Next.js App Router application. Use the
 React package only when building an adapter that `@fast-link/next` does not

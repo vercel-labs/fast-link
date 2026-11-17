@@ -13,7 +13,7 @@ import { verifyBundledSkill } from './verify-bundled-skill.mjs';
 afterEach(removeRepositories);
 
 describe('bundled skill artifacts', () => {
-  it.each(['core', 'react', 'next'])(
+  it.each(['core', 'react', 'next', 'tanstack'])(
     'pnpm pack regenerates the complete skill for %s',
     (name) => {
       const { root } = createRepository();

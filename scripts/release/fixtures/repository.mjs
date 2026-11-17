@@ -88,6 +88,10 @@ export function createPackageGraph() {
   const dependencies = {
     core: {},
     react: { '@fast-link/core': 'workspace:^' },
+    tanstack: {
+      '@fast-link/core': 'workspace:^',
+      '@fast-link/react': 'workspace:^',
+    },
     next: {
       '@fast-link/core': 'workspace:^',
       '@fast-link/react': 'workspace:^',
@@ -117,7 +121,16 @@ export function createPackageGraph() {
 
 /** Writes package archives and digests matching the release handoff format. */
 export function createArtifacts(root, packages, commit = publishedCommit) {
-  const entries = packages.map(({ directory, manifest }) => {
+  const archivePackages = [
+    ...packages,
+    {
+      directory: 'packages/tanstack',
+      manifest: JSON.parse(
+        readFileSync(join(root, 'packages/tanstack/package.json'), 'utf8'),
+      ),
+    },
+  ];
+  const entries = archivePackages.map(({ directory, manifest }) => {
     writeJson(join(root, 'package/package.json'), {
       ...manifest,
       gitHead: commit,

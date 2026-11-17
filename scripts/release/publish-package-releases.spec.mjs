@@ -119,6 +119,7 @@ describe('ordered publishing', () => {
       'verify:core.tgz',
       'verify:react.tgz',
       'verify:next.tgz',
+      'verify:tanstack.tgz',
       'recheck:@fast-link/core',
       'recheck:@fast-link/react',
       'recheck:@fast-link/next',

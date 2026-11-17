@@ -12,3 +12,6 @@ test-results/
 /fixtures/*/.next/
 /fixtures/*/next-env.d.ts
 coverage/
+
+/packages/tanstack/dist/
+/fixtures/tanstack/dist/

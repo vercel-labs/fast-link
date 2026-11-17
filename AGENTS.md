@@ -1,6 +1,6 @@
 # Fast Link agent instructions
 
-Fast Link is a pnpm and Turborepo monorepo with three public packages.
+Fast Link is a pnpm and Turborepo monorepo with four public packages.
 Use `CONTEXT.md` for project terms and `docs/adr/` for accepted architecture
 decisions.
 
@@ -18,6 +18,8 @@ When adding tests or changing test/CI configuration, follow
 - `packages/next` owns App Router Link and region navigation. It depends on
   core and the React package, and must not duplicate core eligibility or
   import private Next.js modules.
+- `packages/tanstack` owns TanStack Router Link, hook and region navigation. It
+  depends on core and React; keep eligibility in core and routing in TanStack.
 - Keep the production fixture on a pinned Next.js version within
   `packages/next`'s peer range.
 

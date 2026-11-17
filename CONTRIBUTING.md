@@ -19,6 +19,8 @@ All commits must be signed. CI runs the checks required for each pull request.
 | `@fast-link/react` | React ref lifecycle for core controllers                | Core                   |
 | `@fast-link/next`  | App Router Link, region navigation, routing decisions   | Core and React         |
 
+| `@fast-link/tanstack` | TanStack Router Link, hook and region navigation | Core and React |
+
 Core must not import React or Next.js; the React package must not import Next.js.
 Keep eligibility rules in core.
 
@@ -61,3 +63,6 @@ React adapters support React `>=19 <20`; the Next.js adapter supports Next.js
 `>=16 <17`. When adding support for a new major, update the peer ranges and
 compatibility checks together. CI covers the minimum supported versions and
 the pinned fixture.
+
+The TanStack adapter supports React `>=19 <20` and Router `>=1.170.46 <2`.
+`fixtures/tanstack` pins Router and exercises built exports in a production Vite app.

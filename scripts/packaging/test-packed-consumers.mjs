@@ -64,6 +64,8 @@ function replaceOnce(source, search, replacement, path) {
 try {
   const dependencies = { ...fixtureManifest.dependencies };
   const devDependencies = { ...fixtureManifest.devDependencies };
+  dependencies['@tanstack/react-router'] = '1.170.46';
+  devDependencies.vite = '8.0.9';
   if (minimum) {
     Object.assign(dependencies, {
       next: '16.0.0',
@@ -117,6 +119,55 @@ try {
     console.log('Resolved Next ' + expected.next + ', React/DOM ' + expected.react);
   `,
   ]);
+  // Exercise the installed TanStack export without DOM globals, then build and
+  // typecheck the real router fixture through archives rather than workspace links.
+  run(process.execPath, [
+    '--input-type=module',
+    '-e',
+    `
+    import assert from 'node:assert/strict';
+    import { createElement } from 'react';
+    import { renderToString } from 'react-dom/server';
+    import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
+    import { FastLink } from '@fast-link/tanstack';
+    const root = createRootRoute({ component: () => createElement(FastLink, { to: '/target' }, 'Target') });
+    const home = createRoute({ getParentRoute: () => root, path: '/' });
+    const target = createRoute({ getParentRoute: () => root, path: '/target' });
+    const router = createRouter({ routeTree: root.addChildren([home, target]), history: createMemoryHistory({ initialEntries: ['/'] }) });
+    await router.load();
+    const html = renderToString(createElement(RouterProvider, { router }));
+    assert.ok(html.includes('href="/target"'));
+    assert.doesNotMatch(html, /onFastNavigate|enabled=/);
+    console.log('Packed TanStack SSR passed');
+  `,
+  ]);
+  const tanstackConsumer = join(consumer, 'tanstack');
+  await mkdir(tanstackConsumer);
+  await cp(join(root, 'fixtures/tanstack/src'), join(tanstackConsumer, 'src'), {
+    recursive: true,
+  });
+  await cp(
+    join(root, 'fixtures/tanstack/index.html'),
+    join(tanstackConsumer, 'index.html'),
+  );
+  await writeFile(
+    join(tanstackConsumer, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        jsx: 'react-jsx',
+        strict: true,
+        skipLibCheck: true,
+        noEmit: true,
+      },
+      include: ['src'],
+    }),
+  );
+  run('npm', ['exec', '--', 'tsc', '--project', 'tanstack/tsconfig.json']);
+  run('npm', ['exec', '--', 'vite', 'build', 'tanstack']);
+
   if (minimum) {
     // Reuse the lifecycle suite through the installed public React export.
     const tests = await readFile(
