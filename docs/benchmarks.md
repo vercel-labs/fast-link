@@ -15,6 +15,7 @@ pnpm benchmark --output "$results/full.json"
 
 - Add `--case core|react|next` to run one case.
 - Add `--modes release,immediate,native` to run a subset of Fast Link modes.
+- Before starting the server, `pnpm benchmark` runs a cached Turbo build of the Next.js fixture and its dependencies, so it measures the current working tree.
 - Save output outside source checkouts. Failed runs retain partial samples and errors; do not publish them.
 - Local runs write JSON only; the README summary is maintained manually.
 
