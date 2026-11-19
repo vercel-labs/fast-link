@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   paths:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       lightweight: ${{ steps.changes.outputs.lightweight }}
@@ -31,7 +31,7 @@ jobs:
   validate:
     needs: paths
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Fail when path detection fails
@@ -90,7 +90,7 @@ jobs:
   browser:
     needs: paths
     if: ${{ needs.paths.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,7 +117,7 @@ jobs:
   packed-consumers:
     needs: [paths, validate]
     if: ${{ needs.paths.result == 'success' && needs.validate.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       matrix:

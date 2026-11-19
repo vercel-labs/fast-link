@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   detect:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       has_packages: ${{ steps.releases.outputs.has_packages }}
@@ -31,7 +31,7 @@ jobs:
         run: node scripts/release/detect-package-releases.mjs >> "$GITHUB_OUTPUT"
 
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,7 +64,7 @@ jobs:
           retention-days: 7
 
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,7 +86,7 @@ jobs:
 
   packed-consumers:
     needs: [validate]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       matrix:
@@ -108,7 +108,7 @@ jobs:
   publish:
     needs: [detect, validate, browser, packed-consumers]
     if: ${{ github.ref == 'refs/heads/main' && needs.detect.outputs.has_packages == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: release
     permissions:
@@ -148,7 +148,7 @@ jobs:
   release:
     needs: [detect, validate, browser, packed-consumers, publish]
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.detect.result == 'success' && needs.detect.outputs.has_publishable_packages == 'true' && needs.validate.result == 'success' && needs.browser.result == 'success' && needs['packed-consumers'].result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: release
     permissions:
