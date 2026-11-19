@@ -31,7 +31,8 @@
     `navigate: (intent) => { try { observe(intent); } finally { route(intent); } }`
     so navigation still runs if observation throws. Use `beforeNavigate` only
     to cancel: navigation does not run when it returns `false` or throws.
-  - Replace `enabled: false` with `{ mode: 'native' }` in `update()`.
+  - Replace `enabled: false` with `{ mode: 'native' }`, at creation or in
+    `update()`.
   - `suppressClick` now returns whether it suppressed the click.
   - Nested regions now use the closest region for ordinary links instead of
     the outermost one.

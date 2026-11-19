@@ -15,12 +15,9 @@ Each link or region selects a `mode`:
   to commit.
 - `native`: ordinary link behavior, including client routing.
 
-Release mode prepares on press only on a supported Next runtime: Next
-`16.5.0-canary.42` with `experimental: { prepareNavigation: true }` in
-`next.config`. Elsewhere it routes at the accepted click, with ordinary Next
-Link timing. Check the installed Next version and `next.config` before
-presenting release mode as a speed-up, and get the user's agreement before
-changing either.
+With `@fast-link/next`, release mode prepares on press only on a Next runtime
+that supports navigation preparation; before presenting it as a speed-up, run
+the runtime check in [Next.js integration](references/next.md).
 
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
