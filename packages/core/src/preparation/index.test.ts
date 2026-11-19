@@ -128,6 +128,24 @@ it('revalidates after guards and falls back for a changed destination', () => {
   }
 });
 
+it('rejects a candidate whose link left the root before consume', () => {
+  const root = document.body.appendChild(document.createElement('div'));
+  const anchor = root.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const controller = createClickPreparation(root, { prepare: () => 'guide' });
+  try {
+    press(anchor);
+    const activation = controller.matchClick(click(anchor));
+    expect(activation).not.toBeNull();
+    document.body.append(anchor);
+    expect(activation?.consume()).toBeNull();
+  } finally {
+    controller.destroy();
+    root.remove();
+    anchor.remove();
+  }
+});
+
 it('keeps click fallback after preparation fails and invalidates matched work when disabled', () => {
   const anchor = document.body.appendChild(document.createElement('a'));
   anchor.href = '/guide';

@@ -330,6 +330,50 @@ describe('ownership', () => {
     }
   });
 
+  it.each([
+    ['out of the region', 0, () => document.body],
+    ['within the region', 1, (root: HTMLElement) => find(root, 'section')],
+  ])(
+    'rechecks containment after the guard moves the link %s',
+    (_, navigations, destination) => {
+      const root = setup('<section></section><a href="/guide">Guide</a>');
+      const anchor = find(root, 'a');
+      const navigate = vi.fn();
+      const controller = createLinkInteraction(root, {
+        mode: 'immediate',
+        beforeNavigate: () => {
+          destination(root).append(anchor);
+          return true;
+        },
+        navigate,
+      });
+      try {
+        press(anchor);
+        expect(navigate).toHaveBeenCalledTimes(navigations);
+      } finally {
+        controller.destroy();
+      }
+    },
+  );
+
+  it('rejects a release candidate whose link left the region before consume', () => {
+    const root = setup('<a href="/guide">Guide</a>');
+    const anchor = find(root, 'a');
+    const controller = createLinkInteraction(root, {
+      mode: 'release',
+      prepare: () => 'prepared',
+    });
+    try {
+      press(anchor);
+      const candidate = controller.matchClick(clickEvent(anchor));
+      expect(candidate).not.toBeNull();
+      document.body.append(anchor);
+      expect(candidate?.consume()).toBeNull();
+    } finally {
+      controller.destroy();
+    }
+  });
+
   it('adds region ownership to a registry created by an earlier version', async () => {
     const key = Symbol.for('@fast-link/core/coordination');
     const previous: unknown = Reflect.get(globalThis, key);
