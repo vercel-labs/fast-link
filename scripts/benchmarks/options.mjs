@@ -1,8 +1,9 @@
 import { workload } from './workload.mjs';
 
 /**
- * Parses a comma-separated `--modes` value in workload order. Comparisons
- * select the modes both revisions support; omitted means every mode.
+ * Parses a comma-separated `--modes` value in workload order; omitted means
+ * every mode. Comparisons measure the same modes in both revisions, so pass
+ * `--modes` when the base supports fewer.
  */
 export function readModes(value) {
   if (value === undefined) return [...workload.modes];

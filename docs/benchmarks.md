@@ -31,7 +31,7 @@ pnpm benchmark:compare --base /absolute/path/to/base-checkout --output "$results
 - Both revisions use the head workload, frozen installs, and forced production builds of the Next.js fixture and its dependencies. Each retains its own package source and external dependency versions.
 - Base/head execution alternates on the same runner.
 - Comparisons reuse Chromium and one server per checkout; each batch and navigation sample uses fresh browser contexts.
-- The fixture calls Fast Link APIs only in `fixtures/next-16/app/benchmark/bindings.tsx`. For a base whose core exports `createClickPreparation` without `createLinkInteraction`, or `createFastLink`, comparison replaces that file with the matching copy from `scripts/benchmarks/bindings/`. Those bindings support only release or only immediate, so pass `--modes release` or `--modes immediate`.
+- The fixture calls Fast Link APIs only in `fixtures/next-16/app/benchmark/bindings.tsx`. For an older base, comparison replaces that file with a copy from `scripts/benchmarks/bindings/`: `click-preparation.tsx` for a base that exports `createClickPreparation` but not `createLinkInteraction` (pass `--modes release`), or `fast-link.tsx` for a base that exports `createFastLink` but not `createClickPreparation` (pass `--modes immediate`).
 - `--case core|react|next` narrows an investigation. Both revisions must have matching scenario sets, units, sample counts, and runner environments.
 - A valid slowdown succeeds. Invalid, incomplete, incompatible, or failed measurements fail and retain available JSON diagnostics.
 - `base.json` and `head.json` combine the five batches per revision; individual batch files retain raw measurements. `verdict.json` records success or failure and elapsed comparison time.
