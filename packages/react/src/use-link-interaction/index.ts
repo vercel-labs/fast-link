@@ -53,20 +53,22 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
 }: LinkInteractionOptions<P> & {
   forwardedRef?: ForwardedRef<T>;
 }): LinkInteractionBinding<P, T> {
-  const binding = useRootBinding<
-    P,
-    LinkInteractionOptions<P>,
-    AttachedInteraction<P>,
-    T
-  >(createAttachedInteraction, options, forwardedRef);
+  const {
+    handlers: { ref, matchClick, discard },
+    controller,
+  } = useRootBinding<P, LinkInteractionOptions<P>, AttachedInteraction<P>, T>(
+    createAttachedInteraction,
+    options,
+    forwardedRef,
+  );
   const [handlers] = useState(
     (): LinkInteractionBinding<P, T> => ({
-      ref: binding.handlers.ref,
-      matchClick: binding.handlers.matchClick,
-      discardClick: binding.handlers.discard,
+      ref,
+      matchClick,
+      discardClick: discard,
       suppressClick(event) {
         const isSuppressed =
-          binding.controller()?.suppressClick(event.nativeEvent) ?? false;
+          controller()?.suppressClick(event.nativeEvent) ?? false;
         // Core prevents the native event; later React handlers read the wrapper.
         if (isSuppressed) event.preventDefault();
         return isSuppressed;
