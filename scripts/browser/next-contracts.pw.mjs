@@ -716,9 +716,6 @@ async function press(page, testId) {
 async function holdDestination(page) {
   const gate = Promise.withResolvers();
   const held = new Map();
-  const settle = (request) => held.get(request)?.resolve();
-  page.on('requestfinished', settle);
-  page.on('requestfailed', settle);
   await page.route(
     (url) => url.pathname === DESTINATION,
     async (route) => {
@@ -733,6 +730,9 @@ async function holdDestination(page) {
     resolve: gate.resolve,
     // Resolves once every held request has finished or failed.
     async release() {
+      const settle = (request) => held.get(request)?.resolve();
+      page.on('requestfinished', settle);
+      page.on('requestfailed', settle);
       gate.resolve();
       try {
         await Promise.all([...held.values()].map(({ promise }) => promise));
