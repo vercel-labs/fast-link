@@ -2,7 +2,13 @@ import { fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import { HookLink, captureErrors, pointerDown, router } from '../testing';
+import {
+  HookLink,
+  captureErrors,
+  pointerDown,
+  router,
+  trackListeners,
+} from '../testing';
 import { useFastLink } from './index';
 
 it('prepares on press and commits at click capture after the caller guard', () => {
@@ -39,8 +45,15 @@ it.each(['onClickCapture', 'onNavigate'] as const)(
       />,
     );
     const anchor = getByRole('link');
-    pointerDown(anchor);
-    fireEvent.click(anchor, { detail: 1 });
+    const listeners = trackListeners();
+    try {
+      pointerDown(anchor);
+      fireEvent.click(anchor, { detail: 1 });
+      // The canceled click discards preparation and its cancellation listeners.
+      expect(listeners.live()).toEqual([]);
+    } finally {
+      listeners.restore();
+    }
     expect(policy).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();

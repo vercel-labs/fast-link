@@ -511,6 +511,11 @@ describe('immediate mode', () => {
           }}
           onNavigate={() => events.push('navigate')}
           onFastNavigate={() => events.push('fast')}
+          onClickCapture={(event) =>
+            events.push(
+              event.defaultPrevented ? 'capture prevented' : 'capture allowed',
+            )
+          }
           onClick={(event) =>
             events.push(event.defaultPrevented ? 'prevented' : 'allowed')
           }
@@ -533,6 +538,7 @@ describe('immediate mode', () => {
       'navigate',
       'policy',
       'fast',
+      'capture prevented',
       'prevented',
       'parent',
     ]);

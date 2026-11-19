@@ -59,6 +59,45 @@ export function stubLocation(
   });
 }
 
+/**
+ * Reports `document` and `window` listener types added after the call and not
+ * yet removed. A pending gesture keeps its cancellation listeners until core
+ * consumes or discards its preparation.
+ */
+export function trackListeners(): { live(): string[]; restore(): void } {
+  const spies = [document, window].map((target) => ({
+    add: vi.spyOn(target, 'addEventListener'),
+    remove: vi.spyOn(target, 'removeEventListener'),
+  }));
+  return {
+    live: () =>
+      spies.flatMap(({ add, remove }) => {
+        const removed = [...remove.mock.calls];
+        return add.mock.calls.flatMap(([type, listener, options]) => {
+          const index = removed.findIndex(
+            (call) =>
+              call[0] === type &&
+              call[1] === listener &&
+              isCapture(call[2]) === isCapture(options),
+          );
+          if (index === -1) return [type];
+          removed.splice(index, 1);
+          return [];
+        });
+      }),
+    restore() {
+      for (const { add, remove } of spies) {
+        add.mockRestore();
+        remove.mockRestore();
+      }
+    },
+  };
+}
+
+function isCapture(options?: boolean | EventListenerOptions): boolean {
+  return typeof options === 'boolean' ? options : Boolean(options?.capture);
+}
+
 /** Collects synchronous window error events during `action`. */
 export function captureErrors(action: () => void): unknown[] {
   const errors: unknown[] = [];
