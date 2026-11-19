@@ -147,10 +147,7 @@ async function runCase(options, origin, scenario, variant, repetition) {
   const { observation, trace } = await withBrowser(options.launch, (browser) =>
     observeWithOptionalTrace(browser, options.traceDir, input, repetition),
   );
-  const result = classifyRun(observation, {
-    variant,
-    destinationUrl: observation.destinationUrl,
-  });
+  const result = classifyRun(observation, { variant });
   console.log(
     `${repetition} ${scenario.id} ${variant}: ${result.detected ? 'detected' : 'not detected'}${result.valid ? '' : ` (invalid: ${result.problems.join(', ')})`}`,
   );

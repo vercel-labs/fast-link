@@ -13,9 +13,9 @@ export const IMMEDIATE_VARIANTS = ['immediate', 'immediate-region'];
  * with problems is invalid: its detection result cannot count toward a
  * comparison. Times in the timeline are milliseconds after pointerdown.
  */
-export function classifyRun(observation, { variant, destinationUrl }) {
+export function classifyRun(observation, { variant }) {
   const problems = [];
-  const { after, before, pageLog } = observation;
+  const { after, before, destinationUrl, pageLog } = observation;
   const isPressAccepted = IMMEDIATE_VARIANTS.includes(variant);
   const trusted = (type, onLink) =>
     pageLog.events.filter(

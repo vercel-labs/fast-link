@@ -71,10 +71,7 @@ describe('classifyRun', () => {
       ['soft-navigation entries: 2'],
     ],
   ])('classifies %s', (_name, variant, overrides, problems) => {
-    const result = classifyRun(observation(overrides), {
-      variant,
-      destinationUrl,
-    });
+    const result = classifyRun(observation(overrides), { variant });
     expect(result.problems).toEqual(problems);
     expect(result.valid).toBe(problems.length === 0);
   });
@@ -82,7 +79,7 @@ describe('classifyRun', () => {
   it('reports detection only for entries named with the destination', () => {
     const result = classifyRun(
       observation({ entryName: `${destinationUrl}?other` }),
-      { variant: 'next', destinationUrl },
+      { variant: 'next' },
     );
     expect(result.detected).toBe(false);
   });
@@ -171,6 +168,7 @@ function observation({
   documentRequests = 0,
 } = {}) {
   return {
+    destinationUrl,
     cache,
     navigationError: null,
     before: { url: 'source', historyLength: 2 },
