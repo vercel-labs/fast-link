@@ -140,7 +140,8 @@ describe('modes', () => {
     const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
     const calls: Calls = [];
     const bubbled: Calls = [];
-    document.addEventListener('click', () => bubbled.push('bubble'));
+    const onBubble = () => bubbled.push('bubble');
+    document.addEventListener('click', onBubble);
     const controller = createLinkInteraction(
       anchor,
       recording('immediate', 'link', calls),
@@ -154,6 +155,7 @@ describe('modes', () => {
       expect(click(anchor)).toBe(false);
     } finally {
       controller.destroy();
+      document.removeEventListener('click', onBubble);
     }
   });
 
@@ -666,12 +668,12 @@ describe('selected-path work', () => {
       'release',
       { mode: 'release', prepare: () => null },
       [
-        'pointerdown',
-        'pointercancel',
+        'blur',
         'dragstart',
         'keydown',
+        'pointercancel',
+        'pointerdown',
         'pointerup',
-        'blur',
       ],
     ],
     ['native', { mode: 'native' }, []],
@@ -683,7 +685,8 @@ describe('selected-path work', () => {
       const listeners = spyListeners([anchor, document, window]);
       try {
         press(anchor);
-        expect(listeners.types()).toEqual(expected);
+        // Registration order is incidental; compare the sorted types.
+        expect(listeners.types().toSorted()).toEqual(expected);
         expect(controller.suppressClick(clickEvent(anchor))).toBe(
           options.mode === 'immediate',
         );
