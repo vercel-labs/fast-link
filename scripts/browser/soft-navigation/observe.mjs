@@ -1,6 +1,8 @@
 /* oxlint-disable no-await-in-loop -- Browser interactions must run in order. */
 import { setTimeout as delay } from 'node:timers/promises';
 
+import { getPressBox } from '../next-helpers.mjs';
+
 /** Matched fixture scenarios. Each source page has one link to `destination`. */
 export const SCENARIOS = [
   { id: 'static', destination: '/soft-navigation/destination', cache: 'cold' },
@@ -61,43 +63,18 @@ export async function observeCase(
       () => document.documentElement.dataset.softNavigationHydrated === 'true',
     );
     const cache = await settleCache(scenario, network);
-    const before = await page.evaluate(() => ({
-      url: location.href,
-      historyLength: history.length,
-    }));
+    const before = await readHistoryState(page);
 
     network.startInteraction();
     await press(page, holdMs);
     const destinationUrl = `${origin}/docs${scenario.destination}`;
     const navigationError = await waitForDestination(page, destinationUrl);
-    await page
-      .waitForFunction(
-        (url) =>
-          window.__softNavigationProbe.softNavigations.some(
-            (entry) => entry.name === url,
-          ),
-        destinationUrl,
-        { timeout: TIMING.entryTimeoutMs },
-      )
-      .catch(() => undefined);
+    await waitForSoftNavigationEntry(page, destinationUrl);
     await delay(TIMING.duplicateWindowMs);
 
-    const after = await page.evaluate(() => ({
-      url: location.href,
-      historyLength: history.length,
-    }));
-    const { pageLog, resources } = await page.evaluate(
-      (path) => ({
-        pageLog: window.__softNavigationProbe,
-        resources: performance
-          .getEntriesByType('resource')
-          .filter((entry) => new URL(entry.name).pathname === path)
-          .map((entry) => ({
-            name: entry.name,
-            startTime: entry.startTime,
-            responseEnd: entry.responseEnd,
-          })),
-      }),
+    const after = await readHistoryState(page);
+    const { pageLog, resources } = await readPageRecord(
+      page,
       `/docs${scenario.destination}`,
     );
     return {
@@ -323,34 +300,37 @@ async function settleCache(scenario, network) {
     };
   const deadline = performance.now() + TIMING.prefetchTimeoutMs;
   let quietSince;
+  const hasBeenQuiet = () =>
+    quietSince !== undefined &&
+    performance.now() - quietSince >= TIMING.prefetchQuietMs;
   while (performance.now() < deadline) {
     const isQuiet =
       network.destinationCount() > 0 && network.pendingCount() === 0;
     quietSince = isQuiet ? (quietSince ?? performance.now()) : undefined;
-    if (
-      quietSince !== undefined &&
-      performance.now() - quietSince >= TIMING.prefetchQuietMs
-    )
-      break;
+    if (hasBeenQuiet()) break;
     await delay(25);
   }
   return {
     expected: 'prefetched',
     requestsBeforePress: network.destinationCount(),
-    matched:
-      quietSince !== undefined &&
-      performance.now() - quietSince >= TIMING.prefetchQuietMs &&
-      network.pendingCount() === 0,
+    matched: hasBeenQuiet() && network.pendingCount() === 0,
   };
 }
 
 async function press(page, holdMs) {
-  const box = await page.getByTestId(LINK_TEST_ID).boundingBox();
+  const box = await getPressBox(page.getByTestId(LINK_TEST_ID));
   if (!box) throw new Error('Soft-navigation link is not visible');
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await delay(holdMs);
   await page.mouse.up();
+}
+
+function readHistoryState(page) {
+  return page.evaluate(() => ({
+    url: location.href,
+    historyLength: history.length,
+  }));
 }
 
 async function waitForDestination(page, destinationUrl) {
@@ -367,4 +347,36 @@ async function waitForDestination(page, destinationUrl) {
   } catch (error) {
     return error.message;
   }
+}
+
+// A missing entry is a result, not a failure, so the timeout resolves.
+async function waitForSoftNavigationEntry(page, destinationUrl) {
+  await page
+    .waitForFunction(
+      (url) =>
+        window.__softNavigationProbe.softNavigations.some(
+          (entry) => entry.name === url,
+        ),
+      destinationUrl,
+      { timeout: TIMING.entryTimeoutMs },
+    )
+    .catch(() => undefined);
+}
+
+// Reads the page's probe log and resource timings for the destination route.
+function readPageRecord(page, path) {
+  return page.evaluate(
+    (routePath) => ({
+      pageLog: window.__softNavigationProbe,
+      resources: performance
+        .getEntriesByType('resource')
+        .filter((entry) => new URL(entry.name).pathname === routePath)
+        .map((entry) => ({
+          name: entry.name,
+          startTime: entry.startTime,
+          responseEnd: entry.responseEnd,
+        })),
+    }),
+    path,
+  );
 }
