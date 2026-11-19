@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { useFastLink } from '@fast-link/react';
+import {
+  useClickPreparation,
+  useFastLink,
+  useLinkInteraction,
+} from '@fast-link/react';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 
@@ -27,4 +31,43 @@ test('the built React hook renders on the server without DOM globals or ref atta
     '<div><a href="/first">First</a></div>',
   );
   assert.equal(ref.current, null);
+});
+
+test('the built preparation and interaction hooks render on the server without ref attachment', () => {
+  const preparationRef = { current: null as HTMLDivElement | null };
+  const interactionRef = { current: null as HTMLAnchorElement | null };
+  function Region() {
+    const preparation = useClickPreparation<never, HTMLDivElement>({
+      forwardedRef: preparationRef,
+      prepare: () => {
+        throw new Error('Server rendering must not prepare');
+      },
+    });
+    const interaction = useLinkInteraction<never, HTMLAnchorElement>({
+      mode: 'immediate',
+      forwardedRef: interactionRef,
+      navigate: () => {
+        throw new Error('Server rendering must not navigate');
+      },
+    });
+    return createElement(
+      'div',
+      { ref: preparation.ref },
+      createElement(
+        'a',
+        {
+          href: '/first',
+          ref: interaction.ref,
+          onClickCapture: interaction.suppressClick,
+        },
+        'First',
+      ),
+    );
+  }
+  assert.equal(
+    renderToString(createElement(Region)),
+    '<div><a href="/first">First</a></div>',
+  );
+  assert.equal(preparationRef.current, null);
+  assert.equal(interactionRef.current, null);
 });
