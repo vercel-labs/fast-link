@@ -23,11 +23,11 @@ const shared = {
 };
 
 export default [
-  { ...shared, name: 'FastLink', import: '{ FastLink }', limit: '3.6 kB' },
+  { ...shared, name: 'FastLink', import: '{ FastLink }', limit: '3.5 kB' },
   {
     ...shared,
     name: 'FastLinkRegion',
     import: '{ FastLinkRegion }',
-    limit: '3.4 kB',
+    limit: '3.3 kB',
   },
 ];
