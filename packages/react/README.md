@@ -285,10 +285,11 @@ the interaction.
   discards the gesture.
 - Reattaching the same element within one React commit keeps pending work.
 - While the ref is detached, the controller ignores presses and rejects
-  activation: a press prepares nothing, does not call `beforeNavigate` or
-  `navigate`, and leaves its click native; `matchClick` returns `null`; and a
-  candidate's `consume()` returns `null`. Existing click suppression can still
-  settle.
+  activation:
+  - A press prepares nothing, calls neither `beforeNavigate` nor `navigate`,
+    and leaves its click native.
+  - `matchClick` and a candidate's `consume()` return `null`.
+  - Earlier click suppression can still settle.
 - Replacing the element or unmounting destroys the controller. If the ref stays
   detached, cleanup runs after the commit.
 - When the element is replaced in the same commit as an option or caller-ref
