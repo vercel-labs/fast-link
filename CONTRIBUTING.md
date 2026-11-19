@@ -48,6 +48,11 @@ Run `pnpm test:browser` for core browser tests and `pnpm test:fixtures` for the
 Next.js fixture. Both commands build their prerequisites. Failed browser runs
 save screenshots and traces under `test-results/`.
 
+`pnpm probe:soft-navigation --output FILE` checks whether installed Google
+Chrome reports soft navigations for each Next.js entry point as it does for an
+ordinary Next Link. Run `pnpm build` first. It depends on the local Chrome
+version, so it runs manually and is not part of `pnpm validate`.
+
 ### Test package installs
 
 Check the [packed-consumers CI job](.github/workflows/ci.yml) when changing exports,
