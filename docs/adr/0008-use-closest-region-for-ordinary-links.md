@@ -5,7 +5,8 @@ together. Managed links keep their own configuration over every region,
 including a managed native link. This replaces outside-in region precedence so
 local configuration behaves consistently:
 
-- A native inner region blocks acceleration by any containing region.
+- A native inner region blocks acceleration by any containing link interaction
+  region.
 - An accelerated inner region re-enables acceleration inside a native region.
 - No outer policy takes over when the closest region is native.
 
@@ -21,8 +22,9 @@ consumed. A root that loses does no work for that interaction.
 This supersedes only the nested-region precedence in
 [ADR 0005](./0005-coordinate-nested-roots.md) for link interaction roots.
 Anchor priority, shared event markers, and cross-copy coordination remain
-required. The preparation-only and press controllers keep outside-in order
-among their own roots.
+required. Preparation-only and press roots neither register nor check
+regions: they follow outside-in capture order, including when nested with link
+interaction regions, and still defer to managed anchors.
 
 Implementation: [ownership](../../packages/core/src/link-interaction/ownership.ts)
 and the [link interaction tests](../../packages/core/src/link-interaction/index.test.ts),

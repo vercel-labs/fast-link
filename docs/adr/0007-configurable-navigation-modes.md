@@ -23,8 +23,9 @@ or destruction. Only the selected path does work: immediate mode allocates no
 preparation or cancellation tracking, release mode creates no suppression
 claim, and native mode constructs neither.
 
-The core controller requires an explicit mode. Framework entry points apply
-the `release` default and replace a separate `enabled` control with `native`.
+The core controller requires an explicit mode. Framework entry points that
+adopt modes will apply the `release` default and replace a separate `enabled`
+control with `native`.
 The preparation-only controller keeps its `enabled` option.
 
 This supersedes the universal click-only rule in

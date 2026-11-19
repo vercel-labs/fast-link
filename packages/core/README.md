@@ -64,8 +64,8 @@ export function attachNavigation(
 ```
 
 Release mode needs an adapter that accepts the click; see
-[`createLinkInteraction`](#createlinkinteraction). The rest of this section
-covers `createFastLink`, the earlier controller that navigates on press with
+[`createLinkInteraction`](#createlinkinteraction). The following sections
+cover `createFastLink`, the earlier controller that navigates on press with
 document navigation by default.
 
 ## Start document navigation on pointerdown
@@ -352,6 +352,10 @@ base path may need to derive its route from `href` or application metadata on
 
 ## Understand event ordering
 
+This section describes `createFastLink`. For immediate mode, see the ordering
+under [`createLinkInteraction`](#createlinkinteraction): `beforeNavigate` can
+cancel navigation, unlike `onFastNavigate`.
+
 Core checks eligibility and claims an accepted primary mouse press before
 calling navigation callbacks. It remembers the anchor so it can prevent the
 later pointer click's default navigation:
@@ -461,12 +465,13 @@ only the destroyed controller.
 
 Link interaction regions register when created, in every mode. An ordinary link
 belongs to its closest link interaction region, which supplies its mode. A
-native inner region keeps containing regions from accelerating its links, and an
-accelerated inner region works inside a native one. A losing region does no
-preparation or navigation for that interaction.
+native inner region keeps containing link interaction regions from accelerating
+its links, and an accelerated inner region works inside a native one. A losing
+region does no preparation or navigation for that interaction.
 
-Nested `createFastLink` and `createClickPreparation` regions retain outer-first
-capture ordering among themselves.
+`createFastLink` and `createClickPreparation` regions neither register nor check
+regions. They follow outer-first capture ordering, including around or inside
+link interaction regions, and still defer to managed anchors.
 
 ## Related packages
 

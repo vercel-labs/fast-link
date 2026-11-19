@@ -106,6 +106,7 @@ function updateInteraction<P>(
     selected.options = { ...options };
     return;
   }
+  // Native to native has no options to replace.
   if (selected.mode === options.mode) return;
 
   // Switching away and back cannot revive discarded work. Suppression is kept.
