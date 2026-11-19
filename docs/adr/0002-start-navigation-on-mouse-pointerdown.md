@@ -27,6 +27,6 @@ navigation benefit, so touch and pen keep native activation.
   or on dragging the URL.
 
 Implementation: [`resolveFastLink`](../../packages/core/src/interaction/index.ts)
-and immediate mode in [`createLinkInteraction`](../../packages/core/src/link-interaction/press.ts).
+and immediate mode in [`createLinkInteraction`](../../packages/core/src/link-interaction/index.ts).
 The [browser tests](../../scripts/browser/core.pw.mjs)
 check trusted navigation timing, click targeting, and propagation.
