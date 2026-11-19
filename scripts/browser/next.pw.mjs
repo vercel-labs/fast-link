@@ -605,7 +605,7 @@ async function expectOutput(page, testId, text) {
 async function pressAndHold(page, testId) {
   const target = page.getByTestId(testId);
   await target.scrollIntoViewIfNeeded();
-  const box = await target.boundingBox();
+  const box = await getPressBox(target);
   if (!box) throw new Error(`Missing ${testId}`);
   const before = await page.evaluate(() => window.__fixturePresses);
   await page.mouse.move(
@@ -619,6 +619,17 @@ async function pressAndHold(page, testId) {
       window.__fixturePresses === count + 1 || location.pathname !== '/docs',
     before,
   );
+}
+
+// An inline link that wraps has a bounding box spanning both lines, whose center
+// can fall on a neighboring link. Press inside the first line box instead.
+function getPressBox(target) {
+  return target.evaluate((element) => {
+    const rect = element.getClientRects()[0];
+    return rect
+      ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      : null;
+  });
 }
 
 async function dispatchTouchPress(page, testId) {
@@ -717,7 +728,7 @@ async function checkStoppedManagedClick(page, testId, destination) {
   await waitForHydration(page);
   const target = page.getByTestId(testId);
   await target.scrollIntoViewIfNeeded();
-  const box = await target.boundingBox();
+  const box = await getPressBox(target);
   if (!box) throw new Error(`Missing ${testId}`);
   let documentRequests = 0;
   const onRequest = (request) => {
