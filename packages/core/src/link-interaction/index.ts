@@ -16,13 +16,13 @@ import type {
   LinkInteractionController,
   LinkInteractionOptions,
   SelectedPath,
-} from './state';
+} from './types';
 
 export type {
   LinkInteractionController,
   LinkInteractionOptions,
   LinkMode,
-} from './state';
+} from './types';
 
 /**
  * Handles eligible primary mouse input on one root in the selected mode:
