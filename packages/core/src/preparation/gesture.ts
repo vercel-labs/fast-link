@@ -193,7 +193,7 @@ function hasSameDestination<P>(
   return intent.href === gesture.href && intent.url.href === gesture.url;
 }
 
-// A matching release or click comes from the prepared pointer on the prepared anchor.
+// The prepared anchor, and the prepared pointer when the event reports one.
 function isOnPreparedAnchor<P>(
   event: MouseEvent,
   root: HTMLElement,
@@ -215,17 +215,20 @@ function observeGestureCancellation<P>(
   const eventRoot = root.getRootNode();
   const shadow = eventRoot instanceof ShadowRoot ? eventRoot : null;
   let releaseTimer: ReturnType<typeof setTimeout> | undefined;
-  const cancel = () => discard();
 
   function finishRelease(event: PointerEvent): void {
     const gesture = getPending();
     if (!gesture) return;
-    if (!isOnPreparedAnchor(event, root, gesture)) {
-      cancel();
+    // A release must report the prepared pointer, unlike a click.
+    const isPreparedRelease =
+      event.pointerId === gesture.pointerId &&
+      isOnPreparedAnchor(event, root, gesture);
+    if (!isPreparedRelease) {
+      discard();
       return;
     }
     // Native click follows release synchronously. A release with no click expires.
-    releaseTimer = setTimeout(cancel, 0);
+    releaseTimer = setTimeout(discard, 0);
   }
 
   function onPointerUp(event: PointerEvent): void {
@@ -235,12 +238,12 @@ function observeGestureCancellation<P>(
   }
 
   const stopListening = CANCELLATION_EVENTS.map((type) =>
-    listen(document, type, cancel, true),
+    listen(document, type, discard, true),
   );
   stopListening.push(listen(document, 'pointerup', onPointerUp, true));
   if (shadow)
     stopListening.push(listen(shadow, 'pointerup', finishRelease, true));
-  if (view) stopListening.push(listen(view, 'blur', cancel));
+  if (view) stopListening.push(listen(view, 'blur', discard));
 
   return () => {
     clearTimeout(releaseTimer);

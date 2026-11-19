@@ -261,6 +261,39 @@ it.each([
   }
 });
 
+it.each([
+  { release: 'another pointer', pointerId: { value: 8 } },
+  { release: 'no pointer id', pointerId: undefined },
+])('discards a release on the anchor from $release', ({ pointerId }) => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const controller = createClickPreparation(anchor, {
+    prepare: () => 'request',
+  });
+  try {
+    const down = new MouseEvent('pointerdown', { bubbles: true });
+    Object.defineProperties(down, {
+      pointerType: { value: 'mouse' },
+      pointerId: { value: 7 },
+    });
+    anchor.dispatchEvent(down);
+
+    const up = new MouseEvent('pointerup', { bubbles: true });
+    if (pointerId) Object.defineProperty(up, 'pointerId', pointerId);
+    anchor.dispatchEvent(up);
+
+    const event = click(anchor);
+    Object.defineProperties(event, {
+      pointerType: { value: 'mouse' },
+      pointerId: { value: 7 },
+    });
+    expect(controller.matchClick(event)).toBeNull();
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
 it.each(['consume', 'cancel', 'destroy'] as const)(
   'releases gesture listeners and the release timer after %s',
   (finish) => {

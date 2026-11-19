@@ -1,8 +1,8 @@
 /** Adds a listener and returns a function that removes it with the same capture flag. */
-export function listen<E extends Event>(
+export function listen<K extends keyof GlobalEventHandlersEventMap>(
   target: EventTarget,
-  type: string,
-  listener: (event: E) => void,
+  type: K,
+  listener: (event: GlobalEventHandlersEventMap[K]) => void,
   capture = false,
 ): () => void {
   const handler = listener as EventListener;

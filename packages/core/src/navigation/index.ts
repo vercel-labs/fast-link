@@ -70,12 +70,12 @@ export function runFastNavigation(
 export function validateFastNavigationDecision(
   value: unknown,
 ): FastNavigationDecision {
-  const candidate = value as Record<string, unknown> | null;
-  if (
-    candidate !== null &&
-    typeof candidate === 'object' &&
-    typeof candidate.then !== 'function'
-  ) {
+  // Policy output is untrusted; these property checks are its runtime validation.
+  const candidate =
+    value !== null && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  if (candidate && typeof candidate.then !== 'function') {
     const { kind } = candidate;
     if (kind === 'router') {
       const { scroll } = candidate;
