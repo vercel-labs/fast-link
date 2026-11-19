@@ -37,7 +37,7 @@ type CommittedLink = CommittedNavigation &
  *   `onClick`, Next Link's checks, and the caller's `onNavigate`.
  * - `immediate` runs `onNavigate`, then navigates on press. The follow-up
  *   click stays prevented even if `onNavigate` cancels or throws; click
- *   handlers still run.
+ *   handlers still run if the link is still mounted.
  * - `native` leaves navigation to Next Link.
  *
  * Keeps its own mode and options inside every `FastLinkRegion`.
