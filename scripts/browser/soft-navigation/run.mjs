@@ -1,7 +1,8 @@
 /*
  * Checks whether installed Chrome reports soft navigations for Fast Link
  * integrations as it does for an ordinary Next Link with the same route,
- * content and browser configuration. Requires `pnpm build` and a local Chrome.
+ * content and browser configuration. Builds the fixture with Turbo first and
+ * requires a local Chrome.
  * Exits 0 only when both release integrations pass in every selected scenario.
  */
 
@@ -16,6 +17,7 @@ import { parseArgs } from 'node:util';
 
 import { chromium } from 'playwright';
 
+import { runCommand } from '../../benchmarks/process.mjs';
 import { startFixture } from '../fixture-server.mjs';
 import {
   DEFAULT_HOLD_MS,
@@ -84,11 +86,20 @@ function readOptions() {
   };
 }
 
-/** Runs every scenario and variant with fresh browsers and writes the report. */
+/**
+ * Builds the fixture for the current tree, runs every scenario and variant with
+ * fresh browsers, and writes the report.
+ */
 async function main() {
   const options = readOptions();
   const root = fileURLToPath(new URL('../../../', import.meta.url));
   const fixture = resolve(root, 'fixtures/next-16');
+  // Turbo replays a cached build when sources are unchanged.
+  await runCommand(
+    'pnpm',
+    ['exec', 'turbo', 'run', 'build', '--filter=@fast-link/fixture-next-16...'],
+    root,
+  );
   const firstSource = `/docs/soft-navigation/source/${options.scenarios[0].id}/${BASELINE_VARIANT}`;
   const server = await startFixture(root, firstSource, fixture);
   try {
