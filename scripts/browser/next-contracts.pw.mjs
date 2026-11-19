@@ -530,12 +530,12 @@ test.describe('provider probes against ordinary Next Link', () => {
   ]) {
     test(`${name}: release matches Next Link routing`, async ({ page }) => {
       const release = await scenario(page, 'prepared');
-      const native = await scenario(page, 'prepared-native');
-      logObservation({ release, native });
-      for (const observation of [release, native])
+      const nextLink = await scenario(page, 'next-link');
+      logObservation({ release, nextLink });
+      for (const observation of [release, nextLink])
         assert.equal(observation.documentRequests, 0);
-      assert.equal(release.url, native.url, 'final URL');
-      assert.equal(release.historyDelta, native.historyDelta, 'history');
+      assert.equal(release.url, nextLink.url, 'final URL');
+      assert.equal(release.historyDelta, nextLink.historyDelta, 'history');
     });
   }
 
@@ -546,7 +546,7 @@ test.describe('provider probes against ordinary Next Link', () => {
     for (const testId of [
       'redirect',
       'redirect-immediate',
-      'redirect-native',
+      'redirect-next-link',
     ]) {
       await open(page, '/contracts/provider', 'provider-ready');
       const history = await historyLength(page);
@@ -570,7 +570,7 @@ test.describe('provider probes against ordinary Next Link', () => {
       assert.equal(observation.documentRequests, 0);
       assert.equal(
         observation.historyDelta,
-        observations['redirect-native'].historyDelta,
+        observations['redirect-next-link'].historyDelta,
       );
     }
   });
@@ -630,9 +630,8 @@ async function pushWhilePending(page, testId) {
           window.__contracts.get('provider').push('/contracts/provider?step=b'),
         );
         await expect(page.getByTestId('provider-step')).toHaveText('b');
-        gate.resolve();
-        // Allow the held destination response to settle before reading the URL.
-        await delay(QUIET_MS * 2);
+        // Read the URL only after the held destination responses settle.
+        await gate.release();
       },
       { awaitResponse: false },
     );
@@ -713,17 +712,36 @@ async function press(page, testId) {
   );
 }
 
-// Holds destination responses until resolved so the source stays mounted.
+// Holds destination responses until released so the source stays mounted.
 async function holdDestination(page) {
   const gate = Promise.withResolvers();
+  const held = new Map();
+  const settle = (request) => held.get(request)?.resolve();
+  page.on('requestfinished', settle);
+  page.on('requestfailed', settle);
   await page.route(
     (url) => url.pathname === DESTINATION,
     async (route) => {
+      const settled = Promise.withResolvers();
+      held.set(route.request(), settled);
       await gate.promise;
-      await route.continue().catch(() => undefined);
+      // A request the page canceled while held never reaches the network.
+      await route.continue().catch(() => settled.resolve());
     },
   );
-  return gate;
+  return {
+    resolve: gate.resolve,
+    // Resolves once every held request has finished or failed.
+    async release() {
+      gate.resolve();
+      try {
+        await Promise.all([...held.values()].map(({ promise }) => promise));
+      } finally {
+        page.off('requestfinished', settle);
+        page.off('requestfailed', settle);
+      }
+    },
+  };
 }
 
 function countRequests(page, pathname) {

@@ -1,18 +1,23 @@
 'use client';
 
 import { FastLink, type LinkMode } from '@fast-link/next';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type JSX } from 'react';
 
 import { recordingObserver, registerHandle } from '../log';
 import { invalidateDestination } from './actions';
 
-const links: [testId: string, href: string, mode: LinkMode][] = [
+const fastLinks: [testId: string, href: string, mode: LinkMode][] = [
   ['prepared', '/contracts/destination?from=prepared', 'release'],
-  ['prepared-native', '/contracts/destination?from=prepared-native', 'native'],
   ['redirect', '/contracts/redirect', 'release'],
   ['redirect-immediate', '/contracts/redirect', 'immediate'],
-  ['redirect-native', '/contracts/redirect', 'native'],
+];
+
+// Ordinary Next Link baselines for the same destinations.
+const nextLinks: [testId: string, href: string][] = [
+  ['next-link', '/contracts/destination?from=next-link'],
+  ['redirect-next-link', '/contracts/redirect'],
 ];
 
 export function ProviderLinks(): JSX.Element {
@@ -28,7 +33,7 @@ export function ProviderLinks(): JSX.Element {
   }, [router]);
   return (
     <nav data-testid="provider-ready" data-ready={isReady}>
-      {links.map(([testId, href, mode]) => (
+      {fastLinks.map(([testId, href, mode]) => (
         <FastLink
           key={testId}
           href={href}
@@ -40,6 +45,17 @@ export function ProviderLinks(): JSX.Element {
         >
           {testId}
         </FastLink>
+      ))}
+      {nextLinks.map(([testId, href]) => (
+        <Link
+          key={testId}
+          href={href}
+          prefetch={false}
+          data-testid={testId}
+          style={{ display: 'block' }}
+        >
+          {testId}
+        </Link>
       ))}
     </nav>
   );
