@@ -1,10 +1,12 @@
 # ▲ @fast-link/next
 
-`FastLink`, `FastLinkRegion`, and `useFastLink` speed up eligible mouse
-navigation in App Router. By default they prepare on press and wait for a click
-before navigating. `FastLink` runs your `onClick` and `onNavigate` handlers
-before navigating. Regions and custom hooks navigate during click capture,
-before later child click handlers.
+`FastLink`, `FastLinkRegion`, and `useFastLink` add mode-aware mouse
+navigation to App Router. In the default release mode they prepare on press
+and navigate on the accepted click. Preparation needs a supported Next runtime
+(see [Requirements](#requirements)); on other versions release mode routes at
+the accepted click, with ordinary Next Link timing. `FastLink` runs your
+`onClick` and `onNavigate` handlers before navigating. Regions and custom hooks
+[accept during click capture](#leave-one-region-link-on-its-normal-path).
 
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
@@ -109,7 +111,8 @@ export function AccountLink() {
 ```
 
 - Supports [Next Link options](#fastlink), including object `href`.
-- Runs caller `onClick` and `onNavigate` guards before navigation.
+- In release mode, runs caller `onClick` and `onNavigate` guards before
+  navigation.
 - Preserves Next Link prefetching and native activation.
 - Keeps its own mode, options, and policy inside every `FastLinkRegion`,
   including in native mode. A `FastLink` without `mode` uses release even
@@ -118,9 +121,6 @@ export function AccountLink() {
 ## Add Fast Link to a navigation region
 
 Wrap existing `next/link` or anchor elements that share one navigation policy:
-
-In release mode, regions prepare on press and accept navigation during click
-capture. Use `FastLink` when child click guards must run before acceptance.
 
 ```tsx
 import { FastLinkRegion } from '@fast-link/next';
@@ -138,14 +138,16 @@ export default function Navigation() {
 }
 ```
 
+In release mode, regions prepare on press and
+[accept during click capture](#leave-one-region-link-on-its-normal-path).
+
 - Use `FastLink` for per-link options. It keeps its own options and policy inside
   a region.
 - Regions cannot read Next Link options from ordinary rendered anchors.
 - An ordinary link uses its closest region's mode and policy, including a
-  native region. An accelerated inner region works inside a native one. This
-  also applies to regions created with `@fast-link/core` or `@fast-link/react`
-  `createLinkInteraction` controllers.
-
+  native region. An accelerated inner region works inside a native one.
+  Regions bound with core `createLinkInteraction` or React
+  `useLinkInteraction` follow the same rule.
 - Server Components can pass the link subtree as children.
 - The wrapper is a `display: contents` div, with no layout box.
   Keep a semantic element such as `nav` inside it.
@@ -195,16 +197,16 @@ export function AccountLink() {
 ```
 
 - Opt out for click-time guards or Link options the region cannot read.
-- Regions accept during click capture. Later child handlers cannot veto that
-  navigation; use `FastLink` when they must run first.
+- In release mode, regions and `useFastLink` accept during click capture, after
+  their supplied guards. Later child handlers cannot veto that navigation; use
+  `FastLink` when they must run first.
 - Define callbacks in a Client Component.
 
 ## Understand navigation and click behavior
 
 - In release mode, `FastLink` honors its `onClick` and `onNavigate` guards.
-  Regions accept during click capture. The custom hook runs its supplied `onClickCapture` and
-  `onNavigate` guards before capture acceptance. Later child guards cannot veto
-  a committed route; use `FastLink` or opt out when they must run first.
+  Regions and the custom hook [accept during click capture](#leave-one-region-link-on-its-normal-path); later
+  child guards cannot veto an accepted navigation.
 - API routes or another application's pages: choose an explicit routing policy
   or opt out. See [application boundaries](#route-links-across-application-boundaries).
 
@@ -266,10 +268,6 @@ Other integration rules:
 Supply a policy when the current App Router does not own every same-origin
 destination. Bind the policy once in reusable Client Component wrappers:
 
-`navigationPolicy` handles accepted early mouse navigation. Preserve the
-application's normal routing across application boundaries for keyboard and
-touch activation too.
-
 ```tsx
 'use client';
 
@@ -305,6 +303,10 @@ export function AppRegion(
 }
 ```
 
+`navigationPolicy` handles accepted early mouse navigation. Preserve the
+application's normal routing across application boundaries for keyboard and
+touch activation too.
+
 Both wrappers use the same navigation policy. `AppLink` forwards the caller's ref
 and Link options. `AppRegion` forwards region props, including `basePath`,
 `mode`, and `onFastNavigate`.
@@ -338,12 +340,6 @@ Prefer `FastLink` for reusable wrappers that forward refs and Link props. Use
 `useFastLink` when an existing renderer must control the anchor, prefetching,
 click handlers, or pending state:
 
-In release mode the hook prepares on press. At click capture it runs the
-supplied `onClickCapture` and `onNavigate` guards, then navigates if accepted.
-Later child guards cannot cancel that navigation. In immediate mode it runs
-`onNavigate` and navigates on press; `onClickCapture` then sees the prevented
-follow-up click.
-
 ```tsx
 'use client';
 
@@ -369,6 +365,14 @@ export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
   },
 );
 ```
+
+In release mode the hook prepares on press and
+[accepts during click capture](#leave-one-region-link-on-its-normal-path) after the supplied `onClickCapture` and
+`onNavigate` guards. If a guard changes the mode, or the anchor's ownership or
+attachment changes before acceptance, the hook leaves the click to the
+renderer, which runs its own guards again. In immediate mode the hook runs
+`onNavigate` and navigates on press; `onClickCapture` then sees the prevented
+follow-up click.
 
 The renderer must forward both bindings to its anchor. Pass its capture handler
 into the hook and spread the bindings last so that handler runs before acceptance.
@@ -425,7 +429,8 @@ application-owned anchor. Spread both on that anchor after other props. It accep
 - `forwardedRef` for composing an anchor ref.
 - `onClickCapture`, which runs before acceptance and can cancel with `preventDefault()`.
 
-The supplied `onNavigate` guard runs after `onClickCapture` for matching clicks.
+In release mode, the supplied `onNavigate` guard runs after `onClickCapture`
+for matching clicks.
 The renderer owns native activation, prefetching, and pending UI. It must honor
 `defaultPrevented` so a capture-accepted click does not navigate twice.
 

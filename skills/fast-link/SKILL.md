@@ -15,6 +15,13 @@ Each link or region selects a `mode`:
   to commit.
 - `native`: ordinary link behavior, including client routing.
 
+Release mode prepares on press only on a supported Next runtime: Next
+`16.5.0-canary.42` with `experimental: { prepareNavigation: true }` in
+`next.config`. Elsewhere it routes at the accepted click, with ordinary Next
+Link timing. Check the installed Next version and `next.config` before
+presenting release mode as a speed-up, and get the user's agreement before
+changing either.
+
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
@@ -53,9 +60,9 @@ destructive actions, forms, and links whose drag-to-bookmark behavior matters.
 A same-origin URL can belong to another application; origin alone does not
 establish router ownership.
 
-Inspect click-time behavior before wrapping existing links. A region's capture
-listener accepts before an ordinary link's `onClick` or `onNavigate` runs, in
-release mode, and navigates on press in immediate mode. Use
+Inspect click-time behavior before wrapping existing links. In release mode, a
+region accepts during click capture, before an ordinary link's `onClick` or
+`onNavigate` runs. In immediate mode, it navigates on press. Use
 `data-no-fast-link` on that anchor to retain its normal behavior. Use a managed
 `FastLink` in release mode when click guards must run first and its Next.js
 options should be preserved. Choose immediate mode only when the guard can run

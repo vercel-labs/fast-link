@@ -34,8 +34,8 @@ export type FastNavigationPolicy = (
 export type NavigationOptions = {
   /**
    * `release` (default) prepares on press and navigates on an accepted click.
-   * `immediate` navigates on press. `native` leaves navigation to ordinary
-   * Next Link behavior.
+   * `immediate` navigates on press. `native` leaves navigation to the link or
+   * renderer.
    */
   mode?: LinkMode;
   /** Chooses router or document navigation. May run on press and click; must have no side effects. */

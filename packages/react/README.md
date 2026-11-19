@@ -16,7 +16,7 @@ instead.
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+Sites requiring WCAG Level A or AA conformance should keep links in native mode.
 See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
 
 ## Requirements

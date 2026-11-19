@@ -41,8 +41,8 @@ mode.
 _Avoid_: Region link
 
 **Ordinary link**:
-An anchor with no per-link Fast Link behavior. A containing region can supply
-its early navigation policy.
+An anchor with no per-link Fast Link behavior. Its closest region supplies its
+mode and navigation policy.
 _Avoid_: Managed link
 
 **Anchor ownership**:

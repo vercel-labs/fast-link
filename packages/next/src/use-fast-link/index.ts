@@ -38,6 +38,9 @@ export type UseFastLinkOptions = Pick<
  *   after the supplied `onClickCapture` and `onNavigate`. Later child handlers
  *   cannot veto it. Use `FastLink` when the renderer's own click and
  *   navigation guards must run first.
+ * - If a guard changes the mode, or the anchor's ownership or attachment
+ *   changes before acceptance, the click is left to the renderer, which runs
+ *   its own guards again.
  * - `immediate` runs the supplied `onNavigate`, then navigates on press.
  * - `native` leaves navigation to the renderer.
  * - The renderer owns prefetching, click handlers, and pending state.

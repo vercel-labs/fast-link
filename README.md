@@ -1,8 +1,8 @@
 # ▲ Fast Link
 
-Fast Link helps your application feel faster by starting work for eligible
-same-origin link navigation when you press the mouse, instead of waiting for
-release. Choose a mode per link or region:
+Fast Link can start work for eligible same-origin link navigation when you
+press the mouse, instead of waiting for release. Choose a mode per link or
+region:
 
 | Mode                | Behavior                                                                  |
 | ------------------- | ------------------------------------------------------------------------- |
@@ -10,8 +10,13 @@ release. Choose a mode per link or region:
 | `immediate`         | Navigate on press. Moving away before release cannot cancel it.           |
 | `native`            | Leave navigation to the ordinary link, including client routing.          |
 
+Release mode prepares on press only on a Next.js runtime that supports
+navigation preparation; see the
+[`@fast-link/next` requirements](./packages/next/README.md#requirements).
+Elsewhere it routes at the accepted click, with ordinary Next Link timing.
+
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
-pages; it starts navigation earlier.
+pages.
 
 ## When to use Fast Link
 
@@ -159,9 +164,10 @@ version and changelog.
 
 ## Performance benchmarks
 
-Fast Link starts eligible mouse navigation one press-to-release interval earlier.
-The historical benchmark configured an **85 ms mouse hold** for every variant;
-that setting is not a typical-user gain or evidence of faster JavaScript execution.
+The historical benchmark measured immediate mode's press-time navigation with a
+configured **85 ms mouse hold** for every variant; that setting is not a
+typical-user gain or evidence of faster JavaScript execution. No published
+measurement covers release mode yet.
 
 See [How we benchmark](docs/benchmarks.md) for the manual procedure and measurement
 limits. The [historical raw report](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
