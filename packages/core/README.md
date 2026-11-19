@@ -180,11 +180,18 @@ function createLinkInteraction<P>(
         navigate(intent: FastLinkIntent): void;
       }
     | { mode: 'native' },
+  isActive?: () => boolean,
 ): LinkInteractionController<P>;
 ```
 
 The root can be one anchor or a region containing anchors. The mode has no
 default. Options are copied at creation and on each `update()`.
+
+Pass `isActive` when the owner can detach the root before calling `destroy()`,
+such as a framework ref that can reattach within one commit. While it returns
+`false`, a press stays native: the root claims, prepares, and suppresses
+nothing. A guard that deactivates the root cancels immediate navigation, and
+release `matchClick` and `consume()` return `null`. It defaults to always active.
 
 Release mode prepares like [`createClickPreparation`](#createclickpreparation).
 Handle its clicks with `matchClick(event)` and the same consume or discard
@@ -195,9 +202,9 @@ Immediate mode handles an eligible press in this order:
 1. Claim the press and arm suppression of the follow-up click.
 2. Call `beforeNavigate(intent)`. Returning `false` cancels navigation. An error
    propagates. Either way, the follow-up click stays suppressed.
-3. Recheck the attempt. A mode change, new input at the root, destruction, a
-   change of owner, or a link that is no longer eligible cancels it. A
-   same-mode update or `href` change during the guard is used.
+3. Recheck the attempt. A mode change, new input at the root, destruction,
+   deactivation, a change of owner, or a link that is no longer eligible
+   cancels it. A same-mode update or `href` change during the guard is used.
 4. Call the current `navigate(intent)`. Errors propagate and are not retried.
 
 Native mode prepares, claims, and navigates nothing. The root still owns its
@@ -288,6 +295,7 @@ implementing it in an app.
 function createClickPreparation<P>(
   root: HTMLElement,
   options: { enabled?: boolean; prepare(intent: FastLinkIntent): P | null },
+  isActive?: () => boolean,
 ): ClickPreparationController<P>;
 ```
 
@@ -295,6 +303,10 @@ function createClickPreparation<P>(
 its return value without checking whether the work is ready or providing a way
 to abort it. If `prepare` throws, core ignores the error so the adapter can still
 handle the click.
+
+`isActive` works as in [`createLinkInteraction`](#createlinkinteraction): while
+it returns `false`, a press prepares nothing, and `matchClick` and `consume()`
+return `null`.
 
 Handle the click in this order:
 
@@ -308,8 +320,8 @@ Handle the click in this order:
 Complete this sequence synchronously during the click event. The adapter calls
 `preventDefault()` and performs navigation after consuming a valid candidate.
 
-`consume()` rechecks the link's current eligibility and per-link priority over
-containing regions. It returns one of these results:
+`consume()` rechecks the link's current eligibility, its per-link priority over
+containing regions, and the root's activity. It returns one of these results:
 
 | Result                        | Meaning                                                                                        |
 | ----------------------------- | ---------------------------------------------------------------------------------------------- |

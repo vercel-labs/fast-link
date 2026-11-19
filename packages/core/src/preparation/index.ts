@@ -31,22 +31,31 @@ export interface ClickPreparationController<P> {
  * Managed anchors retain priority even when disabled. New input, drag, cancellation,
  * release away, and destruction discard preparation. Destroy when the root detaches.
  * Discarding opaque preparation does not cancel provider work.
+ *
+ * @param isActive Reports whether the root is still attached for its owner.
+ *   While it returns `false`, a press prepares nothing, `matchClick` returns
+ *   `null`, and a matched candidate's `consume()` returns `null`. Defaults to
+ *   always active.
  */
 export function createClickPreparation<P>(
   root: HTMLElement,
   options: ClickPreparationOptions<P>,
+  isActive: () => boolean = () => true,
 ): ClickPreparationController<P> {
   let isEnabled = options.enabled !== false;
   let isDestroyed = false;
-  const gesture = createClickGesture(root, options, (anchor) =>
-    hasAnchorPriority(root, anchor),
+  const gesture = createClickGesture(
+    root,
+    options,
+    (anchor) => hasAnchorPriority(root, anchor),
+    isActive,
   );
   const releaseAnchor = registerAnchorOwner(root);
   const stopListening = listen(root, 'pointerdown', prepareFromPress, true);
 
   function prepareFromPress(event: PointerEvent): void {
     gesture.discard();
-    if (isDestroyed || !isEnabled) return;
+    if (isDestroyed || !isEnabled || !isActive()) return;
 
     const anchor = findAnchor(event.target, root);
     if (!anchor || !hasAnchorPriority(root, anchor)) return;

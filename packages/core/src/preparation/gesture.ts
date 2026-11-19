@@ -51,6 +51,7 @@ export function createClickGesture<P>(
   root: HTMLElement,
   initialOptions: GestureOptions<P>,
   isOwner: (anchor: HTMLAnchorElement) => boolean,
+  isActive: () => boolean,
 ): ClickGesture<P> {
   let options = { ...initialOptions };
   let pending: Gesture<P> | null = null;
@@ -98,6 +99,11 @@ export function createClickGesture<P>(
   function matchClick(event: MouseEvent): PreparedClick<P> | null {
     const gesture = pending;
     if (!gesture) return null;
+    // An inactive root neither matches nor, below, consumes.
+    if (!isActive()) {
+      discard();
+      return null;
+    }
 
     // Take the gesture, but keep cancellation active while adapter guards run.
     pending = null;
@@ -124,7 +130,7 @@ export function createClickGesture<P>(
 
     // Read ownership and the DOM here, after adapter guards have run.
     function getCurrentIntent(): FastLinkIntent | null {
-      if (isDestroyed) return null;
+      if (isDestroyed || !isActive()) return null;
       if (generation !== matchedGeneration) return null;
       if (!isOwner(gesture.anchor)) return null;
       return getLinkIntent(event.target, gesture.anchor);

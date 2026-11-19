@@ -34,12 +34,19 @@ export type {
  * A managed anchor keeps its own mode over every containing root. Otherwise the
  * closest root containing the link owns it, including a native root. The root
  * registers at creation; call `destroy()` when it detaches.
+ *
+ * @param isActive Reports whether the root is still attached for its owner.
+ *   While it returns `false`, a press stays native: the root claims, prepares,
+ *   and suppresses nothing. A guard that deactivates the root cancels immediate
+ *   navigation, and release `matchClick` and `consume()` return `null`.
+ *   Defaults to always active.
  */
 export function createLinkInteraction<P>(
   root: HTMLElement,
   options: LinkInteractionOptions<P>,
+  isActive: () => boolean = () => true,
 ): LinkInteractionController<P> {
-  let selected = selectPath(root, options);
+  let selected = selectPath(root, options, isActive);
   let isDestroyed = false;
   // Changes on each root press, mode change, and destruction to invalidate a running guard.
   let inputVersion = 0;
@@ -51,7 +58,7 @@ export function createLinkInteraction<P>(
   function startInteraction(event: PointerEvent): void {
     finishPreviousInput();
     const current = selected;
-    if (isDestroyed || current.mode === 'native') return;
+    if (isDestroyed || current.mode === 'native' || !isActive()) return;
 
     const intent = resolvePressForRoot(root, event);
     if (!intent) return;
@@ -82,8 +89,9 @@ export function createLinkInteraction<P>(
   }
 
   /**
-   * Rechecks the attempt after the guard. New root input, a mode change, or
-   * destruction invalidates it; same-mode option and href changes apply.
+   * Rechecks the attempt after the guard. New root input, a mode change,
+   * destruction, or deactivation invalidates it; same-mode option and href
+   * changes apply.
    */
   function resolveCurrentPress(
     event: PointerEvent,
@@ -91,7 +99,7 @@ export function createLinkInteraction<P>(
     attempt: number,
   ): { intent: FastLinkIntent; options: ImmediateLinkOptions } | null {
     const current = selected;
-    if (isDestroyed || inputVersion !== attempt) return null;
+    if (isDestroyed || inputVersion !== attempt || !isActive()) return null;
     if (current.mode !== 'immediate') return null;
     if (!isInteractionOwner(root, anchor)) return null;
 
@@ -133,7 +141,7 @@ export function createLinkInteraction<P>(
       // Switching away and back cannot revive discarded work. Suppression is kept.
       inputVersion++;
       leaveSelectedPath();
-      selected = selectPath(root, nextOptions);
+      selected = selectPath(root, nextOptions, isActive);
     },
     matchClick: (event) =>
       !isDestroyed && selected.mode === 'release'
@@ -157,12 +165,16 @@ export function createLinkInteraction<P>(
 function selectPath<P>(
   root: HTMLElement,
   options: LinkInteractionOptions<P>,
+  isActive: () => boolean,
 ): SelectedPath<P> {
   if (options.mode === 'release') {
     return {
       mode: 'release',
-      gesture: createClickGesture(root, options, (anchor) =>
-        isInteractionOwner(root, anchor),
+      gesture: createClickGesture(
+        root,
+        options,
+        (anchor) => isInteractionOwner(root, anchor),
+        isActive,
       ),
     };
   }

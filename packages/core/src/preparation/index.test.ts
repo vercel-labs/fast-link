@@ -544,3 +544,29 @@ it('drops preparation when relative URL resolution changes without an href chang
     base.remove();
   }
 });
+
+it('prepares and consumes nothing while the root is inactive', () => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => 'guide');
+  let isActive = false;
+  const controller = createClickPreparation(
+    anchor,
+    { prepare },
+    () => isActive,
+  );
+  try {
+    press(anchor);
+    expect(prepare).not.toHaveBeenCalled();
+
+    isActive = true;
+    press(anchor);
+    const activation = controller.matchClick(click(anchor));
+    expect(activation).not.toBeNull();
+    isActive = false;
+    expect(activation?.consume()).toBeNull();
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});

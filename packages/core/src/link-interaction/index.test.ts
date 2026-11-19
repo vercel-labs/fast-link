@@ -826,3 +826,70 @@ describe('updates', () => {
     expect(click(anchor)).toBe(false);
   });
 });
+
+describe('root activity', () => {
+  it.each(['release', 'immediate'] as const)(
+    'leaves a %s press native while the root is inactive',
+    (mode) => {
+      const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+      const calls: Calls = [];
+      const controller = createLinkInteraction(
+        anchor,
+        recording(mode, 'link', calls),
+        () => false,
+      );
+      try {
+        press(anchor);
+        expect(calls).toEqual([]);
+        expect(click(anchor)).toBe(false);
+      } finally {
+        controller.destroy();
+      }
+    },
+  );
+
+  it('cancels immediate navigation when the guard deactivates the root', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const navigate = vi.fn();
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      {
+        mode: 'immediate',
+        beforeNavigate: () => {
+          isActive = false;
+          return true;
+        },
+        navigate,
+      },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      expect(navigate).not.toHaveBeenCalled();
+      // Like a canceled guard, the claimed press keeps its click suppressed.
+      expect(click(anchor)).toBe(true);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('rejects a release candidate consumed after the root deactivates', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'release', prepare: () => 'prepared' },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      const candidate = controller.matchClick(clickEvent(anchor));
+      expect(candidate).not.toBeNull();
+      isActive = false;
+      expect(candidate?.consume()).toBeNull();
+    } finally {
+      controller.destroy();
+    }
+  });
+});
