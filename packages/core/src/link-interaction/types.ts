@@ -1,5 +1,5 @@
 import type { FastLinkIntent } from '../interaction';
-import type { ClickGesture, PreparedClick } from '../preparation/gesture';
+import type { PreparedClick } from '../preparation/gesture';
 
 /** How a link interaction controller handles eligible primary mouse input. */
 export type LinkMode = 'release' | 'immediate' | 'native';
@@ -62,8 +62,3 @@ export interface LinkInteractionController<P> {
   /** Destroys pending work, suppression, listeners, and root ownership. Repeated calls do nothing. */
   destroy(): void;
 }
-
-export type SelectedPath<P> =
-  | { readonly mode: 'release'; readonly gesture: ClickGesture<P> }
-  | { readonly mode: 'immediate'; options: ImmediateLinkOptions }
-  | { readonly mode: 'native' };

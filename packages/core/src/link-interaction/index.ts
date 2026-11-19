@@ -1,6 +1,6 @@
 import { getLinkIntent, type FastLinkIntent } from '../interaction';
 import { listen } from '../listen';
-import { createClickGesture } from '../preparation/gesture';
+import { createClickGesture, type ClickGesture } from '../preparation/gesture';
 import {
   armFollowupClick,
   suppressFollowupClick,
@@ -15,7 +15,6 @@ import type {
   ImmediateLinkOptions,
   LinkInteractionController,
   LinkInteractionOptions,
-  SelectedPath,
 } from './types';
 
 export type {
@@ -183,3 +182,8 @@ function selectPath<P>(
   }
   return { mode: 'native' };
 }
+
+type SelectedPath<P> =
+  | { readonly mode: 'release'; readonly gesture: ClickGesture<P> }
+  | { readonly mode: 'immediate'; options: ImmediateLinkOptions }
+  | { readonly mode: 'native' };

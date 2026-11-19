@@ -47,7 +47,7 @@ export function createClickPreparation<P>(
   const gesture = createClickGesture(
     root,
     options,
-    (anchor) => hasAnchorPriority(root, anchor),
+    (anchor) => isPreparationOwner(root, anchor),
     isActive,
   );
   const releaseAnchor = registerAnchorOwner(root);
@@ -58,7 +58,7 @@ export function createClickPreparation<P>(
     if (isDestroyed || !isEnabled || !isActive()) return;
 
     const anchor = findAnchor(event.target, root);
-    if (!anchor || !hasAnchorPriority(root, anchor)) return;
+    if (!anchor || !isPreparationOwner(root, anchor)) return;
     const intent = resolveFastLink(event, anchor);
     if (!intent) return;
     gesture.prepare(event, intent);
@@ -84,7 +84,7 @@ export function createClickPreparation<P>(
 
 // The root must still contain the anchor. Containing preparation roots keep
 // outside-in order; only managed anchors take priority.
-function hasAnchorPriority(
+function isPreparationOwner(
   root: HTMLElement,
   anchor: HTMLAnchorElement,
 ): boolean {
