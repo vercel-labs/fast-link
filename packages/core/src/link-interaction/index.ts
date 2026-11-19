@@ -93,8 +93,7 @@ export function createLinkInteraction<P>(
     const current = selected;
     if (isDestroyed || inputVersion !== attempt) return null;
     if (current.mode !== 'immediate') return null;
-    if (!root.contains(anchor) || !isInteractionOwner(root, anchor))
-      return null;
+    if (!isInteractionOwner(root, anchor)) return null;
 
     const intent = getLinkIntent(event.target, anchor);
     return intent ? { intent, options: current.options } : null;

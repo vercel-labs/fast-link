@@ -126,7 +126,6 @@ export function createClickGesture<P>(
     function getCurrentIntent(): FastLinkIntent | null {
       if (isDestroyed) return null;
       if (generation !== matchedGeneration) return null;
-      if (!root.contains(gesture.anchor)) return null;
       if (!isOwner(gesture.anchor)) return null;
       return getLinkIntent(event.target, gesture.anchor);
     }
