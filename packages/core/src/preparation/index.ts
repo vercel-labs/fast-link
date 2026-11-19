@@ -20,7 +20,9 @@ export interface ClickPreparationController<P> {
   update(options: ClickPreparationOptions<P>): void;
   /** Matches before synchronous guards. Consume or discard every returned candidate. */
   matchClick(event: MouseEvent): PreparedClick<P> | null;
+  /** Drops pending preparation and matched candidates only. */
   discard(): void;
+  /** Destroys pending work, listeners, and managed-anchor registration. Repeated calls do nothing. */
   destroy(): void;
 }
 

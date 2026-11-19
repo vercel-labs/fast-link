@@ -43,7 +43,7 @@ if (!Reflect.has(coordination, 'regionOwners')) {
   Reflect.set(coordination, 'regionOwners', new WeakMap<HTMLElement, number>());
 }
 
-/** Registers a managed anchor until released; containing roots do not register. */
+/** Registers a managed anchor until released; returns `undefined` for any other root. */
 export function registerAnchorOwner(
   root: HTMLElement,
 ): (() => void) | undefined {

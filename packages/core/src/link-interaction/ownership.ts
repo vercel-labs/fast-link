@@ -15,7 +15,7 @@ import {
  * to it before their first capture handler does any work.
  */
 export function registerInteractionRoot(root: HTMLElement): () => void {
-  // An anchor root is a managed link; registerAnchorOwner returns undefined for any other root, a region.
+  // An anchor root is a managed link. For any other root (a region), registerAnchorOwner returns undefined.
   return registerAnchorOwner(root) ?? registerRegionOwner(root);
 }
 

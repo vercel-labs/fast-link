@@ -61,7 +61,12 @@ export function runFastNavigation(
   }
 }
 
-/** Validates and copies a synchronous decision without performing navigation or observation. */
+/**
+ * Validates and copies a synchronous decision without performing navigation or observation.
+ *
+ * @throws {TypeError} When `value` is not a valid router or document decision,
+ *   including when it is a thenable.
+ */
 export function validateFastNavigationDecision(
   value: unknown,
 ): FastNavigationDecision {
