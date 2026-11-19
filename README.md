@@ -10,10 +10,10 @@ region:
 | `immediate`         | Navigate on press. Moving away before release cannot cancel it.           |
 | `native`            | Leave navigation to the ordinary link, including client routing.          |
 
-Release mode prepares on press only on a Next.js runtime that supports
-navigation preparation; see the
-[`@fast-link/next` requirements](./packages/next/README.md#requirements).
-Elsewhere it routes at the accepted click, with ordinary Next Link timing.
+With `@fast-link/next`, release mode prepares on press only on a Next.js
+runtime that supports navigation preparation; see the
+[requirements](./packages/next/README.md#requirements). Elsewhere it routes at
+the accepted click, with ordinary Next Link timing.
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages.
