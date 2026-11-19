@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { readModes } from './options.mjs';
 import { createBenchmarkSession } from './session.mjs';
 
 /** Validates CLI inputs before starting a production server. */
@@ -10,14 +11,16 @@ function readOptions() {
       root: { type: 'string', default: process.cwd() },
       output: { type: 'string' },
       case: { type: 'string', default: 'all' },
+      modes: { type: 'string' },
     },
   });
   if (!values.output || !['all', 'core', 'react', 'next'].includes(values.case))
     throw new Error(
-      'Usage: pnpm benchmark --output FILE [--case core|react|next]',
+      'Usage: pnpm benchmark --output FILE [--case core|react|next] [--modes release,immediate,native]',
     );
   return {
     ...values,
+    modes: readModes(values.modes),
     root: resolve(values.root),
     output: resolve(values.output),
   };
@@ -32,6 +35,7 @@ async function main() {
       root: values.root,
       output: values.output,
       selected: values.case,
+      modes: values.modes,
     });
   } finally {
     await session.close();

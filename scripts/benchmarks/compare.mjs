@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { combineBatches } from './comparison-results.mjs';
+import { readModes } from './options.mjs';
 import { prepareCheckouts } from './prepare.mjs';
 import { evaluateComparison } from './report.mjs';
 import { createBenchmarkSession } from './session.mjs';
@@ -17,17 +18,19 @@ function readOptions() {
       head: { type: 'string', default: process.cwd() },
       output: { type: 'string' },
       case: { type: 'string', default: 'all' },
+      modes: { type: 'string' },
     },
   });
 
   if (!values.base || !values.output) {
     throw new Error(
-      'Usage: pnpm benchmark:compare --base CHECKOUT --output DIRECTORY',
+      'Usage: pnpm benchmark:compare --base CHECKOUT --output DIRECTORY [--modes release,immediate,native]',
     );
   }
 
   return {
     ...values,
+    modes: readModes(values.modes),
     base: resolve(values.base),
     head: resolve(values.head),
     output: resolve(values.output),
@@ -41,6 +44,7 @@ async function measureBatch(session, options, batch, side) {
     root: options[side],
     output: path,
     selected: options.case,
+    modes: options.modes,
     batch,
   });
 }

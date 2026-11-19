@@ -218,7 +218,14 @@ const scenarios = [
         .poll(() => page.evaluate(() => Boolean(window.benchmark)))
         .toBe(true);
       const observations = await page.evaluate(() => {
-        return ['bare', 'core', 'plain', 'react'].map((variant) => {
+        const cases = [
+          ['bare', null],
+          ['plain', null],
+        ];
+        for (const variant of ['core', 'react'])
+          for (const mode of ['release', 'immediate', 'native'])
+            cases.push([variant, mode]);
+        return cases.map(([variant, mode]) => {
           const counts = { mouse: 0, touch: 0, clicks: 0 };
           const onDown = (event) => counts[event.pointerType]++;
           const onClick = () => counts.clicks++;
@@ -228,9 +235,9 @@ const scenarios = [
             const workload = { interactions: 7, warmup: 3 };
             const metrics =
               variant === 'bare' || variant === 'core'
-                ? window.benchmark.micro(variant, workload)
-                : window.benchmark.interaction(variant, workload);
-            return { variant, counts, metrics };
+                ? window.benchmark.micro(variant, mode, workload)
+                : window.benchmark.interaction(variant, mode, workload);
+            return { variant: `${variant} ${mode}`, counts, metrics };
           } finally {
             document.removeEventListener('pointerdown', onDown, true);
             document.removeEventListener('click', onClick, true);
@@ -238,9 +245,14 @@ const scenarios = [
         });
       });
       for (const { variant, counts, metrics } of observations) {
-        // Core probes cleanup before removing its anchor; React unmounts first.
-        const mouse = variant === 'bare' || variant === 'core' ? 11 : 10;
-        assert.deepEqual(counts, { mouse, touch: 10, clicks: 10 }, variant);
+        // Core probes cleanup with a press and click before removing its
+        // anchor; React unmounts first.
+        const extra = /^(bare|core) /.test(variant) ? 1 : 0;
+        assert.deepEqual(
+          counts,
+          { mouse: 10 + extra, touch: 10, clicks: 10 + extra },
+          variant,
+        );
         assert.equal(metrics.accepted.correct, true, variant);
         assert.equal(metrics.ignored.correct, true, variant);
       }

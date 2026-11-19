@@ -3,6 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { combineBatches } from './comparison-results.mjs';
+import { expectedNavigation, navigationCorrect } from './navigation.mjs';
+import { readModes } from './options.mjs';
+import { selectFixtureBindings } from './prepare.mjs';
 import {
   evaluateComparison,
   scenarioNames,
@@ -28,7 +31,7 @@ describe('benchmark results', () => {
     const input = report(10);
     input.conditions = { case: 'all', listSizes: [1, 10, 1000] };
     input.metrics = Object.fromEntries(
-      scenarioNames().map((name) => [
+      scenarioNames({ case: 'all' }).map((name) => [
         name.replace('.100.', '.10.'),
         metric(10),
       ]),
@@ -39,6 +42,44 @@ describe('benchmark results', () => {
     expect(() => validateReport(input)).toThrow(
       'Missing or unexpected benchmark scenarios',
     );
+  });
+
+  it('limits scenarios to the modes a comparison selects', () => {
+    const names = scenarioNames({
+      case: 'next',
+      listSizes: [1],
+      modes: ['release'],
+    });
+
+    expect(names).toContain('next.next.prefetch.hold0.releaseToCommit');
+    expect(names).toContain('next.fast.release.cold.hold85.navigation');
+    expect(names).toContain('next.region.release.warm.hold0.pressDuration');
+    expect(
+      names.filter((name) => /immediate|native|switch/.test(name)),
+    ).toEqual([]);
+    expect(
+      scenarioNames({ case: 'next', listSizes: [1] }).filter((name) =>
+        name.startsWith('next.fast.switch.'),
+      ),
+    ).toEqual([
+      'next.fast.switch.1.release',
+      'next.fast.switch.1.immediate',
+      'next.fast.switch.1.native',
+    ]);
+  });
+
+  it('reads selected modes in workload order and rejects unknown modes', () => {
+    expect(readModes(undefined)).toEqual(['release', 'immediate', 'native']);
+    expect(readModes('native,release')).toEqual(['release', 'native']);
+    expect(() => readModes('release,eager')).toThrow('Unknown benchmark modes');
+  });
+
+  it('accepts negative samples only for signed metrics', () => {
+    const input = report(10);
+    input.metrics['core.core.accepted'].samples[0] = -1;
+    expect(() => validateReport(input)).toThrow('nonnegative');
+    input.metrics['core.core.accepted'].signed = true;
+    expect(() => validateReport(input)).not.toThrow();
   });
 
   it('reports a median and full range without rounding samples', () => {
@@ -340,5 +381,107 @@ describe('manual comparison command', () => {
       error: expect.stringContaining('Server did not close'),
     });
     expect(close).toHaveBeenCalledOnce();
+  });
+});
+
+const observed = (change = {}) => ({
+  text: 'Benchmark destination',
+  destination: { text: 'Benchmark destination', committed: 150 },
+  start: 100,
+  release: 120,
+  preparation: true,
+  clicks: 1,
+  prevented: 1,
+  accepted: 1,
+  suppressed: 1,
+  history: 3,
+  ...change,
+});
+describe('navigation correctness', () => {
+  const commitBeforeRelease = {
+    destination: { text: 'Benchmark destination', committed: 110 },
+  };
+
+  it.each([
+    ['ordinary Next Link', 'next', null, { accepted: 0, suppressed: 0 }],
+    ['FastLink release after onClick', 'fast', 'release', { suppressed: 0 }],
+    ['region release during capture', 'region', 'release', {}],
+    ['FastLink immediate', 'fast', 'immediate', {}],
+    ['region immediate', 'region', 'immediate', {}],
+    ['native FastLink', 'fast', 'native', { accepted: 0, suppressed: 0 }],
+    ['native region', 'region', 'native', { accepted: 0, suppressed: 0 }],
+  ])('accepts one correct %s navigation', (_, variant, mode, change) => {
+    expect(
+      navigationCorrect(observed(change), expectedNavigation(variant, mode), 2),
+    ).toBe(true);
+  });
+
+  it('permits commit before release only in immediate mode', () => {
+    const early = observed(commitBeforeRelease);
+    expect(
+      navigationCorrect(early, expectedNavigation('fast', 'immediate'), 2),
+    ).toBe(true);
+    expect(
+      navigationCorrect(early, expectedNavigation('region', 'release'), 2),
+    ).toBe(false);
+    expect(
+      navigationCorrect(
+        { ...early, accepted: 0, suppressed: 0 },
+        expectedNavigation('next', null),
+        2,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      'release without runtime preparation',
+      'region',
+      'release',
+      { preparation: false },
+    ],
+    ['a second history entry', 'fast', 'immediate', { history: 4 }],
+    [
+      'a duplicate Fast Link navigation',
+      'region',
+      'immediate',
+      { accepted: 2 },
+    ],
+    ['a missing follow-up click', 'fast', 'immediate', { clicks: 0 }],
+    ['an unprevented click', 'region', 'release', { prevented: 0 }],
+    ['missing destination content', 'fast', 'immediate', { text: undefined }],
+    ['native acceleration', 'fast', 'native', { suppressed: 0 }],
+  ])('rejects %s', (_, variant, mode, change) => {
+    expect(
+      navigationCorrect(observed(change), expectedNavigation(variant, mode), 2),
+    ).toBe(false);
+  });
+});
+
+describe('comparison fixture bindings', () => {
+  it.each([
+    [
+      'current link interactions',
+      'export { createLinkInteraction } from "./a";\nexport { createClickPreparation } from "./b";',
+      null,
+    ],
+    [
+      'click preparation without modes',
+      'export { createClickPreparation } from "./b";',
+      'click-preparation.tsx',
+    ],
+    [
+      'press-time createFastLink',
+      'export { createFastLink } from "./c";',
+      'fast-link.tsx',
+    ],
+  ])('selects bindings for %s', (_, source, file) => {
+    expect(selectFixtureBindings(source)).toBe(file);
+  });
+
+  it('rejects an unknown public API', () => {
+    expect(() => selectFixtureBindings('export { other };')).toThrow(
+      'Unsupported baseline public API',
+    );
   });
 });

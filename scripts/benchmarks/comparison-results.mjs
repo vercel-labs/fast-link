@@ -29,7 +29,7 @@ export function combineBatches(reports) {
   }
 
   for (const metric of Object.values(combined.metrics)) {
-    Object.assign(metric, summarize(metric.samples));
+    Object.assign(metric, summarize(metric.samples, metric));
   }
 
   validateReport(combined);

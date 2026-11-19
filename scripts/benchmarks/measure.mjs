@@ -8,17 +8,19 @@ import { measureNavigation } from './navigation.mjs';
 export function createMeasurements(browser, origin, result) {
   const { conditions } = result;
   const selected = conditions.case;
+  const { modes } = conditions;
 
   /** Retains a sample only when its timed work passed correctness checks. */
   function saveMetric(name, metric, batch) {
     if (
       !Number.isFinite(metric.value) ||
-      metric.value < 0 ||
+      (metric.value < 0 && metric.signed !== true) ||
       metric.correct !== true
     )
       throw new Error(`Invalid measured work: ${name}`);
     const entry = (result.metrics[name] ??= {
       unit: metric.unit,
+      ...(metric.signed && { signed: true }),
       samples: [],
       checks: [],
       batches: [],
@@ -40,6 +42,21 @@ export function createMeasurements(browser, origin, result) {
     return { context, page };
   }
 
+  /** Records the fixture's API and rejects modes it cannot select. */
+  async function recordFixture(page) {
+    const fixture = await page.evaluate(() => ({
+      api: window.benchmark.api,
+      modes: [...window.benchmark.modes],
+      preparation: window.benchmark.preparation,
+    }));
+    const unsupported = modes.filter((mode) => !fixture.modes.includes(mode));
+    if (unsupported.length)
+      throw new Error(
+        `Fixture ${fixture.api} does not support: ${unsupported.join(', ')}`,
+      );
+    result.fixture ??= fixture;
+  }
+
   /** Saves all named measurements returned by a browser-side workload. */
   function saveMetrics(prefix, metrics, batch) {
     for (const [name, metric] of Object.entries(metrics)) {
@@ -48,76 +65,113 @@ export function createMeasurements(browser, origin, result) {
   }
 
   /** Measures event dispatch in the browser; event creation and warmup stay outside timing. */
-  async function measureInteraction(page, group, variant, batch) {
+  async function measureInteraction(page, group, variant, mode, batch) {
     const metrics = await page.evaluate(
       (input) =>
         input.group === 'core'
-          ? window.benchmark.micro(input.variant, input.workload)
-          : window.benchmark.interaction(input.variant, input.workload),
-      { group, variant, workload: conditions },
+          ? window.benchmark.micro(input.variant, input.mode, input.workload)
+          : window.benchmark.interaction(
+              input.variant,
+              input.mode,
+              input.workload,
+            ),
+      { group, variant, mode, workload: conditions },
     );
-    saveMetrics(`${group}.${variant}`, metrics, batch);
+    saveMetrics(scenarioPrefix(group, variant, mode), metrics, batch);
   }
 
   /** Warms the identical list workload once before measuring its synchronous commits. */
-  async function measureLifecycle(page, group, variant, count, batch) {
-    const input = { variant, count };
-    await page.evaluate(
-      (value) => window.benchmark.lifecycle(value.variant, value.count),
-      input,
+  async function measureLifecycle(page, group, variant, mode, count, batch) {
+    const input = { variant, mode, count };
+    const run = () =>
+      page.evaluate(
+        (value) =>
+          window.benchmark.lifecycle(value.variant, value.mode, value.count),
+        input,
+      );
+    await run();
+    saveMetrics(
+      `${scenarioPrefix(group, variant, mode)}.${count}`,
+      await run(),
+      batch,
     );
-    const metrics = await page.evaluate(
-      (value) => window.benchmark.lifecycle(value.variant, value.count),
-      input,
-    );
-    saveMetrics(`${group}.${variant}.${count}`, metrics, batch);
+  }
+
+  /** Warms once, then times each mode change at every list size. */
+  async function measureModeSwitches(page, batch) {
+    if (modes.length < 2) return;
+    const variants = batch % 2 ? ['region', 'fast'] : ['fast', 'region'];
+    for (const variant of variants)
+      for (const count of conditions.listSizes) {
+        const input = { variant, modes, count };
+        const run = () =>
+          page.evaluate(
+            (value) =>
+              window.benchmark.modeSwitch(
+                value.variant,
+                value.modes,
+                value.count,
+              ),
+            input,
+          );
+        await run();
+        saveMetrics(`next.${variant}.switch.${count}`, await run(), batch);
+      }
   }
 
   /** Runs one case's variants in alternating order, without overlapping measurements. */
   async function measureGroup(page, group, batch) {
-    const variants = {
-      core: ['bare', 'core'],
-      react: ['plain', 'react'],
-      next: ['next', 'fast', 'region'],
-    }[group];
+    const variants = groupVariants(group, modes);
     if (batch % 2) variants.reverse();
 
-    for (const variant of variants) {
+    for (const [variant, mode] of variants) {
       if (group !== 'next')
-        await measureInteraction(page, group, variant, batch);
+        await measureInteraction(page, group, variant, mode, batch);
       if (group === 'core') continue;
 
       const counts = group === 'next' ? conditions.listSizes : [1];
       for (const count of counts) {
-        await measureLifecycle(page, group, variant, count, batch);
+        await measureLifecycle(page, group, variant, mode, count, batch);
       }
     }
+    if (group === 'next') await measureModeSwitches(page, batch);
   }
 
-  /** Runs warm and cold navigation separately, keeping their evidence with the samples. */
+  /**
+   * Runs every navigation variant for each cache state and hold, alternating
+   * variant order so matched scenarios run close together. Repeats the whole
+   * round rather than one scenario so drift reaches every scenario alike.
+   */
   async function measureNavigations(batch) {
-    const variants =
-      batch % 2 ? ['region', 'fast', 'next'] : ['next', 'fast', 'region'];
-    for (const variant of variants) {
-      for (const cache of ['warm', 'cold']) {
-        const { metrics, check } = await measureNavigation(
-          openPage,
-          variant,
-          cache,
-          batch,
-          conditions.holdMs,
-        );
-        saveMetrics(`next.${variant}.${cache}`, metrics, batch);
-        result.navigationChecks ??= [];
-        result.navigationChecks.push(check);
-      }
-    }
+    const variants = groupVariants('next', modes);
+    if (batch % 2) variants.reverse();
+    for (let sample = 0; sample < conditions.navigationSamples; sample++)
+      for (const cache of conditions.caches)
+        for (const holdMs of conditions.holdsMs)
+          for (const [variant, mode] of variants) {
+            const { metrics, check } = await measureNavigation(openPage, {
+              variant,
+              mode,
+              cache,
+              holdMs,
+              batch,
+              sample,
+            });
+            saveMetrics(
+              `${scenarioPrefix('next', variant, mode)}.${cache}.hold${holdMs}`,
+              metrics,
+              batch,
+            );
+            result.navigationChecks ??= [];
+            result.navigationChecks.push(check);
+          }
   }
 
   /** Shares a page for dispatch and lifecycle work; navigation gets fresh contexts. */
   async function measureBatch(batch) {
     const { context, page } = await openPage();
     try {
+      await recordFixture(page);
       const groups =
         selected === 'all' ? ['core', 'react', 'next'] : [selected];
       for (const group of groups) await measureGroup(page, group, batch);
@@ -130,4 +184,22 @@ export function createMeasurements(browser, origin, result) {
   }
 
   return { measureBatch };
+}
+
+/** Lists [variant, mode] pairs; baselines without Fast Link have no mode. */
+function groupVariants(group, modes) {
+  const baseline = { core: 'bare', react: 'plain', next: 'next' }[group];
+  const managed = {
+    core: ['core'],
+    react: ['react'],
+    next: ['fast', 'region'],
+  }[group];
+  return [
+    [baseline, null],
+    ...managed.flatMap((variant) => modes.map((mode) => [variant, mode])),
+  ];
+}
+
+function scenarioPrefix(group, variant, mode) {
+  return mode ? `${group}.${variant}.${mode}` : `${group}.${variant}`;
 }
