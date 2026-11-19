@@ -892,4 +892,73 @@ describe('root activity', () => {
       controller.destroy();
     }
   });
+
+  it('rejects a release click matched after the root deactivates', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'release', prepare: () => 'prepared' },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      isActive = false;
+      expect(controller.matchClick(clickEvent(anchor))).toBeNull();
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('settles earlier suppression on a press while the root is inactive', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const navigate = vi.fn();
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'immediate', navigate },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      isActive = false;
+      press(anchor);
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(click(anchor)).toBe(false);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('keeps earlier suppression for a framework handler after the root deactivates', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'immediate', navigate: vi.fn() },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      isActive = false;
+      expect(controller.suppressClick(clickEvent(anchor))).toBe(true);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('keeps immediate suppression when discard runs', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const controller = createLinkInteraction(anchor, {
+      mode: 'immediate',
+      navigate: vi.fn(),
+    });
+    try {
+      press(anchor);
+      controller.discard();
+      expect(click(anchor)).toBe(true);
+    } finally {
+      controller.destroy();
+    }
+  });
 });
