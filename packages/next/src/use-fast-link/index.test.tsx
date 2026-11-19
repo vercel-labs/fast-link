@@ -2,7 +2,7 @@ import { fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import { HookLink, pointerDown, router } from '../testing';
+import { HookLink, captureErrors, pointerDown, router } from '../testing';
 import { useFastLink } from './index';
 
 it('prepares on press and commits at click capture after the caller guard', () => {
@@ -145,6 +145,39 @@ it('leaves navigation to the renderer in native mode', () => {
   fireEvent.click(anchor, { detail: 1 });
 
   expect(router.experimental_prepare).not.toHaveBeenCalled();
+  expect(policy).not.toHaveBeenCalled();
+  expect(router.push).not.toHaveBeenCalled();
+});
+
+it('prevents the click without navigating when the supplied onNavigate throws', () => {
+  const failure = new Error('onNavigate failed');
+  const policy = vi.fn();
+  // A plain anchor renderer has no Link click handler to prevent the click.
+  function Renderer() {
+    const binding = useFastLink({
+      href: '/guide',
+      navigationPolicy: policy,
+      onNavigate: () => {
+        throw failure;
+      },
+    });
+    return (
+      <a href="/guide" {...binding}>
+        Guide
+      </a>
+    );
+  }
+  const { getByRole } = render(<Renderer />);
+  const anchor = getByRole('link');
+  pointerDown(anchor);
+  let allowed = true;
+
+  expect(
+    captureErrors(() => {
+      allowed = fireEvent.click(anchor, { detail: 1 });
+    }),
+  ).toEqual([failure]);
+  expect(allowed).toBe(false);
   expect(policy).not.toHaveBeenCalled();
   expect(router.push).not.toHaveBeenCalled();
 });
