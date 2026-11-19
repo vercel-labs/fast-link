@@ -8,7 +8,6 @@ Run commands from the repository root with the Node.js and pnpm versions in
 ```sh
 pnpm install --frozen-lockfile
 pnpm exec playwright install chromium
-pnpm build
 results="$(mktemp -d)"
 pnpm benchmark --output "$results/full.json"
 ```
