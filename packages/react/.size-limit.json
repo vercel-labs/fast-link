@@ -17,6 +17,7 @@
     "name": "useLinkInteraction",
     "path": "src/index.ts",
     "import": "{ useLinkInteraction }",
-    "ignore": ["react"]
+    "ignore": ["react"],
+    "limit": "2.4 kB"
   }
 ]
