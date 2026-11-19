@@ -364,6 +364,40 @@ it('rejects activation while a same-anchor reattachment detaches the ref but let
   expect(detachedMatch).toBeNull();
 });
 
+it('leaves the click native after an immediate press while the ref is detached', () => {
+  const navigate = vi.fn();
+  let onDetach: ((anchor: HTMLAnchorElement) => void) | null = null;
+  const callerRef = (anchor: HTMLAnchorElement | null) =>
+    anchor ? () => onDetach?.(anchor) : undefined;
+  function Renderer({ href }: { href: string }) {
+    const binding = useLinkInteraction<null, HTMLAnchorElement>({
+      mode: 'immediate',
+      navigate,
+      forwardedRef: callerRef,
+    });
+    const ref = useCallback(
+      (element: HTMLAnchorElement | null) => binding.ref(element),
+      [binding.ref, href],
+    );
+    return (
+      <a href={href} ref={ref} onClickCapture={binding.suppressClick}>
+        Guide
+      </a>
+    );
+  }
+  const { getByRole, rerender } = render(<Renderer href="/first" />);
+  const anchor = getByRole('link');
+
+  onDetach = (detached) => press(detached);
+  rerender(<Renderer href="/second" />);
+  onDetach = null;
+
+  expect(getByRole('link')).toBe(anchor);
+  expect(navigate).not.toHaveBeenCalled();
+  // Nothing navigated, so the click after reattachment stays native.
+  expect(click(anchor)).toBe(false);
+});
+
 it('rejects a release click consumed after its guard removes the root', () => {
   const calls: string[] = [];
   function Link() {

@@ -9,7 +9,8 @@
 - Add `useClickPreparation` to bind core click preparation, with its `enabled`
   option.
 - Both hooks keep pending work when a ref reattaches to the same element,
-  reject activation while the ref is detached, and destroy the controller when
+  leave presses native and reject activation while the ref is detached, and
+  destroy the controller when
   the element is replaced or unmounts.
 - Update the core dependency to `^0.1.0`.
 

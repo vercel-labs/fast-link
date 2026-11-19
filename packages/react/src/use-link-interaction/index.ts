@@ -56,20 +56,15 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
 }: LinkInteractionOptions<P> & {
   forwardedRef?: ForwardedRef<T>;
 }): LinkInteractionBinding<P, T> {
-  const {
-    handlers: { ref, matchClick, discard },
-    controller,
-  } = useRootBinding<
+  const { handlers, controller } = useRootBinding<
     P,
     LinkInteractionOptions<P>,
     LinkInteractionController<P>,
     T
-  >(createAttachedInteraction, options, forwardedRef);
-  const [handlers] = useState(
+  >(createLinkInteraction, options, forwardedRef);
+  const [binding] = useState(
     (): LinkInteractionBinding<P, T> => ({
-      ref,
-      matchClick,
-      discard,
+      ...handlers,
       suppressClick(event) {
         const isSuppressed =
           controller()?.suppressClick(event.nativeEvent) ?? false;
@@ -79,45 +74,5 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
       },
     }),
   );
-  return handlers;
-}
-
-/**
- * Adapts the core controller to the root binding and rejects a detached
- * immediate press on every update. The binding rejects click activation itself,
- * but an immediate press starts inside core from the options' callbacks, which
- * only this mode-aware adapter can wrap.
- */
-function createAttachedInteraction<P>(
-  root: HTMLElement,
-  options: LinkInteractionOptions<P>,
-  isAttached: () => boolean,
-): LinkInteractionController<P> {
-  const controller = createLinkInteraction(
-    root,
-    rejectDetachedPress(options, isAttached),
-  );
-  return {
-    ...controller,
-    update: (nextOptions) =>
-      controller.update(rejectDetachedPress(nextOptions, isAttached)),
-  };
-}
-
-/** Rejects an immediate press while the ref is detached, before the guard and after it returns. */
-function rejectDetachedPress<P>(
-  options: LinkInteractionOptions<P>,
-  isAttached: () => boolean,
-): LinkInteractionOptions<P> {
-  if (options.mode !== 'immediate') return options;
-  return {
-    mode: 'immediate',
-    beforeNavigate(intent) {
-      if (!isAttached()) return false;
-      return options.beforeNavigate?.(intent) ?? true;
-    },
-    navigate(intent) {
-      if (isAttached()) options.navigate(intent);
-    },
-  };
+  return binding;
 }

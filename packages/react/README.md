@@ -284,10 +284,10 @@ the interaction.
 - In `useClickPreparation`, valid preparation survives updates; `enabled: false`
   discards the gesture.
 - Reattaching the same element within one React commit keeps pending work.
-- While the ref is detached, navigation is rejected: `matchClick` returns
-  `null`, a candidate's `consume()` returns `null`, and an immediate press does
-  not call `beforeNavigate` or `navigate`. Like a canceled guard, that press
-  still suppresses its follow-up click. Existing click suppression can still
+- While the ref is detached, the controller ignores presses and rejects
+  activation: a press prepares nothing, does not call `beforeNavigate` or
+  `navigate`, and leaves its click native; `matchClick` returns `null`; and a
+  candidate's `consume()` returns `null`. Existing click suppression can still
   settle.
 - Replacing the element or unmounting destroys the controller. If the ref stays
   detached, cleanup runs after the commit.
