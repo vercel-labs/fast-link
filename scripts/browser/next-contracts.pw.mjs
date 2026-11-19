@@ -22,7 +22,8 @@ const DESTINATION = '/docs/contracts/destination';
 const QUIET_MS = 750;
 
 // WebKit reports a Next.js RSC fetch canceled by document navigation as an
-// uncaught error. Allowed only where a case opts in; each occurrence is logged.
+// uncaught error. Only the destination's fetch can be in flight on the contracts
+// page; allowed only where a case opts in, and each occurrence is logged.
 const WEBKIT_CANCELED_RSC_FETCH = {
   browser: 'webkit',
   pattern:
@@ -392,7 +393,7 @@ test.describe('prefetch', () => {
           new URL(response.url()).pathname === '/docs/contracts/static',
       );
       prefetched.catch(() => undefined);
-      await open(page, '/contracts', 'contracts-ready');
+      await open(page, '/contracts/prefetch', 'prefetch-ready');
       await page.getByTestId(testId).scrollIntoViewIfNeeded();
       await (await prefetched).finished();
       const prefetchRequests = requests.route;

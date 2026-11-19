@@ -73,22 +73,6 @@ export function ContractLinks(): JSX.Element {
         mode="immediate"
       />
       <PrefetchEnablingNextLink id="enable-next-link-document" />
-      <FastLink
-        href="/contracts/static?from=prefetch-release"
-        data-testid="prefetch-release"
-        onFastNavigate={recordingObserver('prefetch-release')}
-      >
-        Prefetched release
-      </FastLink>
-      <FastLink
-        href="/contracts/static?from=prefetch-immediate"
-        data-testid="prefetch-immediate"
-        mode="immediate"
-        onFastNavigate={recordingObserver('prefetch-immediate')}
-        onClick={recordingClick('prefetch-immediate')}
-      >
-        Prefetched immediate
-      </FastLink>
     </div>
   );
 }
