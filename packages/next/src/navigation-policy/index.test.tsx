@@ -4,11 +4,17 @@
  * while keeping each adapter's destination and history choices intact.
  */
 
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { FastLink } from '../fast-link';
 import { FastLinkRegion } from '../fast-link-region';
-import { HookLink, pointerDown, router, captureErrors } from '../testing';
+import {
+  HookLink,
+  pointerDown,
+  router,
+  captureErrors,
+  stubLocation,
+} from '../testing';
 import type { FastNavigationPolicy } from './index';
 
 describe('navigation policy', () => {
@@ -50,6 +56,8 @@ describe('navigation policy', () => {
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    expect(order).toEqual([]);
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(order).toEqual(['navigate', 'policy', 'observe:router']);
     expect(regionPolicy).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/pricing', {
@@ -60,19 +68,27 @@ describe('navigation policy', () => {
   });
 });
 
-it.each([{ enabled: false }, { as: '/display' }, { 'data-no-fast-link': '' }])(
+it.each([{ mode: 'native' as const }, { 'data-no-fast-link': '' }])(
   'keeps a native managed Link inside a Region native: %o',
   (options) => {
     const policy = vi.fn();
+    const observe = vi.fn();
+    router.experimental_prepare = vi.fn(() => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+    }));
     const { getByRole } = render(
-      <FastLinkRegion navigationPolicy={policy}>
-        <FastLink href="/pricing" {...options}>
+      <FastLinkRegion navigationPolicy={policy} onFastNavigate={observe}>
+        <FastLink href="/pricing" {...options} onFastNavigate={observe}>
           Pricing
         </FastLink>
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
+    expect(router.experimental_prepare).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
+    expect(observe).not.toHaveBeenCalled();
     expect(policy).not.toHaveBeenCalled();
   },
 );
@@ -87,6 +103,7 @@ it.each([undefined, false, true])(
       expect(proposed).toEqual({
         destination: '/docs/guide?q=yes#read',
         method: 'push',
+        scroll: undefined,
       });
       Reflect.set(proposed, 'destination', '/changed');
       return { kind: 'router', scroll };
@@ -97,10 +114,9 @@ it.each([undefined, false, true])(
       </FastLinkRegion>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(router.push.mock.calls).toEqual([
-      scroll === undefined
-        ? ['/docs/guide?q=yes#read']
-        : ['/docs/guide?q=yes#read', { scroll }],
+      ['/docs/guide?q=yes#read', { scroll, transitionTypes: undefined }],
     ]);
   },
 );
@@ -120,6 +136,7 @@ it.each([undefined, false, true])(
       </FastLink>,
     );
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
     expect(router.replace).toHaveBeenCalledExactlyOnceWith(
       '/guide?ref=a+b#read',
       { scroll: scroll ?? false, transitionTypes: ['slide'] },
@@ -127,20 +144,29 @@ it.each([undefined, false, true])(
   },
 );
 
-it.each(['link', 'region', 'hook'] as const)(
-  'runs document policy and failure fallback through %s',
-  (binding) => {
+it.each(
+  (['link', 'region', 'hook'] as const).flatMap((binding) =>
+    (['release', 'immediate'] as const).map((mode) => [binding, mode] as const),
+  ),
+)(
+  'runs document policy and failure fallback through %s in %s mode',
+  (binding, mode) => {
     const assign = vi.fn();
     const replace = vi.fn();
     const observe = vi.fn();
     const failure = new Error('policy failed');
+    // Document decisions never prepare, so release classifies at press and click.
+    router.experimental_prepare = vi.fn();
+    const classifications = mode === 'release' ? 2 : 1;
     let fail = false;
+    let calls = 0;
     const policy: FastNavigationPolicy = (intent) => {
+      calls++;
       intent.url.pathname = '/changed';
       if (fail) throw failure;
       return { kind: 'document', method: 'replace' };
     };
-    const options = { navigationPolicy: policy, onFastNavigate: observe };
+    const options = { mode, navigationPolicy: policy, onFastNavigate: observe };
     const { getByRole } = render(
       binding === 'link' ? (
         <FastLink href="/guide" {...options}>
@@ -155,15 +181,9 @@ it.each(['link', 'region', 'hook'] as const)(
       ),
     );
     const anchor = getByRole('link');
-    Object.defineProperty(anchor, 'ownerDocument', {
-      value: {
-        baseURI: 'https://example.com/',
-        defaultView: {
-          location: { origin: 'https://example.com', assign, replace },
-        },
-      },
-    });
+    stubLocation(anchor, { assign, replace });
     pointerDown(anchor);
+    fireEvent.click(anchor, { detail: 1 });
     expect(replace).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );
@@ -171,12 +191,20 @@ it.each(['link', 'region', 'hook'] as const)(
       kind: 'document',
       method: 'replace',
     });
+    expect(calls).toBe(classifications);
     fail = true;
-    expect(captureErrors(() => pointerDown(anchor))).toEqual([failure]);
+    expect(
+      captureErrors(() => {
+        pointerDown(anchor);
+        fireEvent.click(anchor, { detail: 1 });
+      }),
+    ).toEqual([failure]);
     expect(assign).toHaveBeenCalledExactlyOnceWith(
       'https://example.com/docs/guide',
     );
     expect(observe).toHaveBeenCalledTimes(1);
+    expect(calls).toBe(2 * classifications);
+    expect(router.experimental_prepare).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
   },

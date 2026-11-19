@@ -1,41 +1,141 @@
 'use client';
 
+import type { PreparedClick } from '@fast-link/core';
+import type { LinkInteractionBinding } from '@fast-link/react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  forwardRef,
+  useState,
   type ComponentPropsWithoutRef,
+  type MouseEvent,
   type RefAttributes,
+  type RefObject,
 } from 'react';
 
+import { getLinkDestination } from '../link-destination';
+import { navigate, type PreparedNavigation } from '../navigation';
 import type { NavigationOptions } from '../navigation-policy';
-import { useFastLink } from '../use-fast-link';
+import {
+  useNavigationInteraction,
+  type CommittedNavigation,
+} from '../use-navigation-interaction';
 
 type LinkProps = ComponentPropsWithoutRef<typeof Link>;
 
-/** Next.js Link props with controls for early mouse navigation. */
-export type FastLinkProps = LinkProps & NavigationOptions;
+/** Next.js Link props with a navigation mode, policy, and observer. */
+export type FastLinkProps = Omit<LinkProps, 'as' | 'legacyBehavior'> &
+  NavigationOptions;
 
-/** Starts eligible App Router navigation on primary mouse `pointerdown`. */
-export const FastLink = forwardRef<HTMLAnchorElement, FastLinkProps>(
-  function FastLink(
-    { enabled, navigationPolicy, onFastNavigate, ...linkProps },
+type CommittedLink = CommittedNavigation &
+  Pick<LinkProps, 'onClick' | 'onClickCapture'>;
+
+/**
+ * Next.js Link with early mouse navigation in the selected `mode`.
+ *
+ * - `release` (default) prepares on press and navigates after the caller's
+ *   `onClick`, Next Link's checks, and the caller's `onNavigate`.
+ * - `immediate` runs `onNavigate`, then navigates on press. The follow-up
+ *   click stays prevented even if `onNavigate` cancels or throws; click
+ *   handlers still run.
+ * - `native` leaves navigation to Next Link.
+ *
+ * Keeps its own mode and options inside every `FastLinkRegion`.
+ */
+export function FastLink({
+  ref: forwardedRef,
+  mode,
+  navigationPolicy,
+  onFastNavigate,
+  ...linkProps
+}: FastLinkProps & RefAttributes<HTMLAnchorElement>): ReturnType<typeof Link> {
+  const router = useRouter();
+  const { binding, committed } = useNavigationInteraction<
+    CommittedLink,
+    HTMLAnchorElement
+  >(
+    mode,
+    {
+      routing: {
+        router,
+        navigationPolicy,
+        onFastNavigate,
+        destination: (intent) => getLinkDestination(linkProps.href, intent.url),
+        method: linkProps.replace ? 'replace' : 'push',
+        scroll: linkProps.scroll,
+        transitionTypes: linkProps.transitionTypes,
+      },
+      onClick: linkProps.onClick,
+      onClickCapture: linkProps.onClickCapture,
+      onNavigate: linkProps.onNavigate,
+    },
     forwardedRef,
-  ) {
-    const attach = useFastLink({
-      ...linkProps,
-      enabled,
-      navigationPolicy,
-      onFastNavigate,
-      forwardedRef,
-    });
-    return (
-      <Link
-        {...linkProps}
-        {...attach}
-        ref={linkProps.legacyBehavior ? forwardedRef : attach.ref}
-      />
-    );
-  },
-) as (
-  props: FastLinkProps & RefAttributes<HTMLAnchorElement>,
-) => ReturnType<typeof Link>;
+  );
+  const [handlers] = useState(() => createLinkHandlers(binding, committed));
+  return <Link {...linkProps} ref={binding.ref} {...handlers} />;
+}
+
+/**
+ * Accepts a release click in Next Link's `onNavigate`, after the caller's
+ * `onClick` and Next's own checks. A candidate that Next never reaches is
+ * discarded in a microtask.
+ */
+function createLinkHandlers(
+  binding: LinkInteractionBinding<PreparedNavigation, HTMLAnchorElement>,
+  committed: RefObject<CommittedLink>,
+) {
+  let active: PreparedClick<PreparedNavigation> | null = null;
+
+  return {
+    onClickCapture(event: MouseEvent<HTMLAnchorElement>) {
+      binding.suppressClick(event);
+      committed.current.onClickCapture?.(event);
+    },
+    onClick(event: MouseEvent<HTMLAnchorElement>) {
+      active?.discard();
+      active = null;
+      const candidate = binding.matchClick(event.nativeEvent);
+      try {
+        committed.current.onClick?.(event);
+      } catch (error) {
+        candidate?.discard();
+        throw error;
+      }
+      if (!candidate) return;
+      if (event.defaultPrevented) {
+        candidate.discard();
+        return;
+      }
+      active = candidate;
+      // Next calls onNavigate synchronously. Native paths may never call it.
+      queueMicrotask(() => {
+        if (active !== candidate) return;
+        candidate.discard();
+        active = null;
+      });
+    },
+    onNavigate(event: { preventDefault(): void }) {
+      const candidate = active;
+      active = null;
+      let isCanceled = false;
+      try {
+        committed.current.onNavigate?.({
+          preventDefault() {
+            isCanceled = true;
+            event.preventDefault();
+          },
+        });
+        if (isCanceled) return;
+        const activation = candidate?.consume();
+        if (!activation) return;
+        event.preventDefault();
+        navigate(
+          committed.current.routing,
+          activation.intent,
+          activation.prepared,
+        );
+      } finally {
+        candidate?.discard();
+      }
+    },
+  };
+}
