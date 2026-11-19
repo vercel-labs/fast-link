@@ -1,14 +1,16 @@
 'use client';
 
-import { createFastLink } from '@fast-link/core';
+import { createLinkInteraction } from '@fast-link/core';
 import { FastLink, FastLinkRegion } from '@fast-link/next';
-import { useFastLink } from '@fast-link/react';
+import { useLinkInteraction } from '@fast-link/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLayoutEffect, useState, type JSX } from 'react';
 import { flushSync } from 'react-dom';
 
 // Browser protocol consumed by scripts/benchmarks/measure.mjs and navigation.mjs.
+// Fast Link variants use immediate mode, the press-time navigation these
+// benchmarks measure.
 
 type Variant = 'bare' | 'core' | 'plain' | 'react' | 'next' | 'fast' | 'region';
 type Metric = { unit: 'us/op' | 'ms'; value: number; correct: boolean };
@@ -63,13 +65,15 @@ const navigateUpdated = () => {
 
 function ReactAnchor({ version }: { version: number }) {
   const callback = version ? navigateUpdated : navigate;
-  const bindings = useFastLink<HTMLAnchorElement>({
+  const bindings = useLinkInteraction<never, HTMLAnchorElement>({
+    mode: 'immediate',
     navigate: callback,
   });
   return (
     <a
       href={`/docs/benchmark/target?v=${version}`}
-      {...bindings}
+      ref={bindings.ref}
+      onClickCapture={bindings.suppressClick}
       onClick={(event) => {
         if (event.defaultPrevented) suppressedClicks++;
         event.preventDefault();
@@ -119,6 +123,7 @@ function Links({ variant, count, version, navigation }: List) {
         <FastLink
           key={index}
           {...props}
+          mode="immediate"
           onFastNavigate={() => window.benchmark.events.accepted++}
         />
       );
@@ -140,6 +145,7 @@ function Links({ variant, count, version, navigation }: List) {
     return (
       <FastLinkRegion
         basePath="/docs"
+        mode="immediate"
         onFastNavigate={() => window.benchmark.events.accepted++}
       >
         {children}
@@ -236,7 +242,9 @@ function measureCore(
   anchor.href = '/docs/benchmark/target';
   area.append(anchor);
   const controller =
-    variant === 'core' ? createFastLink(anchor, { navigate }) : null;
+    variant === 'core'
+      ? createLinkInteraction(anchor, { mode: 'immediate', navigate })
+      : null;
   if (!controller) {
     anchor.addEventListener('pointerdown', bareDown);
     anchor.addEventListener('click', bareClick);

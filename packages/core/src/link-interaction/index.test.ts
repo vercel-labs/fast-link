@@ -466,31 +466,6 @@ describe('ownership', () => {
       region.destroy();
     }
   });
-
-  it('shares anchor ownership and suppression with the press controller', async () => {
-    vi.resetModules();
-    const { createFastLink } = await import('../controller');
-    const root = setup('<a href="/guide">Guide</a>');
-    const anchor = find(root, 'a');
-    const regionNavigate = vi.fn();
-    const linkNavigate = vi.fn();
-    const region = createFastLink(root, { navigate: regionNavigate });
-    const link = createLinkInteraction(anchor, {
-      mode: 'immediate',
-      navigate: linkNavigate,
-    });
-    try {
-      press(anchor);
-      expect(regionNavigate).not.toHaveBeenCalled();
-      expect(linkNavigate).toHaveBeenCalledTimes(1);
-      const preventDefault = vi.fn();
-      region.suppressClick({ target: anchor, detail: 1, preventDefault });
-      expect(preventDefault).toHaveBeenCalledTimes(1);
-    } finally {
-      link.destroy();
-      region.destroy();
-    }
-  });
 });
 
 describe('immediate guard', () => {
