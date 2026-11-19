@@ -10,5 +10,10 @@
     "path": "src/index.ts",
     "import": "{ createClickPreparation }",
     "limit": "2 kB"
+  },
+  {
+    "name": "createLinkInteraction",
+    "path": "src/index.ts",
+    "import": "{ createLinkInteraction }"
   }
 ]

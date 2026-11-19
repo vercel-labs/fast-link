@@ -5,6 +5,12 @@ export {
 } from './controller';
 export { type FastLinkIntent } from './interaction';
 export {
+  createLinkInteraction,
+  type LinkInteractionController,
+  type LinkInteractionOptions,
+  type LinkMode,
+} from './link-interaction';
+export {
   createClickPreparation,
   type ClickPreparationController,
   type ClickPreparationOptions,

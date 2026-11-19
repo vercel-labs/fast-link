@@ -15,6 +15,8 @@ interface CoordinationState {
   readonly suppressedClicks: WeakSet<FollowupClick>;
   /** Accepted presses, including events that cannot hold the symbol marker. */
   readonly handledEvents: WeakSet<Event>;
+  /** Live link-interaction controller count, including native controllers, for each containing root. */
+  readonly regionOwners: WeakMap<HTMLElement, number>;
 }
 
 // These keys and field meanings are shared between independently bundled versions.
@@ -33,24 +35,56 @@ export const coordination: CoordinationState = Reflect.get(
   >(),
   suppressedClicks: new WeakSet<FollowupClick>(),
   handledEvents: new WeakSet<Event>(),
+  regionOwners: new WeakMap<HTMLElement, number>(),
 };
 Reflect.set(globalThis, COORDINATION, coordination);
+// A registry created by an earlier version lacks later fields. Add them in place.
+if (!Reflect.has(coordination, 'regionOwners')) {
+  Reflect.set(coordination, 'regionOwners', new WeakMap<HTMLElement, number>());
+}
 
 /** Registers a managed anchor until released; containing roots do not register. */
 export function registerAnchorOwner(
   root: HTMLElement,
 ): (() => void) | undefined {
   if (root.tagName !== 'A') return undefined;
-  const { anchorOwners } = coordination;
-  anchorOwners.set(root, (anchorOwners.get(root) ?? 0) + 1);
-  return () => {
-    const remaining = (anchorOwners.get(root) ?? 1) - 1;
-    if (remaining) anchorOwners.set(root, remaining);
-    else anchorOwners.delete(root);
-  };
+  return retainOwner(coordination.anchorOwners, root);
+}
+
+/** Registers a containing link-interaction root, in any mode, until released. */
+export function registerRegionOwner(root: HTMLElement): () => void {
+  return retainOwner(coordination.regionOwners, root);
 }
 
 /** Includes disabled and native controllers, whose anchors keep priority over regions. */
 export function hasAnchorOwner(anchor: HTMLAnchorElement): boolean {
   return coordination.anchorOwners.has(anchor);
+}
+
+/** Reports whether a registered region lies between `anchor` and `root`, exclusive. */
+export function hasCloserRegion(
+  root: HTMLElement,
+  anchor: HTMLAnchorElement,
+): boolean {
+  const { regionOwners } = coordination;
+  for (
+    let element = anchor.parentElement;
+    element && element !== root;
+    element = element.parentElement
+  ) {
+    if (regionOwners.has(element)) return true;
+  }
+  return false;
+}
+
+function retainOwner(
+  owners: WeakMap<HTMLElement, number>,
+  root: HTMLElement,
+): () => void {
+  owners.set(root, (owners.get(root) ?? 0) + 1);
+  return () => {
+    const remaining = (owners.get(root) ?? 1) - 1;
+    if (remaining) owners.set(root, remaining);
+    else owners.delete(root);
+  };
 }

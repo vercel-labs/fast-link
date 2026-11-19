@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- Add `createLinkInteraction` and `LinkMode`. One controller per root handles
+  eligible mouse input in an explicit `release`, `immediate`, or `native` mode
+  and keeps its identity across mode changes. Native mode needs no callbacks.
+- Immediate mode arms follow-up click suppression before its `beforeNavigate`
+  guard, then navigates with current inputs. Suppression survives mode, option,
+  and `href` changes and settles on its click, the next press at the root, or
+  destruction. Leaving release mode discards preparation without navigating.
+- Link interaction roots use the closest region for ordinary links, including
+  native regions; managed anchors keep priority over every region.
 - Add `createClickPreparation` to prepare on eligible mouse press and return a
   once-only candidate for the matching click. Adapters accept the candidate,
   prevent the click, and navigate. New input, cancellation, dragging, release

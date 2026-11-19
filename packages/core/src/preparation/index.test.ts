@@ -22,6 +22,10 @@ function click(target: Element, options: MouseEventInit = {}): MouseEvent {
   return event;
 }
 
+function failPreparation(): never {
+  throw new Error('speculative failure');
+}
+
 it('prepares on press and consumes a matched click only once', () => {
   const anchor = document.body.appendChild(document.createElement('a'));
   anchor.href = '/pricing';
@@ -29,17 +33,23 @@ it('prepares on press and consumes a matched click only once', () => {
   const prepare = vi.fn(() => prepared);
   const controller = createClickPreparation(anchor, { prepare });
   try {
-    const press = new MouseEvent('pointerdown', { bubbles: true, button: 0 });
-    Object.defineProperty(press, 'pointerType', { value: 'mouse' });
-    anchor.dispatchEvent(press);
+    const pressEvent = new MouseEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+    });
+    Object.defineProperty(pressEvent, 'pointerType', { value: 'mouse' });
+    anchor.dispatchEvent(pressEvent);
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(window.location.pathname).toBe('/');
 
-    const click = new MouseEvent('click', { detail: 1, cancelable: true });
-    Object.defineProperty(click, 'target', { value: anchor });
-    const activation = controller.matchClick(click);
-    expect(click.defaultPrevented).toBe(false);
-    expect(controller.matchClick(click)).toBeNull();
+    const clickEvent = new MouseEvent('click', {
+      detail: 1,
+      cancelable: true,
+    });
+    Object.defineProperty(clickEvent, 'target', { value: anchor });
+    const activation = controller.matchClick(clickEvent);
+    expect(clickEvent.defaultPrevented).toBe(false);
+    expect(controller.matchClick(clickEvent)).toBeNull();
     expect(activation?.consume()).toEqual({
       intent: {
         anchor,
@@ -121,10 +131,9 @@ it('revalidates after guards and falls back for a changed destination', () => {
 it('keeps click fallback after preparation fails and invalidates matched work when disabled', () => {
   const anchor = document.body.appendChild(document.createElement('a'));
   anchor.href = '/guide';
-  const prepare = () => {
-    throw new Error('speculative failure');
-  };
-  const controller = createClickPreparation(anchor, { prepare });
+  const controller = createClickPreparation(anchor, {
+    prepare: failPreparation,
+  });
   try {
     press(anchor);
     expect(
@@ -132,7 +141,7 @@ it('keeps click fallback after preparation fails and invalidates matched work wh
     ).toBeNull();
     press(anchor);
     const activation = controller.matchClick(click(anchor));
-    controller.update({ enabled: false, prepare });
+    controller.update({ enabled: false, prepare: failPreparation });
     expect(activation?.consume()).toBeNull();
   } finally {
     controller.destroy();

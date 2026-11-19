@@ -6,13 +6,15 @@ anchor can apply its own routing options. Core registers anchor ownership so
 managed links inside a region retain per-link options, cancellation, and policy.
 
 - A live anchor controller takes priority over every containing root, even
-  when disabled. A region cannot turn early navigation back on for a disabled
-  managed link.
+  when disabled or native. A region cannot turn early navigation back on for a
+  disabled or native managed link.
 - Core shares ownership counts across bundled copies in a `WeakMap`. Ownership
   ends when the last controller for that anchor is destroyed, without keeping
   removed anchors alive.
-- Nested regions retain capture ordering from the outside in. Anchor priority
-  does not make the innermost region win.
+- Nested press and preparation-only regions retain capture ordering from the
+  outside in. Anchor priority does not make the innermost region win. Link
+  interaction regions use the closest region instead; see
+  [ADR 0008](./0008-use-closest-region-for-ordinary-links.md).
 
 Core also marks accepted events with a shared symbol so separately bundled
 copies can recognize a handled press. A shared `WeakSet` deduplicates events
@@ -25,14 +27,15 @@ order for anchor priority.
 The internal [coordination module](../../packages/core/src/coordination/index.ts)
 owns the keys, types, and initialization. Bundled copies in the same JavaScript
 realm share one registry on `globalThis`, under
-`Symbol.for('@fast-link/core/coordination')`, with four weak collections:
+`Symbol.for('@fast-link/core/coordination')`, with five weak collections:
 
 | Field                | Meaning                                                                             |
 | -------------------- | ----------------------------------------------------------------------------------- |
 | `anchorOwners`       | Number of live controllers for each managed anchor, including disabled controllers. |
 | `pendingClickOwners` | Callback that consumes an anchor's pending follow-up click.                         |
 | `suppressedClicks`   | Click events already consumed during capture.                                       |
-| `handledEvents`      | Accepted presses, including non-extensible events.                                  |
+| `handledEvents`      | Accepted presses and consumed prepared clicks, including non-extensible events.     |
+| `regionOwners`       | Number of live link interaction controllers for each containing root, in any mode.  |
 
 Core also attempts to set `Symbol.for('@fast-link/core/handled-event')` to
 `true` on accepted events. The shared `handledEvents` collection covers events
@@ -55,7 +58,14 @@ shared ownership and deduplication. An incompatible change needs an explicit pla
 versions to coexist, including non-extensible events that rely on the shared
 `handledEvents` collection.
 
+Versions before `regionOwners` create a registry without it; later versions add
+the field to that registry in place. Press and immediate controllers share
+`pendingClickOwners` and `suppressedClicks`, so containing roots from either
+can suppress the other's follow-up click.
+
 Controllers own registration and cleanup; weak collections do not keep anchors
-or events alive. The [controller tests](../../packages/core/src/controller/index.test.ts)
-cover independently loaded copies, disabled anchors, click suppression, and
-ownership cleanup through controller behavior.
+or events alive. The [controller tests](../../packages/core/src/controller/index.test.ts),
+[preparation tests](../../packages/core/src/preparation/index.test.ts), and
+[link interaction tests](../../packages/core/src/link-interaction/index.test.ts)
+cover independently loaded copies, an earlier registry, disabled and native
+anchors, click suppression, and ownership cleanup through controller behavior.

@@ -39,6 +39,10 @@ A single script unrelated to existing groups may stay directly under `scripts/`.
 - `createFastLink` copies options. Adapters change configuration through
   `controller.update()`, which replaces every option without clearing a pending
   follow-up pointer click.
+- `createLinkInteraction` requires an explicit mode: `release`, `immediate`, or
+  `native`. Mode changes keep the controller and any follow-up click
+  suppression. Its regions register at creation, and an ordinary link belongs
+  to its closest region; managed anchors keep priority over every region.
 - Core accepts only primary mouse pointerdown. Touch and pen remain native
   because gesture intent is unknown when contact begins.
 - Core prevents only the pointer-generated click that follows accepted

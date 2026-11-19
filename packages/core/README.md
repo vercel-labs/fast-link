@@ -1,8 +1,9 @@
 # ▲ @fast-link/core
 
-`@fast-link/core` starts eligible same-origin link navigation on primary mouse
-`pointerdown`. Use it with plain DOM elements or as the interaction layer for a
-framework adapter.
+`@fast-link/core` speeds up eligible same-origin link navigation from a primary
+mouse press. It can prepare on press and navigate on the accepted click, or
+navigate on press. Use it with plain DOM elements or as the interaction layer
+for a framework adapter.
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
@@ -26,6 +27,46 @@ npm install @fast-link/core
 
 The [Fast Link agent skill](https://github.com/vercel-labs/fast-link#agent-skill)
 is included at `skills/fast-link/SKILL.md`.
+
+## Choose a navigation mode
+
+`createLinkInteraction` attaches one controller to a root and handles eligible
+mouse input in an explicit mode:
+
+| Mode        | Behavior                                                              |
+| ----------- | --------------------------------------------------------------------- |
+| `release`   | Prepare on press; the adapter navigates on the accepted click.        |
+| `immediate` | Navigate on press, before release. Releasing away cannot cancel it.   |
+| `native`    | Leave new interactions to ordinary link behavior. Needs no callbacks. |
+
+```ts
+import { createLinkInteraction } from '@fast-link/core';
+
+export function attachNavigation(
+  root: HTMLElement,
+  navigate: (destination: URL) => void,
+) {
+  const controller = createLinkInteraction(root, {
+    mode: 'immediate',
+    navigate: ({ url }) => navigate(url),
+  });
+  return {
+    setAccelerated(accelerated: boolean) {
+      controller.update(
+        accelerated
+          ? { mode: 'immediate', navigate: ({ url }) => navigate(url) }
+          : { mode: 'native' },
+      );
+    },
+    destroy: () => controller.destroy(),
+  };
+}
+```
+
+Release mode needs an adapter that accepts the click; see
+[`createLinkInteraction`](#createlinkinteraction). The rest of this section
+covers `createFastLink`, the earlier controller that navigates on press with
+document navigation by default.
 
 ## Start document navigation on pointerdown
 
@@ -108,10 +149,14 @@ bundled copies of core, navigate once.
 
 | Export                           | Kind     | Purpose                                                |
 | -------------------------------- | -------- | ------------------------------------------------------ |
+| `createLinkInteraction`          | Function | Handle a root in release, immediate, or native mode    |
 | `createFastLink`                 | Function | Attach navigation behavior to an anchor or region      |
 | `createClickPreparation`         | Function | Prepare on press and match the accepted click          |
 | `runFastNavigation`              | Function | Apply a router or document navigation decision         |
 | `validateFastNavigationDecision` | Function | Check a policy result without navigating               |
+| `LinkMode`                       | Type     | `'release' \| 'immediate' \| 'native'`                 |
+| `LinkInteractionController`      | Type     | Update, match or suppress clicks, or destroy           |
+| `LinkInteractionOptions`         | Type     | Configure the mode and its callbacks                   |
 | `FastLinkController`             | Type     | Update, suppress clicks, or destroy a controller       |
 | `FastLinkOptions`                | Type     | Configure controller eligibility and callbacks         |
 | `ClickPreparationController`     | Type     | Update, match clicks, discard, or destroy preparation  |
@@ -121,6 +166,58 @@ bundled copies of core, navigate once.
 | `FastNavigationDecision`         | Type     | Select router or document navigation                   |
 | `FastRouterDecision`             | Type     | Use the adapter route with an optional scroll override |
 | `FastDocumentDecision`           | Type     | Load the validated URL with `assign` or `replace`      |
+
+### `createLinkInteraction`
+
+```ts
+function createLinkInteraction<P>(
+  root: HTMLElement,
+  options:
+    | { mode: 'release'; prepare(intent: FastLinkIntent): P | null }
+    | {
+        mode: 'immediate';
+        beforeNavigate?(intent: FastLinkIntent): boolean;
+        navigate(intent: FastLinkIntent): void;
+      }
+    | { mode: 'native' },
+): LinkInteractionController<P>;
+```
+
+The root can be one anchor or a region containing anchors. The mode has no
+default. Options are copied at creation and on each `update()`.
+
+Release mode prepares like [`createClickPreparation`](#createclickpreparation).
+Handle its clicks with `matchClick(event)` and the same consume or discard
+sequence. Core never prevents the click or navigates in release mode.
+
+Immediate mode handles an eligible press in this order:
+
+1. Claim the press and arm suppression of the follow-up click.
+2. Call `beforeNavigate(intent)`. Returning `false` cancels navigation. An error
+   propagates. Either way, the follow-up click stays suppressed.
+3. Recheck the attempt. A mode change, new input at the root, destruction, a
+   change of owner, or a link that is no longer eligible cancels it. A
+   same-mode update or `href` change during the guard is used.
+4. Call the current `navigate(intent)`. Errors propagate and are not retried.
+
+Native mode prepares, claims, and navigates nothing. The root still owns its
+ordinary links, so containing regions leave them native too.
+
+| Controller method      | Behavior                                                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `update(options)`      | Replaces every option. A same-mode update keeps pending work. A mode change discards preparation and never revives it.                    |
+| `matchClick(event)`    | In release mode, returns a once-only candidate for the matching click. Returns `null` in other modes.                                     |
+| `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler. Returns whether the click is suppressed.                           |
+| `discardClick()`       | Drops release-mode preparation and matched candidates.                                                                                    |
+| `destroy()`            | Discards pending work and suppression, removes listeners, and releases the root's ownership. Repeated calls and later updates do nothing. |
+
+Follow-up click suppression belongs to the root. It survives mode, option, and
+`href` changes, including a change to native mode. It prevents the click's
+default action without stopping propagation and settles on the matching click,
+the next `pointerdown` at the root, or destruction. Detail-zero clicks and
+clicks outside the accepted anchor stay native. Pass the native event to
+`suppressClick`; when it returns `true`, a framework should also prevent its
+own event wrapper.
 
 ### `createFastLink`
 
@@ -357,10 +454,19 @@ policy or observer error, the navigation error takes precedence.
 ## Understand controller ownership
 
 A live controller attached directly to an anchor owns its press before any
-containing controller, even when disabled. Destroying the anchor controller
-returns ownership to the containing controller. Multiple controllers and
-separately bundled copies share ownership registration, and cleanup removes only
-the destroyed controller. Nested regions retain outer-first capture ordering.
+containing controller, even when disabled or native. Destroying the anchor
+controller returns ownership to the containing controller. Multiple controllers
+and separately bundled copies share ownership registration, and cleanup removes
+only the destroyed controller.
+
+Link interaction regions register when created, in every mode. An ordinary link
+belongs to its closest link interaction region, which supplies its mode. A
+native inner region keeps containing regions from accelerating its links, and an
+accelerated inner region works inside a native one. A losing region does no
+preparation or navigation for that interaction.
+
+Nested `createFastLink` and `createClickPreparation` regions retain outer-first
+capture ordering among themselves.
 
 ## Related packages
 
