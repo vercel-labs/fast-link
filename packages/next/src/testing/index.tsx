@@ -24,21 +24,39 @@ export function pointerDown(
   anchor.dispatchEvent(event);
 }
 
-/** Test renderer that uses `useFastLink` on an anchor or fallback span. */
-export function HookLink({
-  href,
-  ...options
-}: import('../use-fast-link').UseFastLinkOptions<
-  HTMLAnchorElement | HTMLSpanElement
->): JSX.Element {
-  const attach = useFastLink({ href, ...options });
-  return href ? (
-    <Link href={href} {...attach}>
+/** Test renderer that exposes its anchor to the capture binding. */
+export function HookLink(
+  options: import('../use-fast-link').UseFastLinkOptions,
+): JSX.Element {
+  const attach = useFastLink(options);
+  return (
+    <Link href={options.href} {...attach}>
       Custom
     </Link>
-  ) : (
-    <span {...attach}>Custom</span>
   );
+}
+
+/**
+ * Resolves the anchor against `https://example.com/` and replaces its window's
+ * location methods. Listener methods stay on the real document and window.
+ */
+export function stubLocation(
+  anchor: HTMLElement,
+  methods: Partial<Pick<Location, 'assign' | 'replace'>>,
+): void {
+  Object.defineProperty(anchor, 'ownerDocument', {
+    value: {
+      baseURI: 'https://example.com/',
+      addEventListener: document.addEventListener.bind(document),
+      removeEventListener: document.removeEventListener.bind(document),
+      defaultView: {
+        MouseEvent,
+        addEventListener: window.addEventListener.bind(window),
+        removeEventListener: window.removeEventListener.bind(window),
+        location: { origin: 'https://example.com', ...methods },
+      },
+    },
+  });
 }
 
 /** Collects synchronous window error events during `action`. */
