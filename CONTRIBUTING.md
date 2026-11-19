@@ -51,7 +51,11 @@ save screenshots and traces under `test-results/`.
 `pnpm probe:soft-navigation --output FILE` checks whether installed Google
 Chrome reports soft navigations for each Next.js entry point as it does for an
 ordinary Next Link. It builds its prerequisites first. It depends on the local
-Chrome version, so it runs manually and is not part of `pnpm validate`.
+Chrome version, so it runs manually and is not part of `pnpm validate`. It
+exits non-zero unless every Next Link run and every release-mode `FastLink` and
+`FastLinkRegion` run is valid and reported as a soft navigation. See
+[soft-navigation reporting in Chrome](packages/next/README.md#soft-navigation-reporting-in-chrome)
+for the known result.
 
 ### Test package installs
 
