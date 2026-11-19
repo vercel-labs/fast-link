@@ -69,7 +69,7 @@ test.describe('closest region ownership', () => {
     assert.equal(requests.document, 1);
   });
 
-  test('a release region inside a native region prepares, then navigates on release', async ({
+  test('a release region inside a native region prepares on press, then navigates on the accepted click', async ({
     page,
   }) => {
     await open(page, '/contracts', 'contracts-ready');
@@ -96,7 +96,7 @@ test.describe('closest region ownership', () => {
   });
 
   for (const testId of ['outer-native', 'managed-native']) {
-    test(`${testId}: Next Link routes on release without Fast Link work`, async ({
+    test(`${testId}: Next Link routes on click without Fast Link work`, async ({
       page,
     }) => {
       await open(page, '/contracts', 'contracts-ready');
