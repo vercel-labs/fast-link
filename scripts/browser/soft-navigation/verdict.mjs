@@ -52,6 +52,12 @@ export function classifyRun(observation, { variant, destinationUrl }) {
   const acceptedAt = isPressAccepted ? timeline.pointerdown : timeline.click;
   if (pushes.length && acceptedAt !== null && timeline.push < acceptedAt)
     problems.push('history push before acceptance');
+  const integrationProblem = checkIntegrationRequest(
+    observation,
+    variant,
+    timeline,
+  );
+  if (integrationProblem) problems.push(integrationProblem);
   const historyDelta = after.historyLength - before.historyLength;
   if (historyDelta !== 1) problems.push(`history delta: ${historyDelta}`);
   if (observation.pageErrors.length) problems.push('page error');
@@ -125,6 +131,23 @@ function describeRuns(runs) {
   };
 }
 
+/**
+ * In cold scenarios, the destination request shows which integration ran:
+ * release preparation requests on press, Next Link only after the click.
+ */
+function checkIntegrationRequest(observation, variant, timeline) {
+  if (observation.cache.expected !== 'cold') return null;
+  const isPrepared =
+    timeline.destinationRequest !== null &&
+    timeline.click !== null &&
+    timeline.destinationRequest < timeline.click;
+  if (RELEASE_VARIANTS.includes(variant) && !isPrepared)
+    return 'no preparation request before click';
+  if (variant === BASELINE_VARIANT && isPrepared)
+    return 'destination request before click';
+  return null;
+}
+
 function describeTimeline(observation, presses, clicks, pushes) {
   const { pageLog, resources } = observation;
   const origin = presses[0]?.time ?? null;
@@ -132,7 +155,8 @@ function describeTimeline(observation, presses, clicks, pushes) {
     origin === null || time === undefined || time === null
       ? null
       : Math.round((time - origin) * 10) / 10;
-  // Excludes rendered-link prefetches completed before the press.
+  // Excludes rendered-link prefetches made before the press; the 1 ms slack
+  // covers resource timing that rounds below the pointerdown timestamp.
   const interactionResource = resources.find(
     (entry) => origin === null || entry.startTime >= origin - 1,
   );
