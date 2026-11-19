@@ -1,9 +1,9 @@
 # ▲ @fast-link/core
 
-`@fast-link/core` speeds up eligible same-origin link navigation from a primary
-mouse press. It can prepare on press and navigate on the accepted click, or
-navigate on press. Use it with plain DOM elements or as the interaction layer
-for a framework adapter.
+`@fast-link/core` starts work for eligible same-origin link navigation on a
+primary mouse press. It can prepare on press and navigate on the accepted
+click, or navigate on press. Use it with plain DOM elements or as the
+interaction layer for a framework adapter.
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
