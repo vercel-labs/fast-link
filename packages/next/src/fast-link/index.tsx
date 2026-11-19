@@ -16,6 +16,7 @@ import { getLinkDestination } from '../link-destination';
 import { navigate, type PreparedNavigation } from '../navigation';
 import type { NavigationOptions } from '../navigation-policy';
 import {
+  runNavigationGuard,
   useNavigationInteraction,
   type CommittedNavigation,
 } from '../use-navigation-interaction';
@@ -116,15 +117,11 @@ function createLinkHandlers(
     onNavigate(event: { preventDefault(): void }) {
       const candidate = active;
       active = null;
-      let isCanceled = false;
       try {
-        committed.current.onNavigate?.({
-          preventDefault() {
-            isCanceled = true;
-            event.preventDefault();
-          },
-        });
-        if (isCanceled) return;
+        if (!runNavigationGuard(committed.current.onNavigate)) {
+          event.preventDefault();
+          return;
+        }
         const activation = candidate?.consume();
         if (!activation) return;
         event.preventDefault();
