@@ -200,6 +200,7 @@ function matchesPreparedGesture<P>(
     return false;
   if (
     'pointerType' in event &&
+    // An empty type means the click reports no pointer, so it is still accepted.
     event.pointerType !== '' &&
     event.pointerType !== 'mouse'
   )
