@@ -66,6 +66,8 @@ Versions before `regionOwners` create a registry without it; later versions add
 the field to that registry in place. Immediate controllers in separately
 bundled copies share `pendingClickOwners` and `suppressedClicks`, so a
 containing root from one copy can suppress a follow-up click owed to another.
+Core copies older than 0.1.0 don't register regions, so they keep outside-in
+precedence, and a native inner region doesn't block an older outer region.
 
 Controllers own registration and cleanup; weak collections do not keep anchors
 or events alive. The [preparation tests](../../packages/core/src/preparation/index.test.ts) and

@@ -39,7 +39,7 @@
   provides the experimental `router.experimental_prepare` API that release mode
   uses on press; it requires `experimental: { prepareNavigation: true }` in
   `next.config`. On other Next versions, release mode does not prepare and
-  routes at the accepted click, with ordinary Next Link timing.
+  routes at the accepted click.
 - Update the core and React dependencies to `^0.1.0`.
 
 ## 0.0.2

@@ -108,8 +108,9 @@ not a release prerequisite. Link the complete validated raw report and describe
 its source revision, environment, workload, sample counts, medians, ranges, and
 measurement limits. Keep the README summary manually maintained.
 
-Navigation starts one press-to-release interval earlier. The historical workload's
-85 ms hold is a configured input, not a typical-user gain or a speedup multiplier.
+In immediate mode, navigation starts one press-to-release interval earlier. The
+historical workload's 85 ms hold is a configured input, not a typical-user gain
+or a speedup multiplier.
 The [historical raw report](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
 records revision `fe6fd78dfb572725fccd5b37f555f61b536dda95` on a single Apple M4 Pro
 running macOS, with five alternating batches. Existing historical reports remain

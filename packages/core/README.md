@@ -12,7 +12,9 @@ instead.
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
-Sites requiring WCAG Level A or AA conformance should keep links in native mode.
+Sites requiring WCAG Level A or AA conformance should not use immediate mode.
+Release mode keeps release-time cancellation, but opting in doesn't by itself
+establish conformance.
 See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
 
 ## Requirements
@@ -93,6 +95,12 @@ follow-up click. Call `fastLink.destroy()` when the root leaves the document.
 To use a client router, call it from `navigate`. Core validates the link before
 it calls `navigate`; the caller remains responsible for history, scroll, route
 state, and transitions.
+
+Avoid capture-phase `stopPropagation()` on clicks above an immediate root. It
+stops the follow-up click before core can prevent it, including from a React
+ancestor's `onClickCapture` when React's root is the document. If the source
+link is still mounted at release, the click then also performs a document
+navigation.
 
 ## Navigate on the accepted click
 

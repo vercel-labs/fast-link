@@ -15,9 +15,8 @@ Each link or region selects a `mode`:
   to commit.
 - `native`: ordinary link behavior, including client routing.
 
-With `@fast-link/next`, release mode prepares on press only on a Next runtime
-that supports navigation preparation; before presenting it as a speed-up, run
-the runtime check in [Next.js integration](references/next.md).
+With `@fast-link/next`, read [Next.js integration](references/next.md) before
+describing any speed difference between release mode and Next Link.
 
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).

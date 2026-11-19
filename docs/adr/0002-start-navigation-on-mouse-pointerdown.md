@@ -8,6 +8,7 @@ rather than waiting for `click`. This removes the wait for release and gives up
 release-time cancellation for those interactions.
 
 Sites requiring WCAG Level A or AA conformance should not use immediate mode.
+Opting into release mode doesn't by itself establish conformance.
 See the [accessibility limitation](../../README.md#known-limitations).
 
 For touch and pen, `pointerdown` cannot establish whether contact will become a
