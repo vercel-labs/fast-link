@@ -13,7 +13,7 @@ import { scenarioNames, summarize, validateReport } from './report.mjs';
 import { workload } from './workload.mjs';
 
 /** Captures source identity, tested versions, environment, and measurement conditions. */
-async function createReport(root, selected) {
+async function createReport(root, selected, modes = workload.modes) {
   const manifest = async (path) =>
     JSON.parse(await readFile(resolve(root, path), 'utf8'));
   const fixtureManifest = await manifest('fixtures/next-16/package.json');
@@ -49,6 +49,7 @@ async function createReport(root, selected) {
     conditions: {
       ...workload,
       case: selected,
+      modes,
     },
     metrics: {},
     errors: [],
@@ -60,17 +61,12 @@ function completeReport(result, batch) {
   if (result.errors.length) throw new Error(result.errors.join('\n'));
   if (
     JSON.stringify(Object.keys(result.metrics).toSorted()) !==
-    JSON.stringify(
-      scenarioNames(
-        result.conditions.case,
-        result.conditions.listSizes,
-      ).toSorted(),
-    )
+    JSON.stringify(scenarioNames(result.conditions).toSorted())
   )
     throw new Error('Benchmark scenarios are incomplete');
   if (batch === undefined)
     for (const metric of Object.values(result.metrics))
-      Object.assign(metric, summarize(metric.samples));
+      Object.assign(metric, summarize(metric.samples, metric));
   if (batch === undefined) validateReport(result);
 }
 
@@ -108,9 +104,9 @@ export function createBenchmarkSession() {
   }
 
   /** Writes one batch or a full run; failed work is saved before rejection. */
-  async function measure({ root, output, selected, batch }) {
+  async function measure({ root, output, selected, modes, batch }) {
     const started = performance.now();
-    const result = await createReport(root, selected);
+    const result = await createReport(root, selected, modes);
 
     try {
       const origin = await prepare(root);
