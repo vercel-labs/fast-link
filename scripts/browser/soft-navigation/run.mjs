@@ -2,14 +2,14 @@
  * Checks whether installed Chrome reports soft navigations for Fast Link
  * integrations as it does for an ordinary Next Link with the same route,
  * content and browser configuration. Requires `pnpm build` and a local Chrome.
- * Exits 0 only when both release integrations pass in every scenario.
+ * Exits 0 only when both release integrations pass in every selected scenario.
  */
 
 /* oxlint-disable no-await-in-loop -- Fresh browsers run one at a time. */
 import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { loadavg, cpus, platform, release } from 'node:os';
+import { loadavg, cpus, platform, release as osRelease } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -183,7 +183,7 @@ function buildReport(options, root, fixture, browser, runs) {
     ]),
   );
   const summaries = Object.values(scenarios);
-  const require = createRequire(resolve(fixture, 'package.json'));
+  const requireFixture = createRequire(resolve(fixture, 'package.json'));
   const git = (...args) =>
     execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
   return {
@@ -195,14 +195,14 @@ function buildReport(options, root, fixture, browser, runs) {
     versions: Object.fromEntries(
       ['next', 'react', 'react-dom', 'playwright'].map((name) => [
         name,
-        (name === 'playwright' ? createRequire(import.meta.url) : require)(
-          `${name}/package.json`,
-        ).version,
+        (name === 'playwright'
+          ? createRequire(import.meta.url)
+          : requireFixture)(`${name}/package.json`).version,
       ]),
     ),
     host: {
       platform: platform(),
-      release: release(),
+      release: osRelease(),
       cpu: cpus()[0]?.model,
       cores: cpus().length,
       loadAverage: loadavg(),

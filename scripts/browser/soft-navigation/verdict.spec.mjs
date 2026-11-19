@@ -5,6 +5,7 @@ import {
 } from './verdict.mjs';
 
 const destinationUrl = 'http://127.0.0.1:3000/docs/soft-navigation/destination';
+const cold = { expected: 'cold', matched: true };
 
 describe('classifyRun', () => {
   it.each([
@@ -32,6 +33,36 @@ describe('classifyRun', () => {
       'fast',
       { clickOnLink: false },
       ['trusted clicks: 1 (0 on link)'],
+    ],
+    [
+      'a run that loads the destination as a document',
+      'next',
+      { documentRequests: 1 },
+      ['document request'],
+    ],
+    [
+      'a run whose rendered-link prefetch did not settle',
+      'next',
+      { cache: { expected: 'prefetched', matched: false } },
+      ['cache state'],
+    ],
+    [
+      'a cold release run that prepares before the click',
+      'fast',
+      { cache: cold, resources: [{ startTime: 2, responseEnd: 9 }] },
+      [],
+    ],
+    [
+      'a cold release run without a preparation request',
+      'region',
+      { cache: cold, resources: [{ startTime: 102, responseEnd: 109 }] },
+      ['no preparation request before click'],
+    ],
+    [
+      'a cold baseline run that requests before the click',
+      'next',
+      { cache: cold, resources: [{ startTime: 2, responseEnd: 9 }] },
+      ['destination request before click'],
     ],
     [
       'a run with two soft-navigation entries',
@@ -135,15 +166,18 @@ function observation({
   pushes = [150],
   entries = 1,
   entryName = destinationUrl,
+  cache = { matched: true },
+  resources = [],
+  documentRequests = 0,
 } = {}) {
   return {
-    cache: { matched: true },
+    cache,
     navigationError: null,
     before: { url: 'source', historyLength: 2 },
     after: { url: destinationUrl, historyLength: 2 + pushes.length },
-    documentRequests: 0,
+    documentRequests,
     pageErrors: [],
-    resources: [],
+    resources,
     pageLog: {
       events: [
         { type: 'pointerdown', time: 0, isTrusted: true, onLink: true },

@@ -16,7 +16,10 @@ export const SCENARIOS = [
   },
 ];
 
-/** Default mouse hold; shorter than the delayed destination's 500 ms delay. */
+/**
+ * Default mouse hold; shorter than the delayed destination's 500 ms delay. A
+ * hold of 500 ms or more releases after that response, a different case.
+ */
 export const DEFAULT_HOLD_MS = 100;
 
 /** Probe timing inputs, recorded with every report. */
@@ -334,7 +337,10 @@ async function settleCache(scenario, network) {
   return {
     expected: 'prefetched',
     requestsBeforePress: network.destinationCount(),
-    matched: quietSince !== undefined && network.pendingCount() === 0,
+    matched:
+      quietSince !== undefined &&
+      performance.now() - quietSince >= TIMING.prefetchQuietMs &&
+      network.pendingCount() === 0,
   };
 }
 
