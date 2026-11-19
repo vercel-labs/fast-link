@@ -82,7 +82,8 @@ export function createClickPreparation<P>(
   };
 }
 
-// Containing preparation roots keep outside-in order; only managed anchors take priority.
+// The root must still contain the anchor. Containing preparation roots keep
+// outside-in order; only managed anchors take priority.
 function hasAnchorPriority(
   root: HTMLElement,
   anchor: HTMLAnchorElement,

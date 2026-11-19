@@ -36,10 +36,10 @@ export type {
  * registers at creation; call `destroy()` when it detaches.
  *
  * @param isActive Reports whether the root is still attached for its owner.
- *   While it returns `false`, a press stays native: the root claims, prepares,
- *   and suppresses nothing. A guard that deactivates the root cancels immediate
- *   navigation, and release `matchClick` and `consume()` return `null`.
- *   Defaults to always active.
+ *   While it returns `false`, a press stays native and arms no suppression;
+ *   suppression armed earlier still applies. A guard that deactivates the root
+ *   cancels immediate navigation but keeps its click suppressed, and release
+ *   `matchClick` and `consume()` return `null`. Defaults to always active.
  */
 export function createLinkInteraction<P>(
   root: HTMLElement,

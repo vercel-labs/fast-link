@@ -188,10 +188,17 @@ The root can be one anchor or a region containing anchors. The mode has no
 default. Options are copied at creation and on each `update()`.
 
 Pass `isActive` when the owner can detach the root before calling `destroy()`,
-such as a framework ref that can reattach within one commit. While it returns
-`false`, a press stays native: the root claims, prepares, and suppresses
-nothing. A guard that deactivates the root cancels immediate navigation, and
-release `matchClick` and `consume()` return `null`. It defaults to always active.
+such as a framework ref that can reattach within one commit. It defaults to
+always active. While it returns `false`:
+
+- A press stays native: the root claims and prepares nothing and arms no
+  suppression. The root keeps its ownership, so containing regions leave the
+  link native too.
+- Suppression armed earlier still applies and settles on the next press, as
+  usual.
+- A guard that deactivates the root cancels immediate navigation; as with a
+  canceled guard, its follow-up click stays suppressed.
+- Release `matchClick` and `consume()` return `null`.
 
 Release mode prepares like [`createClickPreparation`](#createclickpreparation).
 Handle its clicks with `matchClick(event)` and the same consume or discard
