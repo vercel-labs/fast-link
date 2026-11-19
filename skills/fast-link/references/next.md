@@ -24,10 +24,11 @@ the same timing selects `mode="immediate"`.
 Don't present release mode as faster than Next Link. Preparation on press
 needs Next `16.5.0-canary.42` and `experimental: { prepareNavigation: true }`
 in `next.config`; on other versions release mode routes at the accepted click.
-Even with preparation, the repository's lab benchmark measured a gain of only
-a few milliseconds, and only when a press outlasted a cold route fetch. Warm
-and prefetched links gained nothing. Measure the target app before claiming a
-speed-up. Report what the installed version and configuration provide, and
+Even with preparation, release mode can save at most the part of the route
+fetch that overlaps the press, so it never saves more than the press lasts. A
+warm or prefetched route has no fetch to overlap. No published measurement
+covers release mode. Measure the target app before claiming a speed-up. Report
+what the installed version and configuration provide, and
 change the Next version or flag only with the user's agreement.
 
 1. **Reuse an applicable Fast Link integration.** Follow the target's aliases,
@@ -144,7 +145,7 @@ for full failure ordering.
 A managed anchor takes priority over containing regions, even with
 `mode="native"`. A native containing region does not change separately managed
 links, and a `FastLink` without `mode` uses release even inside an immediate
-region; there is no mode inheritance.
+region. Managed links never take a region's mode.
 
 `FastLink` does not accept `as` or `legacyBehavior`. Render such links with
 plain `next/link`, and add `data-no-fast-link` if a containing region would

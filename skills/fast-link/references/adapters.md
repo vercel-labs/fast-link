@@ -25,9 +25,15 @@ Attach to an anchor or the narrowest containing element that shares a policy.
 used; repeated destruction is harmless.
 
 For release mode, pass `prepare` and accept the click in a click-capture
-listener: call `matchClick(event)`, run synchronous guards, call `consume()`,
-then `preventDefault()` and navigate; discard the candidate in `finally`. See
-the [core release example](https://github.com/vercel-labs/fast-link/tree/main/packages/core#navigate-on-the-accepted-click).
+listener:
+
+1. `matchClick(event)`
+2. Run the synchronous guards.
+3. `consume()`
+4. On a result, call `preventDefault()` and navigate.
+5. Call `discard()` in `finally`.
+
+See the [core release example](https://github.com/vercel-labs/fast-link/tree/main/packages/core#navigate-on-the-accepted-click).
 Native mode needs no callbacks. A region registers in every mode, and an
 ordinary link uses its closest region.
 

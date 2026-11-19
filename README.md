@@ -32,8 +32,7 @@ Keep ordinary click behavior for:
 - Links whose click handlers must run before navigation, such as validation or an
   unsaved-changes warning, unless they use `FastLink` in release mode.
 - Links that open or toggle UI, such as a modal, menu, or tab.
-- Downloads and links that need URL dragging, and links that need
-  release-time cancellation in immediate mode.
+- Downloads and links that need URL dragging.
 
 Use `mode="native"` or `data-no-fast-link` to opt out of early navigation.
 

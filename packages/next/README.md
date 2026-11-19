@@ -29,11 +29,12 @@ Requires the Next.js App Router.
 Early preparation requires Next `16.5.0-canary.42` with
 `experimental: { prepareNavigation: true }` in `next.config`. It uses the
 public optional `router.experimental_prepare` API. Without that API, or if
-preparation throws, all three integrations execute the normal router/document decision
-at accepted click. A failed commit is never retried. Immediate mode never
-prepares.
+preparation throws, all three integrations route at the accepted click and apply
+the navigation policy as usual. If router navigation throws, Fast Link doesn't
+retry it. Immediate mode never prepares.
 
-Preparation is experimental. Discarding a handle does not abort Next's request.
+Preparation is experimental. Releasing away discards Fast Link's prepared
+navigation but doesn't abort the route request Next already started.
 
 ### Soft-navigation reporting in Chrome
 
@@ -219,9 +220,6 @@ export function AccountLink() {
 
 ## Understand navigation and click behavior
 
-- In release mode, `FastLink` honors its `onClick` and `onNavigate` guards.
-  Regions and the custom hook [accept during click capture](#leave-one-region-link-on-its-normal-path); later
-  child guards cannot veto an accepted navigation.
 - API routes or another application's pages: choose an explicit routing policy
   or opt out. See [application boundaries](#route-links-across-application-boundaries).
 
@@ -330,12 +328,16 @@ Fast Link does not infer ownership from paths or metadata. Classify foreign or
 unknown ownership as document navigation. An ordinary link inside `AppRegion`
 uses the region policy, while `AppLink` uses its own policy and Link options.
 
-Policies must be synchronous and side-effect-free. In release mode, all Next
-integrations classify once on eligible press when preparation is available and
-again after accepted-click guards. Immediate mode classifies once on press,
-after `onNavigate`. Native mode never calls the policy. Read current metadata on each call. Move analytics, state updates, and
-other effects to `onNavigate` or `onFastNavigate`. The latter runs once per
-accepted navigation attempt.
+Policies must be synchronous and side-effect-free, and must read current
+metadata on each call:
+
+- Release calls the policy on eligible press when preparation is available, and
+  again after accepted-click guards.
+- Immediate calls it once on press, after `onNavigate`.
+- Native never calls it.
+
+Move analytics, state updates, and other effects to `onNavigate` or
+`onFastNavigate`, which runs once per accepted navigation attempt.
 
 ### Failure behavior
 
