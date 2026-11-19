@@ -30,9 +30,12 @@ export type CommittedNavigation = {
 };
 
 /**
- * Binds one link interaction controller in the selected mode, defaulting to
- * release. Callbacks read the committed inputs, which are published before the
- * binding updates the controller or replaces a caller ref.
+ * Binds one link interaction controller in the selected mode. Callbacks read
+ * the committed inputs, which are published before the binding updates the
+ * controller or replaces a caller ref.
+ *
+ * @param mode Entry points pass their optional `mode` prop through unchanged;
+ * this default is the only place Next selects `release`.
  */
 export function useNavigationInteraction<
   C extends CommittedNavigation,
