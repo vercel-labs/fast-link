@@ -16,7 +16,9 @@ instead.
 For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
-Sites requiring WCAG Level A or AA conformance should keep links in native mode.
+Sites requiring WCAG Level A or AA conformance should not use immediate mode.
+Release mode keeps release-time cancellation, but opting in doesn't by itself
+establish conformance.
 See the [accessibility limitation](https://github.com/vercel-labs/fast-link#known-limitations).
 
 ## Requirements

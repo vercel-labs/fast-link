@@ -4,8 +4,8 @@
 navigation to App Router. In the default release mode they prepare on press
 and navigate on the accepted click. Preparation needs a supported Next runtime
 (see [Requirements](#requirements)); on other versions release mode routes at
-the accepted click, with ordinary Next Link timing. `FastLink` runs your
-`onClick` and `onNavigate` handlers before navigating. Regions and custom hooks
+the accepted click. `FastLink` runs your `onClick` and `onNavigate` handlers
+before navigating. Regions and custom hooks
 [accept during click capture](#leave-one-region-link-on-its-normal-path).
 
 For press timing and opt-outs, see
@@ -33,8 +33,15 @@ preparation throws, all three integrations execute the normal router/document de
 at accepted click. A failed commit is never retried. Immediate mode never
 prepares.
 
-Preparation is experimental. Discarding a handle does not abort Next's request,
-and this runtime does not establish correct Chrome soft-navigation attribution.
+Preparation is experimental. Discarding a handle does not abort Next's request.
+
+### Soft-navigation reporting in Chrome
+
+Chrome 157 doesn't report a soft navigation for a release-mode click when the
+prepared request is still pending at click, for example when the destination
+is slow. Monitoring tools that rely on soft navigations can then attribute
+later CLS and INP to the previous page. Chrome didn't report immediate-mode
+navigations as soft navigations in any tested case.
 
 ## Install the package
 
@@ -70,13 +77,21 @@ Every interface accepts `mode`:
 ```
 
 Both accelerated modes leave touch, pen, keyboard, and modified input native.
-Opting in does not establish WCAG conformance.
+Sites requiring WCAG Level A or AA conformance should not use immediate mode.
+Release mode keeps release-time cancellation, but opting in doesn't by itself
+establish conformance.
 
 In immediate mode, `onNavigate` runs on press, before policy and navigation,
 and can cancel it with `preventDefault()`. Click handlers cannot: the
 follow-up click is default-prevented, even when `onNavigate` cancels or
 throws, and still propagates. Regions have no press guard; opt a link out with
 `data-no-fast-link` when it needs one.
+
+Avoid capture-phase `stopPropagation()` on clicks above immediate links. It
+stops the follow-up click before Fast Link can prevent it, including from a
+React ancestor's `onClickCapture`, because the App Router hydrates on
+`document`. If the source link is still mounted at release, the click then
+also performs a document navigation.
 
 Changing `mode` keeps the element and does not remount the link. Leaving
 release mode while a button is held discards preparation; the later click uses

@@ -13,16 +13,17 @@ region:
 With `@fast-link/next`, release mode prepares on press only on a Next.js
 runtime that supports navigation preparation; see the
 [requirements](./packages/next/README.md#requirements). Elsewhere it routes at
-the accepted click, with ordinary Next Link timing.
+the accepted click.
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages.
 
 ## When to use Fast Link
 
-Use Fast Link for ordinary links between pages in your app, when pressing the
-link is enough to commit to navigation. Examples include documentation, product
-pages, dashboard views, and links to form or checkout pages.
+Use Fast Link for ordinary links between pages in your app. Examples include
+documentation, product pages, dashboard views, and links to form or checkout
+pages. Use immediate mode only when pressing the link is enough to commit to
+navigation.
 
 Keep ordinary click behavior for:
 
@@ -183,8 +184,9 @@ conditions, and environment in the report before using it to support a claim.
 
 In immediate mode, Fast Link starts mouse navigation on press. Moving away
 before release won't cancel it, and Fast Link provides no built-in abort or
-undo. Release mode keeps release-time cancellation, but opting into either
-mode does not by itself establish WCAG conformance.
+undo. Sites requiring WCAG Level A or AA conformance should not use immediate
+mode. Release mode keeps release-time cancellation, but opting into it doesn't
+by itself establish conformance.
 
 Immediate mode is an accessibility limitation under
 [WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
@@ -193,7 +195,9 @@ See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for a
 Chrome may not detect Fast Link's client-side navigations as
 [soft navigations](https://developer.chrome.com/docs/web-platform/soft-navigations).
 Monitoring tools that rely on this detection can attribute subsequent CLS and INP
-to the previous page.
+to the previous page. See
+[soft-navigation reporting in Chrome](./packages/next/README.md#soft-navigation-reporting-in-chrome)
+for the cases tested with `@fast-link/next`.
 
 ## Contributing
 
