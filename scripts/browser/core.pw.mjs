@@ -3,10 +3,9 @@
  * and releases away from the pressed element. These expose click-targeting and
  * duplicate-navigation behavior that synthetic events cannot establish.
  *
- * Each scenario runs against the press controller (`createFastLink`) and the
- * immediate and release modes of `createLinkInteraction`. Immediate mode
- * navigates on press like the press controller; release mode navigates only
- * when the binding accepts the matching click.
+ * Each scenario runs against the immediate and release modes of
+ * `createLinkInteraction`. Immediate mode navigates on press; release mode
+ * navigates only when the binding accepts the matching click.
  */
 
 import assert from 'node:assert/strict';
@@ -18,10 +17,8 @@ const core = await readFile(
   new URL('../../packages/core/dist/index.js', import.meta.url),
   'utf8',
 );
-// Binds a root in one controller kind. Release accepts the matching click during capture.
+// Binds a root in one mode. Release accepts the matching click during capture.
 const binding = `export function bind(core, kind, root, navigate) {
-  if (kind === 'fast-link')
-    return navigate ? core.createFastLink(root, { navigate }) : core.createFastLink(root);
   const route = navigate ?? (({ url, anchor }) => anchor.ownerDocument.defaultView.location.assign(url.href));
   if (kind === 'immediate')
     return core.createLinkInteraction(root, { mode: 'immediate', navigate: route });
@@ -34,7 +31,7 @@ const binding = `export function bind(core, kind, root, navigate) {
   }, true);
   return controller;
 }`;
-const KINDS = ['fast-link', 'immediate', 'release'];
+const KINDS = ['immediate', 'release'];
 
 for (const scenario of [
   'descendant',
@@ -57,7 +54,7 @@ for (const scenario of [
     });
   }
 }
-test('fast-link: iframe', ({ page }) => checkIframe(page));
+test('immediate: iframe', ({ page }) => checkIframe(page));
 for (const scenario of [
   'native-inner-region',
   'immediate-inner-region',
@@ -282,9 +279,8 @@ function changePressedLink(page, scenario) {
 }
 
 function expectedRoutes(kind, scenario) {
-  // The press controller keeps outer-first order; link interaction roots use the closest root.
-  const owner =
-    scenario.startsWith('copies-') && kind !== 'fast-link' ? 'inner' : 'outer';
+  // Link interaction roots use the closest root.
+  const owner = scenario.startsWith('copies-') ? 'inner' : 'outer';
   if (kind !== 'release') return [`${owner}:/first`];
   // Release away, or removing the pressed target, cancels activation.
   if (['sibling', 'replace-anchor', 'remove-target'].includes(scenario))
@@ -345,11 +341,13 @@ async function checkIframe(page) {
     const path = new URL(route.request().url()).pathname;
     if (path === '/core.js')
       return route.fulfill({ contentType: 'text/javascript', body: core });
+    if (path === '/binding.js')
+      return route.fulfill({ contentType: 'text/javascript', body: binding });
     let body;
     if (path === '/')
       body = '<iframe src="/frame" style="width:400px;height:200px"></iframe>';
     else if (path === '/frame')
-      body = `<base href="/child/base/"><a id="child" href="destination?from=iframe#result">Child destination</a><script type="module">import { createFastLink } from '/core.js'; createFastLink(document.body); document.body.dataset.ready = 'true';</script>`;
+      body = `<base href="/child/base/"><a id="child" href="destination?from=iframe#result">Child destination</a><script type="module">import * as core from '/core.js'; import { bind } from '/binding.js'; bind(core, 'immediate', document.body); document.body.dataset.ready = 'true';</script>`;
     else {
       destinations.push(route.request().url());
       body = '<h1>Child arrived</h1>';
