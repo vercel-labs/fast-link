@@ -2,11 +2,12 @@ import type { PreparedClick } from '@fast-link/core';
 import { useLayoutEffect, useState, type ForwardedRef } from 'react';
 
 /** The controller surface the root binding manages. */
-type RootController<P, O, K extends string> = {
+interface RootController<P, O> {
   update(options: O): void;
   matchClick(event: MouseEvent): PreparedClick<P> | null;
+  discard(): void;
   destroy(): void;
-} & Record<K, () => void>;
+}
 
 /** One React-owned root and its controller. */
 export interface RootBinding<P, C, T extends HTMLElement> {
@@ -24,13 +25,15 @@ export interface RootBinding<P, C, T extends HTMLElement> {
 /**
  * Binds one controller to the element receiving `handlers.ref`.
  *
- * - Creates the controller when the ref attaches. `isAttached` lets the factory
- *   reject activation while the ref is detached.
+ * - Creates the controller when the ref attaches, including when React replays
+ *   refs for Strict Mode or a revealed `<Activity>`.
  * - Publishes committed options after every commit, before replacing a changed
  *   caller ref.
  * - Reattaching the same element keeps the controller and its pending work.
  * - Replacing the element, staying detached after the commit, or unmounting
- *   destroys it. Strict Mode replays effect cleanup while retaining the element.
+ *   destroys it.
+ * - Rejects click activation while the ref is detached. `isAttached` lets the
+ *   factory reject activation that its options start.
  *
  * The binding renders nothing. React 19 runs no layout effects during server
  * rendering and does not warn about them.
@@ -38,21 +41,15 @@ export interface RootBinding<P, C, T extends HTMLElement> {
 export function useRootBinding<
   P,
   O,
-  K extends string,
-  C extends RootController<P, O, K>,
+  C extends RootController<P, O>,
   T extends HTMLElement,
 >(
-  createController: (
-    root: T,
-    options: O,
-    isAttached: () => boolean,
-  ) => C & { matchClick(event: MouseEvent): PreparedClick<P> | null },
-  discardMethod: K,
+  createController: (root: T, options: O, isAttached: () => boolean) => C,
   options: O,
   forwardedRef: ForwardedRef<T>,
 ): RootBinding<P, C, T> {
   const [binding] = useState(() =>
-    createRootBinding(createController, discardMethod, options, forwardedRef),
+    createRootBinding<P, O, C, T>(createController, options, forwardedRef),
   );
   useLayoutEffect(binding.mount, [binding]);
   useLayoutEffect(() => {
@@ -64,34 +61,22 @@ export function useRootBinding<
 function createRootBinding<
   P,
   O,
-  K extends string,
-  C extends RootController<P, O, K>,
+  C extends RootController<P, O>,
   T extends HTMLElement,
 >(
-  createController: (
-    root: T,
-    options: O,
-    isAttached: () => boolean,
-  ) => C & { matchClick(event: MouseEvent): PreparedClick<P> | null },
-  discardMethod: K,
+  createController: (root: T, options: O, isAttached: () => boolean) => C,
   initialOptions: O,
   initialRef: ForwardedRef<T>,
 ) {
   let options = initialOptions;
   let forwardedRef = initialRef;
   let element: T | null = null;
+  // The element that owns the controller, kept across a transient detach.
   let root: T | null = null;
   let controller: C | null = null;
   let refCleanup: (() => void) | undefined;
   const isAttached = () => element !== null;
-  const discard = () => controller?.[discardMethod]();
-
-  function ensureController(): void {
-    if (element && !controller) {
-      // `root` records which element owns the controller across a detach.
-      controller = createController((root = element), options, isAttached);
-    }
-  }
+  const discard = () => controller?.discard();
 
   function destroyController(): void {
     controller?.destroy();
@@ -113,7 +98,9 @@ function createRootBinding<
     replaceRef();
 
     if (element) {
-      ensureController();
+      if (controller) return;
+      root = element;
+      controller = createController(element, options, isAttached);
       return;
     }
     // Renderers such as Next Link can reattach the same element within one
@@ -152,10 +139,9 @@ function createRootBinding<
       controller?.update(options);
       if (isRefChanged) replaceRef();
     },
-    mount() {
-      ensureController();
-      return destroyController;
-    },
+    // Unmount destroys synchronously. Hidden `<Activity>` and Strict Mode replay
+    // also detach the ref, which re-creates the controller when it reattaches.
+    mount: () => destroyController,
   };
 }
 

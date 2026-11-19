@@ -275,8 +275,8 @@ the interaction.
 
 - Attaching the ref creates a controller.
 - Committed options replace the controller's copied options before a caller
-  ref changed in the same commit is replaced. Caller refs can dispatch input
-  and see the new options.
+  ref changed in the same commit is replaced, so input dispatched by the new
+  caller ref uses the new options.
 - In `useLinkInteraction`, changing the mode keeps the element and the
   controller. Leaving release mode discards a held press without navigating.
   Follow-up click suppression survives mode, option, `href`, and same-element
@@ -291,10 +291,15 @@ the interaction.
   settle.
 - Replacing the element or unmounting destroys the controller. If the ref stays
   detached, cleanup runs after the commit.
+- When the element is replaced in the same commit as an option or caller-ref
+  change, the new controller starts with the previous commit's options and the
+  previous caller ref receives the new element. The hook's layout effect
+  replaces both later in that commit; input dispatched before then uses the
+  previous options.
 - Caller-ref replacement runs the old cleanup before assigning the new ref.
   Callback cleanup functions and object refs are supported.
-- Strict Mode effect replay destroys and recreates the controller for the same
-  element.
+- Strict Mode replay and a hidden `<Activity>` destroy the controller; it is
+  recreated when React reattaches the ref.
 - Server rendering attaches no controller. Gestures cause no React state
   updates.
 

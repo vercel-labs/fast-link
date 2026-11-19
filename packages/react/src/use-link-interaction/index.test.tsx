@@ -45,6 +45,12 @@ function click(target: Element): boolean {
   return isPrevented;
 }
 
+function clickEvent(target: Element): globalThis.MouseEvent {
+  const event = new window.MouseEvent('click', { detail: 1, cancelable: true });
+  Object.defineProperty(event, 'target', { value: target });
+  return event;
+}
+
 /** Options for `mode` that record each callback as `<callback>:<href>`. */
 function recording(
   mode: LinkMode,
@@ -270,30 +276,34 @@ it('rejects immediate navigation when its guard removes the root', () => {
   expect(navigate).not.toHaveBeenCalled();
 });
 
-it('rejects a press while a same-anchor reattachment detaches the ref but lets earlier suppression settle', () => {
+it('rejects activation while a same-anchor reattachment detaches the ref but lets earlier suppression settle', () => {
   const beforeNavigate = vi.fn(() => true);
-  const navigations: string[] = [];
+  const calls: string[] = [];
   let onDetach: ((anchor: HTMLAnchorElement) => void) | null = null;
+  let binding: LinkInteractionBinding<string, HTMLAnchorElement> | null = null;
   const callerRef = (anchor: HTMLAnchorElement | null) =>
     anchor ? () => onDetach?.(anchor) : undefined;
-  function Renderer({ href }: { href: string }) {
-    const binding = useLinkInteraction<never, HTMLAnchorElement>({
-      mode: 'immediate',
-      beforeNavigate,
-      navigate: (intent) => navigations.push(intent.href),
+  function Renderer({ mode, href }: { mode: LinkMode; href: string }) {
+    binding = useLinkInteraction<string, HTMLAnchorElement>({
+      ...(mode === 'immediate'
+        ? { ...recording(mode, calls), beforeNavigate }
+        : recording(mode, calls)),
       forwardedRef: callerRef,
     });
+    const { ref: bind, suppressClick } = binding;
     const ref = useCallback(
-      (element: HTMLAnchorElement | null) => binding.ref(element),
-      [binding.ref, href],
+      (element: HTMLAnchorElement | null) => bind(element),
+      [bind, href],
     );
     return (
-      <a href={href} ref={ref} onClickCapture={binding.suppressClick}>
+      <a href={href} ref={ref} onClickCapture={suppressClick}>
         Guide
       </a>
     );
   }
-  const { getByRole, rerender } = render(<Renderer href="/first" />);
+  const { getByRole, rerender } = render(
+    <Renderer mode="immediate" href="/first" />,
+  );
   const anchor = getByRole('link');
   press(anchor);
 
@@ -302,14 +312,29 @@ it('rejects a press while a same-anchor reattachment detaches the ref but lets e
     isDetachedClickPrevented = click(detached);
     press(detached);
   };
-  rerender(<Renderer href="/second" />);
+  rerender(<Renderer mode="immediate" href="/second" />);
   expect(isDetachedClickPrevented).toBe(true);
   expect(beforeNavigate).toHaveBeenCalledTimes(1);
-  expect(navigations).toEqual(['/first']);
+  expect(calls).toEqual(['navigate:/first']);
 
   onDetach = null;
   press(anchor);
-  expect(navigations).toEqual(['/first', '/second']);
+  expect(calls).toEqual(['navigate:/first', 'navigate:/second']);
+
+  // A held release gesture cannot be matched while the ref is detached.
+  rerender(<Renderer mode="release" href="/second" />);
+  press(anchor);
+  let detachedMatch: unknown = 'not called';
+  onDetach = (detached) => {
+    detachedMatch = binding?.matchClick(clickEvent(detached));
+  };
+  rerender(<Renderer mode="release" href="/third" />);
+  expect(calls).toEqual([
+    'navigate:/first',
+    'navigate:/second',
+    'prepare:/second',
+  ]);
+  expect(detachedMatch).toBeNull();
 });
 
 it('rejects a release click consumed after its guard removes the root', () => {

@@ -10,7 +10,16 @@
 /* oxlint-disable no-await-in-loop -- Consumer checks run in dependency order. */
 
 import { execFileSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,21 +127,20 @@ try {
   `,
   ]);
   if (minimum) {
-    // Reuse the lifecycle suite through the installed public React export.
-    const tests = await readFile(
-      join(root, 'packages/react/src/use-fast-link/index.test.tsx'),
-      'utf8',
-    );
-    await mkdir(join(consumer, 'src/use-fast-link'), { recursive: true });
-    await writeFile(
-      join(consumer, 'src/use-fast-link/index.test.tsx'),
-      replaceOnce(
-        tests,
-        "from './index'",
-        "from '@fast-link/react'",
-        'packages/react/src/use-fast-link/index.test.tsx',
-      ),
-    );
+    // Reuse every hook suite through the installed public React export.
+    const hooks = await readdir(join(root, 'packages/react/src'), {
+      withFileTypes: true,
+    });
+    for (const hook of hooks) {
+      const path = `packages/react/src/${hook.name}/index.test.tsx`;
+      if (!hook.isDirectory() || !existsSync(join(root, path))) continue;
+      const tests = await readFile(join(root, path), 'utf8');
+      await mkdir(join(consumer, 'src', hook.name), { recursive: true });
+      await writeFile(
+        join(consumer, 'src', hook.name, 'index.test.tsx'),
+        replaceOnce(tests, "from './index'", "from '@fast-link/react'", path),
+      );
+    }
     const config = await readFile(
       join(root, 'packages/react/vitest.config.ts'),
       'utf8',

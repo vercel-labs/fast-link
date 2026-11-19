@@ -2,6 +2,7 @@
 
 import {
   createClickPreparation,
+  type ClickPreparationController,
   type ClickPreparationOptions,
   type PreparedClick,
 } from '@fast-link/core';
@@ -26,10 +27,10 @@ export function useClickPreparation<P, T extends HTMLElement = HTMLElement>({
   matchClick(event: MouseEvent): PreparedClick<P> | null;
   discard(): void;
 } {
-  return useRootBinding(
-    createClickPreparation<P>,
-    'discard',
-    options,
-    forwardedRef,
-  ).handlers;
+  return useRootBinding<
+    P,
+    ClickPreparationOptions<P>,
+    ClickPreparationController<P>,
+    T
+  >(createClickPreparation, options, forwardedRef).handlers;
 }

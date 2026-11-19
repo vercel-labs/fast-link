@@ -4,10 +4,23 @@
  */
 
 import { fireEvent, render } from '@testing-library/react';
-import { StrictMode, useCallback, useState, type MouseEvent } from 'react';
+import * as React from 'react';
+import {
+  StrictMode,
+  useCallback,
+  useState,
+  type ComponentType,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { flushSync } from 'react-dom';
 
 import { useClickPreparation } from './index';
+
+// React 19.0, the minimum supported version, does not export Activity.
+const { Activity } = React as {
+  Activity?: ComponentType<{ mode: 'visible' | 'hidden'; children: ReactNode }>;
+};
 
 function press(element: Element): void {
   const event = new window.MouseEvent('pointerdown', {
@@ -125,6 +138,84 @@ it('updates options before replacement caller refs run without replacing the bin
     firstRef.mock.calls.map(([element]) => element?.tagName ?? null),
   ).toEqual(['DIV', null]);
 });
+
+it('attaches the previous caller ref to a replacement element until the commit publishes the new ref', () => {
+  const observed: string[] = [];
+  const firstRef = vi.fn();
+  const secondRef = (root: HTMLElement | null) => {
+    const anchor = root?.querySelector('a');
+    if (anchor) press(anchor);
+  };
+  function Region({
+    label,
+    callerRef,
+    section = false,
+  }: {
+    label: string;
+    callerRef: (root: HTMLElement | null) => void;
+    section?: boolean;
+  }) {
+    const binding = useClickPreparation({
+      prepare: () => {
+        observed.push(label);
+        return label;
+      },
+      forwardedRef: callerRef,
+    });
+    const Root = section ? 'section' : 'div';
+    return (
+      <Root ref={binding.ref}>
+        <a href="/guide">Guide</a>
+      </Root>
+    );
+  }
+  const { rerender } = render(<Region label="first" callerRef={firstRef} />);
+  rerender(<Region label="second" callerRef={secondRef} section />);
+
+  // The replacement attaches before the commit's update replaces the caller ref.
+  expect(
+    firstRef.mock.calls.map(([element]) => element?.tagName ?? null),
+  ).toEqual(['DIV', null, 'SECTION', null]);
+  expect(observed).toEqual(['second']);
+});
+
+it.skipIf(!Activity)(
+  'destroys the controller while hidden by Activity and re-creates it when shown',
+  () => {
+    const Boundary = Activity;
+    if (!Boundary) return; // Narrows the type; skipIf already skips.
+    const prepare = vi.fn(() => 'prepared');
+    function Link() {
+      const binding = useClickPreparation({ prepare });
+      return (
+        <a href="/guide" ref={binding.ref}>
+          Guide
+        </a>
+      );
+    }
+    const { getByRole, rerender } = render(
+      <Boundary mode="visible">
+        <Link />
+      </Boundary>,
+    );
+    const anchor = getByRole('link');
+    rerender(
+      <Boundary mode="hidden">
+        <Link />
+      </Boundary>,
+    );
+    press(anchor);
+    expect(prepare).not.toHaveBeenCalled();
+
+    rerender(
+      <Boundary mode="visible">
+        <Link />
+      </Boundary>,
+    );
+    press(anchor);
+    expect(prepare).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('preserves the gesture when a renderer reattaches its ref to the same anchor', () => {
   const accepted = vi.fn();

@@ -53,12 +53,12 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
 }: LinkInteractionOptions<P> & {
   forwardedRef?: ForwardedRef<T>;
 }): LinkInteractionBinding<P, T> {
-  const binding = useRootBinding(
-    createAttachedInteraction<P>,
-    'discardClick',
-    options,
-    forwardedRef,
-  );
+  const binding = useRootBinding<
+    P,
+    LinkInteractionOptions<P>,
+    AttachedInteraction<P>,
+    T
+  >(createAttachedInteraction, options, forwardedRef);
   const [handlers] = useState(
     (): LinkInteractionBinding<P, T> => ({
       ref: binding.handlers.ref,
@@ -76,27 +76,35 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
   return handlers;
 }
 
-/** Creates the core controller with options that reject a detached press on every update. */
+/** The core controller in the root binding's shape. */
+type AttachedInteraction<P> = LinkInteractionController<P> & {
+  discard(): void;
+};
+
+/**
+ * Adapts the core controller to the root binding and rejects a detached
+ * immediate press on every update. The binding rejects click activation itself,
+ * but an immediate press starts inside core from the options' callbacks, which
+ * only this mode-aware adapter can wrap.
+ */
 function createAttachedInteraction<P>(
   root: HTMLElement,
   options: LinkInteractionOptions<P>,
   isAttached: () => boolean,
-): LinkInteractionController<P> {
+): AttachedInteraction<P> {
   const controller = createLinkInteraction(
     root,
     rejectDetachedPress(options, isAttached),
   );
   return {
     ...controller,
+    discard: controller.discardClick,
     update: (nextOptions) =>
       controller.update(rejectDetachedPress(nextOptions, isAttached)),
   };
 }
 
-/**
- * Core navigates from a detached root, so the binding rejects an immediate press
- * while the ref is detached, both before the guard and after it returns.
- */
+/** Rejects an immediate press while the ref is detached, before the guard and after it returns. */
 function rejectDetachedPress<P>(
   options: LinkInteractionOptions<P>,
   isAttached: () => boolean,
