@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { loadavg, cpus, platform, release } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -24,6 +24,7 @@ import {
   SCENARIOS,
   TIMING,
 } from './observe.mjs';
+import { withTrace } from './trace.mjs';
 import {
   BASELINE_VARIANT,
   classifyRun,
@@ -35,7 +36,7 @@ import {
 
 const VARIANTS = [BASELINE_VARIANT, ...RELEASE_VARIANTS, ...IMMEDIATE_VARIANTS];
 const USAGE = `Usage: pnpm probe:soft-navigation --output FILE [--repetitions N]
-  [--hold-ms MS] [--headless] [--executable-path PATH] [--chrome-arg ARG]...
+  [--hold-ms MS] [--trace-dir DIR] [--headless] [--executable-path PATH] [--chrome-arg ARG]...
   [--scenario ${SCENARIOS.map((scenario) => scenario.id).join('|')}]...`;
 
 /** Validates CLI inputs before starting a production server. */
@@ -45,6 +46,7 @@ function readOptions() {
       output: { type: 'string' },
       repetitions: { type: 'string', default: '5' },
       'hold-ms': { type: 'string', default: String(DEFAULT_HOLD_MS) },
+      'trace-dir': { type: 'string' },
       headless: { type: 'boolean', default: false },
       'executable-path': { type: 'string' },
       'chrome-arg': { type: 'string', multiple: true, default: [] },
@@ -70,6 +72,7 @@ function readOptions() {
     output: resolve(values.output),
     repetitions,
     holdMs,
+    traceDir: values['trace-dir'] && resolve(values['trace-dir']),
     scenarios,
     launch: {
       headless: values.headless,
@@ -129,8 +132,9 @@ async function main() {
 }
 
 async function runCase(options, origin, scenario, variant, repetition) {
-  const observation = await withBrowser(options.launch, (browser) =>
-    observeCase(browser, { origin, scenario, variant, holdMs: options.holdMs }),
+  const input = { origin, scenario, variant, holdMs: options.holdMs };
+  const { observation, trace } = await withBrowser(options.launch, (browser) =>
+    observeWithOptionalTrace(browser, options.traceDir, input, repetition),
   );
   const result = classifyRun(observation, {
     variant,
@@ -139,7 +143,27 @@ async function runCase(options, origin, scenario, variant, repetition) {
   console.log(
     `${repetition} ${scenario.id} ${variant}: ${result.detected ? 'detected' : 'not detected'}${result.valid ? '' : ` (invalid: ${result.problems.join(', ')})`}`,
   );
-  return { scenario: scenario.id, variant, repetition, ...result, observation };
+  return {
+    scenario: scenario.id,
+    variant,
+    repetition,
+    ...result,
+    trace,
+    observation,
+  };
+}
+
+async function observeWithOptionalTrace(browser, traceDir, input, repetition) {
+  if (!traceDir) return { observation: await observeCase(browser, input) };
+  await mkdir(traceDir, { recursive: true });
+  const path = join(
+    traceDir,
+    `${input.scenario.id}-${input.variant}-${repetition}.json`,
+  );
+  const { result, trace } = await withTrace(browser, path, () =>
+    observeCase(browser, input),
+  );
+  return { observation: result, trace };
 }
 
 async function withBrowser(launch, use) {
