@@ -67,10 +67,14 @@ function acceptCapturedClick<T extends HTMLElement>(
   try {
     committed.current.onClickCapture?.(event);
     if (!candidate || event.defaultPrevented) return;
-    if (!runNavigationGuard(committed.current.onNavigate)) {
-      event.preventDefault();
-      return;
+    // Like Next Link, a canceled or throwing guard leaves the click prevented.
+    let shouldNavigate = false;
+    try {
+      shouldNavigate = runNavigationGuard(committed.current.onNavigate);
+    } finally {
+      if (!shouldNavigate) event.preventDefault();
     }
+    if (!shouldNavigate) return;
     const activation = candidate.consume();
     if (!activation) return;
     event.preventDefault();
