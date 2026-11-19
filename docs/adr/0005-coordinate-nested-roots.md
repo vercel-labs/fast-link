@@ -22,6 +22,10 @@ when the event cannot accept the symbol property. These mechanisms coordinate
 nested roots and multiple package copies without relying on listener attachment
 order for anchor priority.
 
+Prepared clicks are not marked. Only one root claims each press, and every new
+press discards pending preparation in its document, so at most one candidate
+can match a click.
+
 ## Shared coordination contract
 
 The internal [coordination module](../../packages/core/src/coordination/index.ts)
@@ -34,7 +38,7 @@ realm share one registry on `globalThis`, under
 | `anchorOwners`       | Number of live controllers for each managed anchor, including disabled controllers. |
 | `pendingClickOwners` | Callback that consumes an anchor's pending follow-up click.                         |
 | `suppressedClicks`   | Click events already consumed during capture.                                       |
-| `handledEvents`      | Accepted presses and consumed prepared clicks, including non-extensible events.     |
+| `handledEvents`      | Accepted presses, including non-extensible events.                                  |
 | `regionOwners`       | Number of live link interaction controllers for each containing root, in any mode.  |
 
 Core also attempts to set `Symbol.for('@fast-link/core/handled-event')` to

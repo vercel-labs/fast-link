@@ -1,9 +1,7 @@
 import {
   findAnchor,
   getLinkIntent,
-  isHandled,
   isPlainPrimaryEvent,
-  markHandled,
   type FastLinkIntent,
 } from '../interaction';
 import { listen } from '../listen';
@@ -127,7 +125,7 @@ export function createClickGesture<P>(
     // Read ownership and the DOM here, after adapter guards have run.
     function getCurrentIntent(): FastLinkIntent | null {
       if (isDestroyed) return null;
-      if (generation !== matchedGeneration || isHandled(event)) return null;
+      if (generation !== matchedGeneration) return null;
       if (!root.contains(gesture.anchor)) return null;
       if (!isOwner(gesture.anchor)) return null;
       return getLinkIntent(event.target, gesture.anchor);
@@ -140,8 +138,6 @@ export function createClickGesture<P>(
         try {
           const intent = getCurrentIntent();
           if (!intent) return null;
-
-          markHandled(event);
           return {
             intent,
             prepared: hasSameDestination(gesture, intent)

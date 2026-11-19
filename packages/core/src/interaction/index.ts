@@ -109,11 +109,11 @@ export function findAnchor(
   return anchor && root.contains(anchor) ? anchor : null;
 }
 
-export function isHandled(event: Event): boolean {
+function isHandled(event: Event): boolean {
   return handledEvents.has(event) || Reflect.get(event, HANDLED_EVENT) === true;
 }
 
-export function markHandled(event: Event): void {
+function markHandled(event: Event): void {
   handledEvents.add(event);
   Reflect.set(event, HANDLED_EVENT, true);
 }
