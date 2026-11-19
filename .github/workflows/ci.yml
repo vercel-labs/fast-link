@@ -47,8 +47,10 @@ jobs:
           registry-url: https://registry.npmjs.org
           turbo-cache: ${{ needs.paths.outputs.lightweight != 'true' }}
 
+      # Compare with the default branch, not the PR base: a stacked PR's base
+      # already carries the stack's unreleased version bumps.
       - name: Check package release intent
-        run: node scripts/release/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
+        run: node scripts/release/check-package-version.mjs "$(git merge-base "origin/${{ github.event.repository.default_branch }}" HEAD)"
 
       - name: Validate formatting
         if: ${{ needs.paths.outputs.lightweight == 'true' }}
