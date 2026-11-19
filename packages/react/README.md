@@ -168,7 +168,7 @@ function useLinkInteraction<P, T extends HTMLElement = HTMLElement>(
 interface LinkInteractionBinding<P, T extends HTMLElement = HTMLElement> {
   ref(element: T | null): void;
   matchClick(event: MouseEvent): PreparedClick<P> | null;
-  discardClick(): void;
+  discard(): void;
   suppressClick(event: React.MouseEvent): boolean;
 }
 ```
@@ -181,7 +181,7 @@ returned object and its handlers are stable.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ref`                  | Attach to the anchor or region the controller handles.                                                                                                              |
 | `matchClick(event)`    | In release mode, matches the native click before synchronous guards. Consume or discard the candidate during the same dispatch. Returns `null` in other modes.      |
-| `discardClick()`       | Drops release-mode preparation and matched candidates.                                                                                                              |
+| `discard()`            | Drops release-mode preparation and matched candidates. Never clears follow-up click suppression.                                                                    |
 | `suppressClick(event)` | Call from a click-capture handler before matching. Prevents the follow-up click of an immediate press on the native and React events and returns whether it did so. |
 
 `suppressClick` keeps propagation, so later click handlers still run and see

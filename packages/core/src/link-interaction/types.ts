@@ -54,8 +54,11 @@ export interface LinkInteractionController<P> {
    * prevent its own event wrapper.
    */
   suppressClick(event: MouseEvent): boolean;
-  /** Drops release-mode preparation and matched candidates only. */
-  discardClick(): void;
+  /**
+   * Drops release-mode preparation and matched candidates only. Never clears
+   * follow-up click suppression.
+   */
+  discard(): void;
   /** Destroys pending work, suppression, listeners, and root ownership. Repeated calls do nothing. */
   destroy(): void;
 }

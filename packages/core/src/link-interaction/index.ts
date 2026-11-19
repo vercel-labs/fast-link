@@ -104,10 +104,10 @@ export function createLinkInteraction<P>(
     inputVersion++;
     followup?.settle();
     followup = null;
-    discardClick();
+    discard();
   }
 
-  function discardClick(): void {
+  function discard(): void {
     if (selected.mode === 'release') selected.gesture.discard();
   }
 
@@ -141,7 +141,7 @@ export function createLinkInteraction<P>(
         : null,
     suppressClick: (event) =>
       !isDestroyed && suppressFollowupClick(root, followup, event),
-    discardClick,
+    discard,
     destroy() {
       if (isDestroyed) return;
       isDestroyed = true;

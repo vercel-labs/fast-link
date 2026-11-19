@@ -27,8 +27,11 @@ export interface LinkInteractionBinding<
    * while the ref is detached.
    */
   matchClick(event: MouseEvent): PreparedClick<P> | null;
-  /** Drops release-mode preparation and matched candidates. */
-  discardClick(): void;
+  /**
+   * Drops release-mode preparation and matched candidates. Never clears
+   * follow-up click suppression.
+   */
+  discard(): void;
   /**
    * Call from a click-capture handler before matching. Prevents the follow-up
    * click of an accepted immediate press on both the native event and the React
@@ -56,16 +59,17 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
   const {
     handlers: { ref, matchClick, discard },
     controller,
-  } = useRootBinding<P, LinkInteractionOptions<P>, AttachedInteraction<P>, T>(
-    createAttachedInteraction,
-    options,
-    forwardedRef,
-  );
+  } = useRootBinding<
+    P,
+    LinkInteractionOptions<P>,
+    LinkInteractionController<P>,
+    T
+  >(createAttachedInteraction, options, forwardedRef);
   const [handlers] = useState(
     (): LinkInteractionBinding<P, T> => ({
       ref,
       matchClick,
-      discardClick: discard,
+      discard,
       suppressClick(event) {
         const isSuppressed =
           controller()?.suppressClick(event.nativeEvent) ?? false;
@@ -78,11 +82,6 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
   return handlers;
 }
 
-/** The core controller in the root binding's shape. */
-type AttachedInteraction<P> = LinkInteractionController<P> & {
-  discard(): void;
-};
-
 /**
  * Adapts the core controller to the root binding and rejects a detached
  * immediate press on every update. The binding rejects click activation itself,
@@ -93,14 +92,13 @@ function createAttachedInteraction<P>(
   root: HTMLElement,
   options: LinkInteractionOptions<P>,
   isAttached: () => boolean,
-): AttachedInteraction<P> {
+): LinkInteractionController<P> {
   const controller = createLinkInteraction(
     root,
     rejectDetachedPress(options, isAttached),
   );
   return {
     ...controller,
-    discard: controller.discardClick,
     update: (nextOptions) =>
       controller.update(rejectDetachedPress(nextOptions, isAttached)),
   };

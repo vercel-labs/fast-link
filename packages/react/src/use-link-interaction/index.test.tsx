@@ -250,6 +250,33 @@ it.each(['release', 'native'] as const)(
   },
 );
 
+it('discards a held release press without clearing immediate suppression', () => {
+  const calls: string[] = [];
+  const bindings: LinkInteractionBinding<string>[] = [];
+  function Link({ mode }: { mode: LinkMode }) {
+    const binding = useLinkInteraction(recording(mode, calls));
+    bindings.push(binding);
+    return (
+      <a href="/guide" ref={binding.ref} onClickCapture={binding.suppressClick}>
+        Guide
+      </a>
+    );
+  }
+  const { getByRole, rerender } = render(<Link mode="release" />);
+  const anchor = getByRole('link');
+
+  press(anchor);
+  bindings.at(-1)?.discard();
+  expect(bindings.at(-1)?.matchClick(clickEvent(anchor))).toBeNull();
+
+  rerender(<Link mode="immediate" />);
+  press(anchor);
+  rerender(<Link mode="release" />);
+  bindings.at(-1)?.discard();
+  expect(click(anchor)).toBe(true);
+  expect(calls).toEqual(['prepare:/guide', 'navigate:/guide']);
+});
+
 it('rejects immediate navigation when its guard removes the root', () => {
   const navigate = vi.fn();
   function Link() {

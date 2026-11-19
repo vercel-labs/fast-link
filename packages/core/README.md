@@ -208,7 +208,7 @@ ordinary links, so containing regions leave them native too.
 | `update(options)`      | Replaces every option. A same-mode update keeps pending work. A mode change discards preparation and never revives it.                    |
 | `matchClick(event)`    | In release mode, returns a once-only candidate for the matching click. Returns `null` in other modes.                                     |
 | `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler. Returns whether the click is suppressed.                           |
-| `discardClick()`       | Drops release-mode preparation and matched candidates.                                                                                    |
+| `discard()`            | Drops release-mode preparation and matched candidates. Never clears follow-up click suppression.                                          |
 | `destroy()`            | Discards pending work and suppression, removes listeners, and releases the root's ownership. Repeated calls and later updates do nothing. |
 
 Follow-up click suppression belongs to the root. It survives mode, option, and
