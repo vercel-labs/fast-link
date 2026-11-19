@@ -98,9 +98,9 @@ state, and transitions.
 
 Avoid capture-phase `stopPropagation()` on clicks above an immediate root. It
 stops the follow-up click before core can prevent it, including from a React
-ancestor's `onClickCapture` when React's root is the document. If the source
-link is still mounted at release, the click then also performs a document
-navigation.
+ancestor's `onClickCapture` whenever the React root container contains the
+immediate root. If the source link is still mounted at release, the click then
+also performs a document navigation.
 
 ## Navigate on the accepted click
 
