@@ -7,7 +7,7 @@ Fast Link starts eligible same-origin navigation on primary mouse `pointerdown`
 rather than waiting for `click`. This removes the wait for release and gives up
 release-time cancellation for those interactions.
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+Sites requiring WCAG Level A or AA conformance should not use immediate mode.
 See the [accessibility limitation](../../README.md#known-limitations).
 
 For touch and pen, `pointerdown` cannot establish whether contact will become a

@@ -21,6 +21,13 @@ replaces `enabled`: migrate `enabled={false}` to `mode="native"`. Earlier
 versions navigated on press, so a consumer upgrading from `enabled` that wants
 the same timing selects `mode="immediate"`.
 
+Before presenting release mode as faster than Next Link, check the runtime.
+Preparation on press needs Next `16.5.0-canary.42` and
+`experimental: { prepareNavigation: true }` in `next.config`; on other
+versions release mode routes at the accepted click, with Next Link timing.
+Report what the installed version and configuration provide, and change the
+Next version or flag only with the user's agreement.
+
 1. **Reuse an applicable Fast Link integration.** Follow the target's aliases,
    barrels, shared packages, and usages. Verify its routing and rendering
    contracts match this application, then use that application entry point.

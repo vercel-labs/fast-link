@@ -25,7 +25,7 @@ export type NavigationGuard = (event: { preventDefault(): void }) => void;
 /** Inputs read when an interaction runs, after any guard has committed new props. */
 export type CommittedNavigation = {
   routing: Routing;
-  /** Runs before navigation in immediate mode. */
+  /** Runs on press in immediate mode; capture acceptance also runs it in release mode. */
   onNavigate?: NavigationGuard;
 };
 

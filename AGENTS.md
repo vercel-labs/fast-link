@@ -54,10 +54,10 @@ A single script unrelated to existing groups may stay directly under `scripts/`.
 - Core accepts only primary mouse pointerdown. Touch and pen remain native
   because gesture intent is unknown when contact begins.
 - Core prevents only the pointer-generated click that follows a press accepted
-  in immediate mode, including an immediate press whose
-  guard cancels or throws. In release mode, the adapter prevents the click
-  after accepting it. Keyboard clicks remain native, and prevented clicks
-  continue to propagate.
+  in immediate mode, including one whose guard cancels or throws. In release
+  mode, the adapter prevents the click after accepting it; capture adapters
+  also prevent it when their `onNavigate` guard cancels or throws. Keyboard
+  clicks remain native, and prevented clicks continue to propagate.
 - Core marks accepted native events so nested roots and separately bundled core
   copies navigate once. Preserve both the symbol marker and shared `WeakSet` fallback.
 

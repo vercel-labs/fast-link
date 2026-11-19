@@ -22,13 +22,19 @@
   `isActive` argument.
 - Add `validateFastNavigationDecision` to check a policy result without
   navigating or observing.
-- Remove `createFastLink`, `FastLinkController`, and `FastLinkOptions`. Use
-  `createLinkInteraction(root, { mode: 'immediate', navigate })` for
-  navigation on press. `navigate` is now required; for the earlier default,
-  pass `({ url, anchor }) => anchor.ownerDocument.defaultView?.location.assign(url.href)`.
-  Run an observer before navigating, or use `beforeNavigate`, which can also
-  cancel. Replace `enabled: false` with `{ mode: 'native' }`, and call
-  `suppressClick` from a framework click-capture handler as before.
+- Remove `createFastLink` and its `FastLinkController` and `FastLinkOptions`
+  types. Migrate to `createLinkInteraction(root, { mode: 'immediate', navigate })`,
+  which also navigates on press:
+  - `navigate` is required. For the earlier document default, pass
+    `({ url, anchor }) => anchor.ownerDocument.defaultView?.location.assign(url.href)`.
+  - `onFastNavigate` is removed. Observe inside `navigate`, for example
+    `navigate: (intent) => { try { observe(intent); } finally { route(intent); } }`
+    so navigation still runs if observation throws. Use `beforeNavigate` only
+    to cancel: navigation does not run when it returns `false` or throws.
+  - Replace `enabled: false` with `{ mode: 'native' }` in `update()`.
+  - `suppressClick` now returns whether it suppressed the click.
+  - Nested regions now use the closest region for ordinary links instead of
+    the outermost one.
 
 ## 0.0.2
 

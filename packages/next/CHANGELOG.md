@@ -28,9 +28,18 @@
 - Policies must be pure and repeatable: release mode can call them on press
   and again on click.
 - Receive `FastLink` refs through React 19's `ref` prop.
-- Remove `as`, `legacyBehavior`, optional `href`, and non-anchor roots from
-  `FastLink` and `useFastLink`.
-- Allow Next `16.5.0-canary.42` as a peer.
+- Remove these props and options, with their replacements:
+  - `as` and `legacyBehavior` on `FastLink`: render the link with plain
+    `next/link`, and add `data-no-fast-link` when it sits inside a region.
+  - Optional `href` on `useFastLink`: always pass `href`.
+  - Non-anchor roots and the element type parameter on `UseFastLinkOptions`:
+    attach the returned `ref` to the renderer's anchor. `forwardedRef` and
+    `onClickCapture` are typed for `HTMLAnchorElement`.
+- Widen the Next peer range to `>=16 <17 || 16.5.0-canary.42`. The canary
+  provides the experimental `router.experimental_prepare` API that release mode
+  uses on press; it requires `experimental: { prepareNavigation: true }` in
+  `next.config`. On other Next versions, release mode does not prepare and
+  routes at the accepted click, with ordinary Next Link timing.
 - Update the core and React dependencies to `^0.1.0`.
 
 ## 0.0.2
