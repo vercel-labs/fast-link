@@ -12,10 +12,15 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { expect, test as base } from './test-fixtures.mjs';
+import {
+  countRequests,
+  expectsPreparation,
+  fixtureOrigin,
+  installPressCounter,
+  pressAndHold,
+} from './next-helpers.mjs';
+import { expect, logObservation, test } from './test-fixtures.mjs';
 
-const origin = process.env.FAST_LINK_FIXTURE_ORIGIN;
-const hasPreparation = process.env.FAST_LINK_EXPECT_PREPARATION !== 'false';
 const DESTINATION = '/docs/contracts/destination';
 // Bounded windows for negative checks. A stray App Router navigation requests
 // its route immediately; these windows do not prove it can never happen later.
@@ -30,49 +35,7 @@ const WEBKIT_CANCELED_RSC_FETCH = {
     /\/docs\/contracts\/destination\?\S*_rsc=\S+ due to access control checks\.$/,
 };
 
-// Cases can expect uncaught errors, such as a throwing guard, or allow known
-// browser reports.
-const test = base.extend({
-  expectedPageErrors: [[], { option: true }],
-  allowedPageErrors: [[], { option: true }],
-  pageErrors: [
-    async ({ page, expectedPageErrors, allowedPageErrors }, use, testInfo) => {
-      const errors = [];
-      const onError = (error) => errors.push(error.message);
-      page.on('pageerror', onError);
-      try {
-        await use(errors);
-      } finally {
-        page.off('pageerror', onError);
-        if (errors.length) {
-          await testInfo.attach('page-errors', {
-            body: JSON.stringify(errors, null, 2),
-            contentType: 'application/json',
-          });
-        }
-        const isAllowed = (message) =>
-          allowedPageErrors.some(
-            ({ browser, pattern }) =>
-              browser === testInfo.project.name && pattern.test(message),
-          );
-        if (allowedPageErrors.length)
-          logObservation({ allowedPageErrors: errors.filter(isAllowed) });
-        expect(
-          errors.filter((message) => !isAllowed(message)),
-          'browser errors',
-        ).toEqual(expectedPageErrors);
-      }
-    },
-    { auto: true },
-  ],
-});
-
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__fixturePresses = 0;
-    document.addEventListener('pointerdown', () => window.__fixturePresses++);
-  });
-});
+test.beforeEach(({ page }) => installPressCounter(page));
 
 test('router preparation availability matches the runtime', async ({
   page,
@@ -82,7 +45,7 @@ test('router preparation availability matches the runtime', async ({
     await page.evaluate(() =>
       window.__contracts.get('runtime').hasPreparation(),
     ),
-    hasPreparation,
+    expectsPreparation,
   );
 });
 
@@ -92,7 +55,7 @@ test.describe('closest region ownership', () => {
   }) => {
     await open(page, '/contracts', 'contracts-ready');
     const requests = countRequests(page, DESTINATION);
-    await press(page, 'inner-immediate');
+    await pressAndHold(page, 'inner-immediate');
     try {
       await page.waitForURL(destinationUrl('inner-immediate'));
     } finally {
@@ -114,14 +77,14 @@ test.describe('closest region ownership', () => {
     const requests = countRequests(page, DESTINATION);
     const prepared = page.waitForRequest(isDestination);
     prepared.catch(() => undefined);
-    await press(page, 'inner-release');
-    if (hasPreparation) await prepared;
+    await pressAndHold(page, 'inner-release');
+    if (expectsPreparation) await prepared;
     assert.equal(new URL(page.url()).pathname, '/docs/contracts');
-    assert.equal(requests.route, hasPreparation ? 1 : 0);
+    assert.equal(requests.route, expectsPreparation ? 1 : 0);
     await page.mouse.up();
     await expectDestination(page, 'inner-release');
     assert.deepEqual(await readLog(page), [
-      ...(hasPreparation ? ['inner-release:policy'] : []),
+      ...(expectsPreparation ? ['inner-release:policy'] : []),
       'inner-release:policy',
       'inner-release:observe:router',
     ]);
@@ -139,7 +102,7 @@ test.describe('closest region ownership', () => {
       await open(page, '/contracts', 'contracts-ready');
       const history = await historyLength(page);
       const requests = countRequests(page, DESTINATION);
-      await press(page, testId);
+      await pressAndHold(page, testId);
       assert.equal(requests.route, 0, 'no work on press');
       await page.mouse.up();
       await expectDestination(page, testId);
@@ -161,7 +124,7 @@ test.describe('closest region ownership', () => {
     try {
       const requested = page.waitForRequest(isDestination);
       requested.catch(() => undefined);
-      await press(page, 'managed-immediate');
+      await pressAndHold(page, 'managed-immediate');
       await requested;
       assert.equal(new URL(page.url()).pathname, '/docs/contracts');
       await page.mouse.up();
@@ -187,17 +150,17 @@ test.describe('closest region ownership', () => {
     const requests = countRequests(page, DESTINATION);
     const prepared = page.waitForRequest(isDestination);
     prepared.catch(() => undefined);
-    await press(page, 'region-release-away');
-    if (hasPreparation) await prepared;
+    await pressAndHold(page, 'region-release-away');
+    if (expectsPreparation) await prepared;
     await page.mouse.move(1, 1);
     await page.mouse.up();
     await delay(QUIET_MS);
     assert.equal(new URL(page.url()).pathname, '/docs/contracts');
     assert.deepEqual(
       await readLog(page),
-      hasPreparation ? ['outer-release:policy'] : [],
+      expectsPreparation ? ['outer-release:policy'] : [],
     );
-    assert.equal(requests.route, hasPreparation ? 1 : 0);
+    assert.equal(requests.route, expectsPreparation ? 1 : 0);
   });
 });
 
@@ -225,7 +188,7 @@ test.describe('immediate mode with a mounted source', () => {
       try {
         const requested = page.waitForRequest(isDestination);
         requested.catch(() => undefined);
-        await press(page, 'immediate-plain');
+        await pressAndHold(page, 'immediate-plain');
         await requested;
         await page.evaluate(change, 'immediate-plain');
         if (expectedHref)
@@ -259,7 +222,7 @@ test.describe('immediate mode with a mounted source', () => {
     try {
       const requested = page.waitForRequest(isDestination);
       requested.catch(() => undefined);
-      await press(page, 'immediate-plain');
+      await pressAndHold(page, 'immediate-plain');
       await requested;
       await page.mouse.move(1, 1);
       await page.mouse.up();
@@ -288,7 +251,7 @@ test.describe('immediate mode with a mounted source', () => {
       }) => {
         await open(page, '/contracts', 'contracts-ready');
         const requests = countRequests(page, DESTINATION);
-        await press(page, testId);
+        await pressAndHold(page, testId);
         await page.mouse.up();
         await expectLog(page, [`${testId}:guard`, `${testId}:click:prevented`]);
         await delay(QUIET_MS);
@@ -317,8 +280,8 @@ test.describe('release mode changes before acceptance', () => {
       const requests = countRequests(page, DESTINATION);
       const prepared = page.waitForRequest(isDestination);
       prepared.catch(() => undefined);
-      await press(page, 'release-plain');
-      if (hasPreparation) await prepared;
+      await pressAndHold(page, 'release-plain');
+      if (expectsPreparation) await prepared;
       for (const mode of modes) {
         await page.evaluate(
           (next) => window.__contracts.get('release-plain').setMode(next),
@@ -332,7 +295,7 @@ test.describe('release mode changes before acceptance', () => {
       await page.mouse.up();
       await expectDestination(page, 'release-plain');
       assert.deepEqual(await readLog(page), [
-        ...(hasPreparation ? ['release-plain:policy'] : []),
+        ...(expectsPreparation ? ['release-plain:policy'] : []),
         'release-plain:click:allowed',
         'release-plain:guard',
       ]);
@@ -348,11 +311,11 @@ test.describe('release mode changes before acceptance', () => {
     await open(page, '/contracts', 'contracts-ready');
     const history = await historyLength(page);
     const requests = countRequests(page, DESTINATION);
-    await press(page, 'release-to-native');
+    await pressAndHold(page, 'release-to-native');
     await page.mouse.up();
     await expectDestination(page, 'release-to-native');
     assert.deepEqual(await readLog(page), [
-      ...(hasPreparation ? ['release-to-native:policy'] : []),
+      ...(expectsPreparation ? ['release-to-native:policy'] : []),
       'release-to-native:click:allowed',
       'release-to-native:guard',
     ]);
@@ -367,12 +330,12 @@ test.describe('release mode changes before acceptance', () => {
     await open(page, '/contracts', 'contracts-ready');
     const history = await historyLength(page);
     const requests = countRequests(page, DESTINATION);
-    await press(page, 'hook-to-native');
+    await pressAndHold(page, 'hook-to-native');
     await page.mouse.up();
     await expectDestination(page, 'hook-to-native');
     // The renderer runs its own guards after the hook's guards, as documented.
     assert.deepEqual(await readLog(page), [
-      ...(hasPreparation ? ['hook-to-native:policy'] : []),
+      ...(expectsPreparation ? ['hook-to-native:policy'] : []),
       'hook-to-native:capture',
       'hook-to-native:hook-guard',
       'hook-to-native:link-guard',
@@ -399,9 +362,11 @@ test.describe('prefetch', () => {
       const prefetchRequests = requests.route;
       const history = await historyLength(page);
       const documents = requests.document;
-      await press(page, testId);
+      await pressAndHold(page, testId);
       await page.mouse.up();
-      await page.waitForURL(`${origin}/docs/contracts/static?from=${testId}`);
+      await page.waitForURL(
+        `${fixtureOrigin}/docs/contracts/static?from=${testId}`,
+      );
       await expect(
         page.getByRole('heading', { name: 'Contract static destination' }),
       ).toBeVisible();
@@ -429,7 +394,7 @@ test.describe('prefetch enabled during the guard', () => {
     await open(page, '/contracts', 'contracts-ready');
     const history = await historyLength(page);
     const requests = countRequests(page, DESTINATION);
-    await press(page, 'enable-next-link-document');
+    await pressAndHold(page, 'enable-next-link-document');
     await page.mouse.up();
     await expectDestination(page, 'enable-next-link-document');
     assert.deepEqual(await readLog(page), ['enable-next-link-document:guard']);
@@ -448,7 +413,7 @@ test.describe('prefetch enabled during the guard', () => {
       await open(page, '/contracts', 'contracts-ready');
       const history = await historyLength(page);
       const requests = countRequests(page, DESTINATION);
-      await press(page, testId);
+      await pressAndHold(page, testId);
       if (mode === 'immediate') {
         try {
           await page.waitForURL(destinationUrl(testId));
@@ -460,7 +425,9 @@ test.describe('prefetch enabled during the guard', () => {
       }
       await expectDestination(page, testId);
       assert.deepEqual(await readLog(page), [
-        ...(mode === 'release' && hasPreparation ? [`${testId}:policy`] : []),
+        ...(mode === 'release' && expectsPreparation
+          ? [`${testId}:policy`]
+          : []),
         `${testId}:guard`,
         `${testId}:policy`,
         `${testId}:observe:${kind}`,
@@ -483,11 +450,11 @@ test.describe('immediate source unmounted before its follow-up click', () => {
       await open(page, '/contracts/unmount', 'unmount-ready');
       const history = await historyLength(page);
       const requests = countRequests(page, DESTINATION);
-      await press(page, testId);
+      await pressAndHold(page, testId);
       const from = testId === 'unmount-link' ? 'link' : 'region';
       try {
         await page.waitForURL(
-          `${origin}/docs/contracts/unmount/landing?from=${from}`,
+          `${fixtureOrigin}/docs/contracts/unmount/landing?from=${from}`,
         );
         await expect(
           page.getByRole('heading', { name: 'Unmount landing' }),
@@ -505,7 +472,7 @@ test.describe('immediate source unmounted before its follow-up click', () => {
       logObservation({ log });
       assert.equal(
         page.url(),
-        `${origin}/docs/contracts/unmount/landing?from=${from}`,
+        `${fixtureOrigin}/docs/contracts/unmount/landing?from=${from}`,
         'the follow-up click navigated again',
       );
       assert.equal(requests.route, 0, 'landing link activated');
@@ -552,7 +519,7 @@ test.describe('provider probes against ordinary Next Link', () => {
       const history = await historyLength(page);
       const redirects = countRequests(page, '/docs/contracts/redirect');
       const destinations = countRequests(page, DESTINATION);
-      await press(page, testId);
+      await pressAndHold(page, testId);
       await page.mouse.up();
       await page.waitForURL(destinationUrl('redirect'));
       await expect(page.getByTestId('destination-from')).toHaveText('redirect');
@@ -650,8 +617,8 @@ async function probe(page, testId, scenario, { awaitResponse = true } = {}) {
   const requested = page.waitForRequest(isDestination);
   requested.catch(() => undefined);
   try {
-    await press(page, testId);
-    if (testId === 'prepared' && hasPreparation) {
+    await pressAndHold(page, testId);
+    if (testId === 'prepared' && expectsPreparation) {
       await requested;
       if (awaitResponse) await waitForResponseEnd(page, DESTINATION);
     }
@@ -685,30 +652,10 @@ async function waitForResponseEnd(page, pathname) {
 }
 
 async function open(page, path, readyTestId) {
-  await page.goto(`${origin}/docs${path}`);
+  await page.goto(`${fixtureOrigin}/docs${path}`);
   await expect(page.getByTestId(readyTestId)).toHaveAttribute(
     'data-ready',
     'true',
-  );
-}
-
-async function press(page, testId) {
-  const target = page.getByTestId(testId);
-  await target.scrollIntoViewIfNeeded();
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`Missing ${testId}`);
-  const before = await page.evaluate(() => ({
-    presses: window.__fixturePresses,
-    href: location.href,
-  }));
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  // Document bubbling follows the controllers' synchronous capture handlers.
-  // A document navigation on press replaces the counter's page.
-  await page.waitForFunction(
-    ({ presses, href }) =>
-      window.__fixturePresses !== presses || location.href !== href,
-    before,
   );
 }
 
@@ -744,27 +691,12 @@ async function holdDestination(page) {
   };
 }
 
-function countRequests(page, pathname) {
-  const counts = {
-    route: 0,
-    document: 0,
-    stop: () => page.off('request', onRequest),
-  };
-  function onRequest(request) {
-    if (new URL(request.url()).pathname === pathname) counts.route++;
-    if (request.isNavigationRequest() && request.frame() === page.mainFrame())
-      counts.document++;
-  }
-  page.on('request', onRequest);
-  return counts;
-}
-
 function isDestination(requestOrResponse) {
   return new URL(requestOrResponse.url()).pathname === DESTINATION;
 }
 
 function destinationUrl(from) {
-  return `${origin}${DESTINATION}?from=${from}`;
+  return `${fixtureOrigin}${DESTINATION}?from=${from}`;
 }
 
 async function expectDestination(page, from) {
@@ -784,12 +716,4 @@ function readLog(page) {
 
 async function expectLog(page, entries) {
   await expect.poll(() => readLog(page)).toEqual(entries);
-}
-
-// Provider and request observations are evidence, not asserted guarantees.
-function logObservation(observation) {
-  const { title, project } = test.info();
-  console.log(
-    `[observation] ${project.name} | ${title} | ${JSON.stringify(observation)}`,
-  );
 }
