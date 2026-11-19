@@ -1,6 +1,5 @@
 import type { FastLinkIntent } from '../interaction';
 import type { ClickGesture, PreparedClick } from '../preparation/gesture';
-import type { FollowupClaim } from './followup-click';
 
 /** How a link interaction controller handles eligible primary mouse input. */
 export type LinkMode = 'release' | 'immediate' | 'native';
@@ -65,13 +64,3 @@ export type SelectedPath<P> =
   | { readonly mode: 'release'; readonly gesture: ClickGesture<P> }
   | { readonly mode: 'immediate'; options: ImmediateLinkOptions }
   | { readonly mode: 'native' };
-
-export type InteractionState<P> = {
-  readonly root: HTMLElement;
-  selected: SelectedPath<P>;
-  destroyed: boolean;
-  /** Changes on each root press, mode change, and destruction to invalidate a running guard. */
-  inputVersion: number;
-  /** Survives mode and option changes until its click, the next root press, or destruction. */
-  followup: FollowupClaim | null;
-};

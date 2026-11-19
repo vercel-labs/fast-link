@@ -34,14 +34,9 @@ export function resolveFastLink(
   anchor: HTMLAnchorElement,
 ): FastLinkIntent | null {
   if (
-    event.defaultPrevented ||
-    event.button !== 0 ||
+    !isPlainPrimaryEvent(event) ||
     // Touch and pen may start a gesture, so leave them to the browser.
     event.pointerType !== 'mouse' ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey ||
     isHandled(event)
   ) {
     return null;
@@ -81,21 +76,29 @@ export function getLinkIntent(
 }
 
 /**
- * Finds the closest anchor between `target` and `boundary`, inclusive.
- *
- * - Returns `null` if a non-null boundary is not reached.
- * - A `null` boundary searches to the top of the target's element tree.
+ * Primary button, not prevented, and no modifier that requests another
+ * browser action. Pointer type and click detail are checked by each caller.
+ */
+export function isPlainPrimaryEvent(event: MouseEvent): boolean {
+  return (
+    !event.defaultPrevented &&
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
+
+/**
+ * Finds the closest anchor between `target` and `root`, inclusive. Returns
+ * `null` if the target is outside `root` or no anchor is reached within it.
  */
 export function findAnchor(
   target: EventTarget | null,
-  boundary: EventTarget | null,
+  root: Element,
 ): HTMLAnchorElement | null {
-  if (!(target instanceof Element)) return null;
-  if (
-    boundary !== null &&
-    (!(boundary instanceof Element) || !boundary.contains(target))
-  )
-    return null;
+  if (!(target instanceof Element) || !root.contains(target)) return null;
 
   let anchor: Element | null =
     target instanceof HTMLAnchorElement ? target : target.closest('a');
@@ -103,8 +106,7 @@ export function findAnchor(
   while (anchor && !(anchor instanceof HTMLAnchorElement)) {
     anchor = anchor.parentElement?.closest('a') ?? null;
   }
-  if (!anchor || boundary === null) return anchor;
-  return boundary.contains(anchor) ? anchor : null;
+  return anchor && root.contains(anchor) ? anchor : null;
 }
 
 export function isHandled(event: Event): boolean {

@@ -70,19 +70,20 @@ export function runFastNavigation(
 export function validateFastNavigationDecision(
   value: unknown,
 ): FastNavigationDecision {
+  const candidate = value as Record<string, unknown> | null;
   if (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof Reflect.get(value, 'then') !== 'function'
+    candidate !== null &&
+    typeof candidate === 'object' &&
+    typeof candidate.then !== 'function'
   ) {
-    const kind = Reflect.get(value, 'kind');
+    const { kind } = candidate;
     if (kind === 'router') {
-      const scroll: unknown = Reflect.get(value, 'scroll');
+      const { scroll } = candidate;
       if (scroll === undefined) return Object.freeze({ kind });
       if (typeof scroll === 'boolean') return Object.freeze({ kind, scroll });
     }
     if (kind === 'document') {
-      const method: unknown = Reflect.get(value, 'method');
+      const { method } = candidate;
       if (method === 'assign' || method === 'replace')
         return Object.freeze({ kind, method });
     }

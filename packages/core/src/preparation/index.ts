@@ -1,5 +1,6 @@
 import { hasAnchorOwner, registerAnchorOwner } from '../coordination';
 import { findAnchor, resolveFastLink } from '../interaction';
+import { listen } from '../listen';
 import {
   createClickGesture,
   type ClickGesture,
@@ -45,9 +46,12 @@ export function createClickPreparation<P>(
     destroyed: false,
   };
   const releaseAnchor = registerAnchorOwner(root);
-  const onPointerDown = (event: PointerEvent) => prepareFromPress(state, event);
-
-  root.addEventListener('pointerdown', onPointerDown, true);
+  const stopListening = listen(
+    root,
+    'pointerdown',
+    (event: PointerEvent) => prepareFromPress(state, event),
+    true,
+  );
 
   return {
     matchClick: (event) => state.gesture.matchClick(event),
@@ -61,7 +65,7 @@ export function createClickPreparation<P>(
       if (state.destroyed) return;
       state.destroyed = true;
       state.gesture.destroy();
-      root.removeEventListener('pointerdown', onPointerDown, true);
+      stopListening();
       releaseAnchor?.();
     },
   };

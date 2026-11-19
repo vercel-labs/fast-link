@@ -1,13 +1,18 @@
+import { getLinkIntent, type FastLinkIntent } from '../interaction';
+import { listen } from '../listen';
 import { createClickGesture } from '../preparation/gesture';
-import { suppressFollowupClick } from './followup-click';
+import {
+  armFollowupClick,
+  suppressFollowupClick,
+  type FollowupClaim,
+} from './followup-click';
 import {
   isInteractionOwner,
   registerInteractionRoot,
   resolvePressForRoot,
 } from './ownership';
-import { navigateOnPress } from './press';
 import type {
-  InteractionState,
+  ImmediateLinkOptions,
   LinkInteractionController,
   LinkInteractionOptions,
   SelectedPath,
@@ -34,89 +39,119 @@ export function createLinkInteraction<P>(
   root: HTMLElement,
   options: LinkInteractionOptions<P>,
 ): LinkInteractionController<P> {
-  const state: InteractionState<P> = {
-    root,
-    selected: selectPath(root, options),
-    destroyed: false,
-    inputVersion: 0,
-    followup: null,
-  };
+  let selected = selectPath(root, options);
+  let isDestroyed = false;
+  // Changes on each root press, mode change, and destruction to invalidate a running guard.
+  let inputVersion = 0;
+  // Survives mode and option changes until its click, the next root press, or destruction.
+  let followup: FollowupClaim | null = null;
   const releaseRoot = registerInteractionRoot(root);
-  const onPointerDown = (event: PointerEvent) => startInteraction(state, event);
-  root.addEventListener('pointerdown', onPointerDown, true);
+  const stopListening = listen(root, 'pointerdown', startInteraction, true);
+
+  function startInteraction(event: PointerEvent): void {
+    finishPreviousInput();
+    const current = selected;
+    if (isDestroyed || current.mode === 'native') return;
+
+    const intent = resolvePressForRoot(root, event);
+    if (!intent) return;
+    if (current.mode === 'release') {
+      current.gesture.prepare(event, intent);
+      return;
+    }
+    navigateOnPress(event, intent, current.options);
+  }
+
+  /**
+   * Immediate mode: arm suppression before user code, run the guard, then
+   * navigate with inputs that are still current. Guard and navigation errors
+   * propagate; suppression stays armed after every outcome.
+   */
+  function navigateOnPress(
+    event: PointerEvent,
+    intent: FastLinkIntent,
+    pressOptions: ImmediateLinkOptions,
+  ): void {
+    followup = armFollowupClick(root, intent.anchor);
+    const attempt = inputVersion;
+    if (pressOptions.beforeNavigate?.(intent) === false) return;
+
+    const current = resolveCurrentPress(event, intent.anchor, attempt);
+    if (!current) return;
+    current.options.navigate(current.intent);
+  }
+
+  /**
+   * Rechecks the attempt after the guard. New root input, a mode change, or
+   * destruction invalidates it; same-mode option and href changes apply.
+   */
+  function resolveCurrentPress(
+    event: PointerEvent,
+    anchor: HTMLAnchorElement,
+    attempt: number,
+  ): { intent: FastLinkIntent; options: ImmediateLinkOptions } | null {
+    const current = selected;
+    if (isDestroyed || inputVersion !== attempt) return null;
+    if (current.mode !== 'immediate') return null;
+    if (!root.contains(anchor) || !isInteractionOwner(root, anchor))
+      return null;
+
+    const intent = getLinkIntent(event.target, anchor);
+    return intent ? { intent, options: current.options } : null;
+  }
+
+  // A new root press settles earlier suppression and invalidates a running guard in every mode.
+  function finishPreviousInput(): void {
+    inputVersion++;
+    followup?.settle();
+    followup = null;
+    discardClick();
+  }
+
+  function discardClick(): void {
+    if (selected.mode === 'release') selected.gesture.discard();
+  }
+
+  function leaveSelectedPath(): void {
+    if (selected.mode === 'release') selected.gesture.destroy();
+  }
 
   return {
-    update: (nextOptions) => updateInteraction(state, nextOptions),
+    update(nextOptions) {
+      if (isDestroyed) return;
+      const current = selected;
+      if (current.mode === 'release' && nextOptions.mode === 'release') {
+        current.gesture.update(nextOptions);
+        return;
+      }
+      if (current.mode === 'immediate' && nextOptions.mode === 'immediate') {
+        current.options = { ...nextOptions };
+        return;
+      }
+      // Native to native has no options to replace.
+      if (current.mode === nextOptions.mode) return;
+
+      // Switching away and back cannot revive discarded work. Suppression is kept.
+      inputVersion++;
+      leaveSelectedPath();
+      selected = selectPath(root, nextOptions);
+    },
     matchClick: (event) =>
-      !state.destroyed && state.selected.mode === 'release'
-        ? state.selected.gesture.matchClick(event)
+      !isDestroyed && selected.mode === 'release'
+        ? selected.gesture.matchClick(event)
         : null,
     suppressClick: (event) =>
-      !state.destroyed && suppressFollowupClick(root, state.followup, event),
-    discardClick() {
-      if (state.selected.mode === 'release') state.selected.gesture.discard();
-    },
+      !isDestroyed && suppressFollowupClick(root, followup, event),
+    discardClick,
     destroy() {
-      if (state.destroyed) return;
-      state.destroyed = true;
-      finishPreviousInput(state);
-      leaveSelectedPath(state);
-      root.removeEventListener('pointerdown', onPointerDown, true);
+      if (isDestroyed) return;
+      isDestroyed = true;
+      finishPreviousInput();
+      leaveSelectedPath();
+      stopListening();
       releaseRoot();
     },
   };
-}
-
-function startInteraction<P>(
-  state: InteractionState<P>,
-  event: PointerEvent,
-): void {
-  finishPreviousInput(state);
-  const { selected } = state;
-  if (state.destroyed || selected.mode === 'native') return;
-
-  const intent = resolvePressForRoot(state.root, event);
-  if (!intent) return;
-  if (selected.mode === 'release') {
-    selected.gesture.prepare(event, intent);
-    return;
-  }
-  navigateOnPress(state, event, intent, selected.options);
-}
-
-// A new root press settles earlier suppression and invalidates a running guard in every mode.
-function finishPreviousInput<P>(state: InteractionState<P>): void {
-  state.inputVersion++;
-  state.followup?.settle();
-  state.followup = null;
-  if (state.selected.mode === 'release') state.selected.gesture.discard();
-}
-
-function updateInteraction<P>(
-  state: InteractionState<P>,
-  options: LinkInteractionOptions<P>,
-): void {
-  if (state.destroyed) return;
-  const { selected } = state;
-  if (selected.mode === 'release' && options.mode === 'release') {
-    selected.gesture.update(options);
-    return;
-  }
-  if (selected.mode === 'immediate' && options.mode === 'immediate') {
-    selected.options = { ...options };
-    return;
-  }
-  // Native to native has no options to replace.
-  if (selected.mode === options.mode) return;
-
-  // Switching away and back cannot revive discarded work. Suppression is kept.
-  state.inputVersion++;
-  leaveSelectedPath(state);
-  state.selected = selectPath(state.root, options);
-}
-
-function leaveSelectedPath<P>(state: InteractionState<P>): void {
-  if (state.selected.mode === 'release') state.selected.gesture.destroy();
 }
 
 // Constructs only the selected path; native constructs neither active path.

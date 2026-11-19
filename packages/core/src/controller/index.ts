@@ -5,8 +5,6 @@ import {
   type FastLinkIntent,
 } from '../interaction';
 
-const { anchorOwners, pendingClickOwners, suppressedClicks } = coordination;
-
 /** Options copied by a Fast Link controller. */
 export interface FastLinkOptions {
   /** Enables early navigation unless set to `false`. */
@@ -50,6 +48,7 @@ export function createFastLink(
   root: HTMLElement,
   options: FastLinkOptions = {},
 ): FastLinkController {
+  const { anchorOwners, pendingClickOwners, suppressedClicks } = coordination;
   let currentOptions = { ...options };
   let pendingAnchor: HTMLAnchorElement | null = null;
   let destroyed = false;

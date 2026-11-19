@@ -2,9 +2,11 @@ import {
   findAnchor,
   getLinkIntent,
   isHandled,
+  isPlainPrimaryEvent,
   markHandled,
   type FastLinkIntent,
 } from '../interaction';
+import { listen } from '../listen';
 
 const CANCELLATION_EVENTS = [
   'pointerdown',
@@ -49,145 +51,123 @@ export interface ClickGesture<P> {
  */
 export function createClickGesture<P>(
   root: HTMLElement,
-  options: GestureOptions<P>,
+  initialOptions: GestureOptions<P>,
   isOwner: (anchor: HTMLAnchorElement) => boolean,
 ): ClickGesture<P> {
-  const state: GestureState<P> = {
-    root,
-    isOwner,
-    options: { ...options },
-    pending: null,
-    generation: 0,
-    destroyed: false,
-    stopObserving: undefined,
-  };
+  let options = { ...initialOptions };
+  let pending: Gesture<P> | null = null;
+  // Changes on every discard so an older candidate cannot affect a newer gesture.
+  let generation = 0;
+  let isDestroyed = false;
+  let stopObserving: (() => void) | undefined;
+
+  function discard(): void {
+    generation++;
+    pending = null;
+    stopObserving?.();
+    stopObserving = undefined;
+  }
+
+  function prepare(event: PointerEvent, intent: FastLinkIntent): void {
+    discard();
+    if (isDestroyed) return;
+
+    const gesture: Gesture<P> = {
+      anchor: intent.anchor,
+      href: intent.href,
+      url: intent.url.href,
+      pointerId: event.pointerId,
+      prepared: null,
+    };
+    pending = gesture;
+    stopObserving = observeGestureCancellation(root, () => pending, discard);
+    tryPrepareGesture(gesture, intent);
+  }
+
+  function tryPrepareGesture(
+    gesture: Gesture<P>,
+    intent: FastLinkIntent,
+  ): void {
+    try {
+      const prepared = options.prepare(intent);
+      // The callback can synchronously replace or discard this gesture.
+      if (pending === gesture) gesture.prepared = prepared;
+    } catch {
+      // A failed preparation still permits ordinary click-time navigation.
+    }
+  }
+
+  function matchClick(event: MouseEvent): PreparedClick<P> | null {
+    const gesture = pending;
+    if (!gesture) return null;
+
+    // Take the gesture, but keep cancellation active while adapter guards run.
+    pending = null;
+    if (!matchesPreparedGesture(event, root, gesture)) {
+      discard();
+      return null;
+    }
+    return createPreparedClick(gesture, event);
+  }
+
+  function createPreparedClick(
+    gesture: Gesture<P>,
+    event: MouseEvent,
+  ): PreparedClick<P> {
+    const matchedGeneration = generation;
+    let isConsumed = false;
+
+    function discardCandidate(): void {
+      isConsumed = true;
+      gesture.prepared = null;
+      // An old candidate must leave a newer gesture and its listeners intact.
+      if (generation === matchedGeneration) discard();
+    }
+
+    // Read ownership and the DOM here, after adapter guards have run.
+    function getCurrentIntent(): FastLinkIntent | null {
+      if (isDestroyed) return null;
+      if (generation !== matchedGeneration || isHandled(event)) return null;
+      if (!root.contains(gesture.anchor)) return null;
+      if (!isOwner(gesture.anchor)) return null;
+      return getLinkIntent(event.target, gesture.anchor);
+    }
+
+    return {
+      consume() {
+        if (isConsumed) return null;
+        isConsumed = true;
+        try {
+          const intent = getCurrentIntent();
+          if (!intent) return null;
+
+          markHandled(event);
+          return {
+            intent,
+            prepared: hasSameDestination(gesture, intent)
+              ? gesture.prepared
+              : null,
+          };
+        } finally {
+          discardCandidate();
+        }
+      },
+      discard: discardCandidate,
+    };
+  }
 
   return {
     update(nextOptions) {
-      state.options = { ...nextOptions };
+      options = { ...nextOptions };
     },
-    prepare: (event, intent) => startGesture(state, event, intent),
-    matchClick: (event) => matchPreparedClick(state, event),
-    discard: () => discardGesture(state),
-    destroy() {
-      state.destroyed = true;
-      discardGesture(state);
-    },
-  };
-}
-
-function startGesture<P>(
-  state: GestureState<P>,
-  event: PointerEvent,
-  intent: FastLinkIntent,
-): void {
-  discardGesture(state);
-  if (state.destroyed) return;
-
-  const gesture: Gesture<P> = {
-    anchor: intent.anchor,
-    href: intent.href,
-    url: intent.url.href,
-    pointerId: event.pointerId,
-    prepared: null,
-  };
-  state.pending = gesture;
-  state.stopObserving = observeGestureCancellation(state);
-  tryPrepareGesture(state, gesture, intent);
-}
-
-function matchPreparedClick<P>(
-  state: GestureState<P>,
-  event: MouseEvent,
-): PreparedClick<P> | null {
-  const gesture = state.pending;
-  if (!gesture) return null;
-
-  // Take the gesture, but keep cancellation active while adapter guards run.
-  state.pending = null;
-  if (!matchesPreparedGesture(event, state.root, gesture)) {
-    discardGesture(state);
-    return null;
-  }
-  return createPreparedClick(state, gesture, event);
-}
-
-function createPreparedClick<P>(
-  state: GestureState<P>,
-  gesture: Gesture<P>,
-  event: MouseEvent,
-): PreparedClick<P> {
-  const matchedGeneration = state.generation;
-  let consumed = false;
-
-  function discard(): void {
-    consumed = true;
-    gesture.prepared = null;
-    // An old candidate must leave a newer gesture and its listeners intact.
-    if (state.generation === matchedGeneration) discardGesture(state);
-  }
-
-  return {
-    consume() {
-      if (consumed) return null;
-      consumed = true;
-      try {
-        const intent = getCurrentIntent(
-          state,
-          gesture,
-          event,
-          matchedGeneration,
-        );
-        if (!intent) return null;
-
-        markHandled(event);
-        return {
-          intent,
-          prepared: hasSameDestination(gesture, intent)
-            ? gesture.prepared
-            : null,
-        };
-      } finally {
-        discard();
-      }
-    },
+    prepare,
+    matchClick,
     discard,
+    destroy() {
+      isDestroyed = true;
+      discard();
+    },
   };
-}
-
-// Read ownership and the DOM here, after adapter guards have run.
-function getCurrentIntent<P>(
-  state: GestureState<P>,
-  gesture: Gesture<P>,
-  event: MouseEvent,
-  matchedGeneration: number,
-): FastLinkIntent | null {
-  if (state.destroyed) return null;
-  if (state.generation !== matchedGeneration || isHandled(event)) return null;
-  if (!state.root.contains(gesture.anchor)) return null;
-  if (!state.isOwner(gesture.anchor)) return null;
-  return getLinkIntent(event.target, gesture.anchor);
-}
-
-function tryPrepareGesture<P>(
-  state: GestureState<P>,
-  gesture: Gesture<P>,
-  intent: FastLinkIntent,
-): void {
-  try {
-    const prepared = state.options.prepare(intent);
-    // The callback can synchronously replace or discard this gesture.
-    if (state.pending === gesture) gesture.prepared = prepared;
-  } catch {
-    // A failed preparation still permits ordinary click-time navigation.
-  }
-}
-
-function discardGesture<P>(state: GestureState<P>): void {
-  state.generation++;
-  state.pending = null;
-  state.stopObserving?.();
-  state.stopObserving = undefined;
 }
 
 function matchesPreparedGesture<P>(
@@ -195,10 +175,7 @@ function matchesPreparedGesture<P>(
   root: HTMLElement,
   gesture: Gesture<P>,
 ): boolean {
-  if (event.defaultPrevented || event.detail === 0 || event.button !== 0)
-    return false;
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-    return false;
+  if (!isPlainPrimaryEvent(event) || event.detail === 0) return false;
   if (
     'pointerType' in event &&
     // An empty type means the click reports no pointer, so it is still accepted.
@@ -206,9 +183,7 @@ function matchesPreparedGesture<P>(
     event.pointerType !== 'mouse'
   )
     return false;
-  if ('pointerId' in event && event.pointerId !== gesture.pointerId)
-    return false;
-  return findAnchor(event.target, root) === gesture.anchor;
+  return isOnPreparedAnchor(event, root, gesture);
 }
 
 function hasSameDestination<P>(
@@ -218,36 +193,39 @@ function hasSameDestination<P>(
   return intent.href === gesture.href && intent.url.href === gesture.url;
 }
 
-function isReleaseOnPreparedAnchor<P>(
-  event: PointerEvent,
+// A matching release or click comes from the prepared pointer on the prepared anchor.
+function isOnPreparedAnchor<P>(
+  event: MouseEvent,
   root: HTMLElement,
   gesture: Gesture<P>,
 ): boolean {
-  return (
-    event.pointerId === gesture.pointerId &&
-    findAnchor(event.target, root) === gesture.anchor
-  );
+  if ('pointerId' in event && event.pointerId !== gesture.pointerId)
+    return false;
+  return findAnchor(event.target, root) === gesture.anchor;
 }
 
 // Cancellation listeners exist only while a gesture is pending.
-function observeGestureCancellation<P>(state: GestureState<P>): () => void {
-  const { root } = state;
+function observeGestureCancellation<P>(
+  root: HTMLElement,
+  getPending: () => Gesture<P> | null,
+  discard: () => void,
+): () => void {
   const document = root.ownerDocument;
   const view = document.defaultView;
   const eventRoot = root.getRootNode();
   const shadow = eventRoot instanceof ShadowRoot ? eventRoot : null;
   let releaseTimer: ReturnType<typeof setTimeout> | undefined;
-  const discard = () => discardGesture(state);
+  const cancel = () => discard();
 
   function finishRelease(event: PointerEvent): void {
-    const gesture = state.pending;
+    const gesture = getPending();
     if (!gesture) return;
-    if (!isReleaseOnPreparedAnchor(event, root, gesture)) {
-      discard();
+    if (!isOnPreparedAnchor(event, root, gesture)) {
+      cancel();
       return;
     }
     // Native click follows release synchronously. A release with no click expires.
-    releaseTimer = setTimeout(discard, 0);
+    releaseTimer = setTimeout(cancel, 0);
   }
 
   function onPointerUp(event: PointerEvent): void {
@@ -256,37 +234,19 @@ function observeGestureCancellation<P>(state: GestureState<P>): () => void {
     finishRelease(event);
   }
 
-  function onShadowPointerUp(event: Event): void {
-    finishRelease(event as PointerEvent);
-  }
-
-  for (const event of CANCELLATION_EVENTS) {
-    document.addEventListener(event, discard, true);
-  }
-  document.addEventListener('pointerup', onPointerUp, true);
-  shadow?.addEventListener('pointerup', onShadowPointerUp, true);
-  view?.addEventListener('blur', discard);
+  const stopListening = CANCELLATION_EVENTS.map((type) =>
+    listen(document, type, cancel, true),
+  );
+  stopListening.push(listen(document, 'pointerup', onPointerUp, true));
+  if (shadow)
+    stopListening.push(listen(shadow, 'pointerup', finishRelease, true));
+  if (view) stopListening.push(listen(view, 'blur', cancel));
 
   return () => {
     clearTimeout(releaseTimer);
-    for (const event of CANCELLATION_EVENTS) {
-      document.removeEventListener(event, discard, true);
-    }
-    document.removeEventListener('pointerup', onPointerUp, true);
-    shadow?.removeEventListener('pointerup', onShadowPointerUp, true);
-    view?.removeEventListener('blur', discard);
+    for (const stop of stopListening) stop();
   };
 }
-
-type GestureState<P> = {
-  readonly root: HTMLElement;
-  readonly isOwner: (anchor: HTMLAnchorElement) => boolean;
-  options: GestureOptions<P>;
-  pending: Gesture<P> | null;
-  generation: number;
-  destroyed: boolean;
-  stopObserving: (() => void) | undefined;
-};
 
 type Gesture<P> = {
   anchor: HTMLAnchorElement;
