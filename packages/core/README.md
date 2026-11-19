@@ -64,55 +64,79 @@ export function attachNavigation(
 ```
 
 Release mode needs an adapter that accepts the click; see
-[`createLinkInteraction`](#createlinkinteraction). The following sections
-cover `createFastLink`, the earlier controller that navigates on press with
-document navigation by default.
+[navigate on the accepted click](#navigate-on-the-accepted-click).
 
-## Start document navigation on pointerdown
+## Navigate a DOM page on press
 
-Navigation starts on press, before a click handler can cancel it. Keep links
-that need confirmation, release-time checks, or expected URL dragging native
-by adding `data-no-fast-link` to the anchor.
+Immediate mode starts navigation on press, before a click handler can cancel
+it. Keep links that need confirmation, release-time checks, or expected URL
+dragging native by adding `data-no-fast-link` to the anchor.
 
 Attach one controller to the narrowest element that contains links sharing the
 same navigation behavior:
 
 ```ts
-import { createFastLink } from '@fast-link/core';
+import { createLinkInteraction } from '@fast-link/core';
 
 const root = document.querySelector<HTMLElement>('nav');
 if (!root) throw new Error('Navigation root not found');
 
-const fastLink = createFastLink(root);
+const fastLink = createLinkInteraction(root, {
+  mode: 'immediate',
+  navigate: ({ url, anchor }) =>
+    anchor.ownerDocument.defaultView?.location.assign(url.href),
+});
 ```
 
-Primary mouse navigation now starts on `pointerdown`. By default, core navigates
-with `window.location.assign()`. Call `fastLink.destroy()` when the root leaves
-the document.
+Primary mouse navigation now starts on `pointerdown`, and core prevents the
+follow-up click. Call `fastLink.destroy()` when the root leaves the document.
+To use a client router, call it from `navigate`. Core validates the link before
+it calls `navigate`; the caller remains responsible for history, scroll, route
+state, and transitions.
 
-Pass a caller-owned `navigate` function when a client router owns the
-destination:
+## Navigate on the accepted click
+
+Release mode keeps release-time cancellation. Core prepares on press and
+matches the click; the caller accepts it during click capture:
 
 ```ts
-import { createFastLink } from '@fast-link/core';
+import { createLinkInteraction } from '@fast-link/core';
 
-export function attachRouterNavigation(
+export function attachReleaseNavigation(
   root: HTMLElement,
   navigate: (destination: URL) => void,
 ) {
-  return createFastLink(root, {
-    navigate: ({ url }) => navigate(url),
+  const controller = createLinkInteraction(root, {
+    mode: 'release',
+    prepare: () => null,
   });
+  const onClick = (event: MouseEvent) => {
+    const candidate = controller.matchClick(event);
+    try {
+      const activation = candidate?.consume();
+      if (!activation) return;
+      event.preventDefault();
+      navigate(activation.intent.url);
+    } finally {
+      candidate?.discard();
+    }
+  };
+  root.addEventListener('click', onClick, true);
+  return () => {
+    root.removeEventListener('click', onClick, true);
+    controller.destroy();
+  };
 }
 ```
 
-Core validates the link before it calls the router. The adapter remains
-responsible for history, scroll, route state, and transitions.
+Run synchronous guards between `matchClick` and `consume`, and return early if
+they cancel. `prepare` can start router work for the destination; see
+[`createClickPreparation`](#createclickpreparation) for the candidate contract.
 
 ## Initialize inside each iframe
 
-- Load Fast Link and call `createFastLink` inside each iframe it controls.
-  Use elements from that iframe's document.
+- Load Fast Link and call `createLinkInteraction` inside each iframe it
+  controls. Use elements from that iframe's document.
 - For example, run the document navigation quickstart above from the iframe's
   own script.
 - A parent-document controller does not receive child-document events.
@@ -150,15 +174,12 @@ bundled copies of core, navigate once.
 | Export                           | Kind     | Purpose                                                |
 | -------------------------------- | -------- | ------------------------------------------------------ |
 | `createLinkInteraction`          | Function | Handle a root in release, immediate, or native mode    |
-| `createFastLink`                 | Function | Attach navigation behavior to an anchor or region      |
 | `createClickPreparation`         | Function | Prepare after press and match the accepted click       |
 | `runFastNavigation`              | Function | Apply a router or document navigation decision         |
 | `validateFastNavigationDecision` | Function | Check a policy result without navigating               |
 | `LinkMode`                       | Type     | `'release' \| 'immediate' \| 'native'`                 |
 | `LinkInteractionController`      | Type     | Update, match or suppress clicks, or destroy           |
 | `LinkInteractionOptions`         | Type     | Configure the mode and its callbacks                   |
-| `FastLinkController`             | Type     | Update, suppress clicks, or destroy a controller       |
-| `FastLinkOptions`                | Type     | Configure controller eligibility and callbacks         |
 | `ClickPreparationController`     | Type     | Update, match clicks, discard, or destroy preparation  |
 | `ClickPreparationOptions`        | Type     | Configure preparation and whether it is enabled        |
 | `PreparedClick`                  | Type     | Consume or discard one matched click                   |
@@ -233,68 +254,11 @@ clicks outside the accepted anchor stay native. Pass the native event to
 `suppressClick`; when it returns `true`, a framework should also prevent its
 own event wrapper.
 
-### `createFastLink`
-
-```ts
-function createFastLink(
-  root: HTMLElement,
-  options?: FastLinkOptions,
-): FastLinkController;
-```
-
-The root can be one anchor or a region containing anchors.
-
-| Option           | Type               | Default                                   | Behavior                                                                |
-| ---------------- | ------------------ | ----------------------------------------- | ----------------------------------------------------------------------- |
-| `enabled`        | `boolean`          | `true`                                    | Controls whether new pointerdowns can start navigation                  |
-| `navigate`       | `(intent) => void` | `window.location.assign(intent.url.href)` | Performs navigation after `onFastNavigate`; its return value is ignored |
-| `onFastNavigate` | `(intent) => void` | None                                      | Runs synchronously before `navigate`, for observation such as analytics |
-
-`createFastLink` copies its options. Mutating the original object has no
-effect.
-
-| Controller method      | Behavior                                                              |
-| ---------------------- | --------------------------------------------------------------------- |
-| `update(options)`      | Replaces every option without clearing a pending follow-up click      |
-| `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler |
-| `destroy()`            | Removes both listeners permanently; calling it more than once is safe |
-
-Disable early navigation for new presses while preserving suppression of the
-pending follow-up click. Destroy the controller when the region is no longer
-used:
-
-```ts
-import { createFastLink } from '@fast-link/core';
-
-export function attachNavigation(
-  root: HTMLElement,
-  navigate: (destination: URL) => void,
-) {
-  const options = { navigate: ({ url }: { url: URL }) => navigate(url) };
-  const controller = createFastLink(root, options);
-
-  return {
-    setEnabled(enabled: boolean) {
-      controller.update({ ...options, enabled });
-    },
-    destroy() {
-      controller.destroy();
-    },
-  };
-}
-```
-
-Pass the callbacks on each update; omitted options reset to their defaults.
-
-Framework adapters can call `suppressClick(event)` before descendant capture
-handlers run. Pass the framework event itself, with `target`, `detail`, and
-`preventDefault`, so its prevention flag is updated. A containing controller
-can suppress a managed descendant's pending click, even when the containing
-controller has a pending click for another anchor. Only targets inside the
-accepted anchor and its controller root consume that pending click. Unrelated
-clicks and detail-zero clicks remain native, and calls after destroy do nothing.
-Use `@fast-link/react` to supply this capture binding in React rather than
-implementing it in an app.
+Framework adapters call `suppressClick(event)` from a click-capture handler
+that runs before descendant capture handlers. A containing controller can
+suppress a managed descendant's pending click, including one from a separately
+bundled copy. Calls after destroy do nothing. Use `@fast-link/react` to supply
+this capture binding in React rather than implementing it in an app.
 
 ### `createClickPreparation`
 
@@ -375,11 +339,7 @@ base path may need to derive its route from `href` or application metadata on
 
 ## Understand event ordering
 
-This section describes `createFastLink`. For immediate mode, see the ordering
-under [`createLinkInteraction`](#createlinkinteraction): `beforeNavigate` can
-cancel navigation, unlike `onFastNavigate`.
-
-Core checks eligibility and claims an accepted primary mouse press before
+This section describes immediate mode. Core checks eligibility and claims an accepted primary mouse press before
 calling navigation callbacks. It remembers the anchor so it can prevent the
 later pointer click's default navigation:
 
@@ -390,8 +350,8 @@ Ready
   | Remember anchor
   v
 Pending click
-  | Call onFastNavigate, then navigate
-  | Options update: stay here
+  | Call beforeNavigate, then navigate
+  | Options or mode update: stay here
   |
   | Matching pointer click:
   | clear pending; prevent default
@@ -408,10 +368,8 @@ Ready
   state before eligibility checks.
 - Destroying the controller clears pending state and removes its listeners.
 
-Core's `onFastNavigate` observes the accepted intent. It receives no cancellation
-event, and its return value is ignored. If it throws, `navigate` still runs, then
-the error surfaces. If navigation also throws, the navigation error takes
-precedence. The follow-up click remains suppressed.
+If `beforeNavigate` returns `false` or throws, navigation does not run and the
+follow-up click remains suppressed.
 
 Next's `onNavigate` receives a cancellable event. The navigation runner's
 `observe` callback receives a frozen decision after policy selection. Navigation
@@ -429,7 +387,7 @@ router and document navigation:
 
 ```ts
 import {
-  createFastLink,
+  createLinkInteraction,
   runFastNavigation,
   type FastLinkIntent,
   type FastNavigationDecision,
@@ -443,7 +401,8 @@ type Adapter = {
 };
 
 export function attachAdapter(root: HTMLElement, adapter: Adapter) {
-  return createFastLink(root, {
+  return createLinkInteraction(root, {
+    mode: 'immediate',
     navigate: (intent) =>
       runFastNavigation(intent, {
         defaultRouterDecision: { kind: 'router' },
@@ -492,8 +451,8 @@ native inner region keeps containing link interaction regions from accelerating
 its links, and an accelerated inner region works inside a native one. A losing
 region does no preparation or navigation for that interaction.
 
-`createFastLink` and `createClickPreparation` regions neither register nor check
-regions. They follow outer-first capture ordering, including around or inside
+`createClickPreparation` regions neither register nor check regions. They
+follow outer-first capture ordering, including around or inside
 link interaction regions, and still defer to managed anchors.
 
 ## Related packages

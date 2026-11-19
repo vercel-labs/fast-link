@@ -7,22 +7,36 @@ identify the application entry point and supported integration.
 ## Plain DOM
 
 ```ts
-import { createFastLink } from '@fast-link/core';
+import { createLinkInteraction } from '@fast-link/core';
 
 export function attachNavigation(root: HTMLElement) {
-  const controller = createFastLink(root);
+  const controller = createLinkInteraction(root, {
+    mode: 'immediate',
+    navigate: ({ url, anchor }) =>
+      anchor.ownerDocument.defaultView?.location.assign(url.href),
+  });
   return () => controller.destroy();
 }
 ```
 
 Attach to an anchor or the narrowest containing element that shares a policy.
-Without a `navigate` callback, the controller uses the anchor's window to call
-`location.assign(intent.url.href)`. Call `destroy()` when the root is no longer
+`createLinkInteraction` requires a mode and has no default navigation: pass
+`navigate` for immediate mode. Call `destroy()` when the root is no longer
 used; repeated destruction is harmless.
 
-Options are copied. Use `controller.update(allOptions)` to replace configuration
-while preserving a pending follow-up click. Mutating the original options object
-does not update the controller.
+For release mode, pass `prepare` and accept the click in a click-capture
+listener: call `matchClick(event)`, run synchronous guards, call `consume()`,
+then `preventDefault()` and navigate; discard the candidate in `finally`. See
+the [core release example](https://github.com/vercel-labs/fast-link/tree/main/packages/core#navigate-on-the-accepted-click).
+Native mode needs no callbacks. A region registers in every mode, and an
+ordinary link uses its closest region.
+
+Options are copied. Use `controller.update(allOptions)` to replace
+configuration, including the mode, while preserving a pending follow-up click.
+Mutating the original options object does not update the controller.
+
+`createFastLink` was removed in 0.1.0. Replace it with immediate mode as above,
+and `enabled: false` with `{ mode: 'native' }`.
 
 Use the public controller for eligibility, event ownership, cleanup, and
 suppression; avoid parallel pointer/click listeners.
@@ -41,7 +55,8 @@ The adapter supplies the router behavior, including history, scroll, route
 state, and transitions. Choose authored versus resolved destinations according
 to that router's contract; do not treat them as interchangeable.
 
-Core's `onFastNavigate` observes an intent; Next Link's `onNavigate` can cancel.
+In immediate mode, `beforeNavigate(intent)` runs before `navigate` and can
+cancel by returning `false`; the follow-up click stays suppressed either way.
 See the [core API reference](https://github.com/vercel-labs/fast-link/tree/main/packages/core#api-reference)
 for options and the [event ordering guide](https://github.com/vercel-labs/fast-link/tree/main/packages/core#understand-event-ordering)
 for callback ordering and failures.
@@ -61,7 +76,7 @@ for setup.
 ```tsx
 'use client';
 
-import { useFastLink } from '@fast-link/react';
+import { useLinkInteraction } from '@fast-link/react';
 import type { ReactNode } from 'react';
 
 export function NavigationRegion({
@@ -71,19 +86,25 @@ export function NavigationRegion({
   children: ReactNode;
   route: (url: URL) => void;
 }) {
-  const attach = useFastLink<HTMLDivElement>({
+  const binding = useLinkInteraction<never, HTMLDivElement>({
+    mode: 'immediate',
     navigate: ({ url }) => route(url),
   });
-  return <div {...attach}>{children}</div>;
+  return (
+    <div ref={binding.ref} onClickCapture={binding.suppressClick}>
+      {children}
+    </div>
+  );
 }
 ```
 
-- Spread both `ref` and `onClickCapture` last on the same DOM element.
-  A ref alone misses clicks stopped by descendant React capture handlers.
-- Pass the caller's capture handler and ref into the hook for handler composition
-  and ref cleanup.
-- Pass the current navigation callback on each render. The hook preserves pending
-  click suppression across committed option changes.
+- Attach `ref` and call `suppressClick` from `onClickCapture` on the same DOM
+  element. A ref alone misses clicks stopped by descendant React capture
+  handlers. Run the caller's capture handler after `suppressClick`.
+- Pass `forwardedRef` for ref composition and cleanup.
+- Pass the current options on each render. The hook keeps the element and
+  controller across mode changes and preserves pending click suppression.
+- React `useFastLink` was removed in 0.1.0; replace it with this pattern.
 
 See the [React lifecycle contract](https://github.com/vercel-labs/fast-link/tree/main/packages/react#understand-the-hook-lifecycle)
 for root replacement, unmount, and ref cleanup.

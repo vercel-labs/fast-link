@@ -22,7 +22,7 @@ consumed. A root that loses does no work for that interaction.
 This supersedes only the nested-region precedence in
 [ADR 0005](./0005-coordinate-nested-roots.md) for link interaction roots.
 Anchor priority, shared event markers, and cross-copy coordination remain
-required. `createClickPreparation` and `createFastLink` roots neither register
+required. `createClickPreparation` roots neither register
 nor check regions: they follow outside-in capture order, including when nested
 with link interaction regions, and still defer to managed anchors.
 

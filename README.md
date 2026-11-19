@@ -1,8 +1,14 @@
 # ▲ Fast Link
 
-Fast Link helps your application feel faster by starting eligible same-origin
-link navigation when you press the mouse, instead of waiting for release. Your
-application gets the press-to-release interval to start loading the next page.
+Fast Link helps your application feel faster by starting work for eligible
+same-origin link navigation when you press the mouse, instead of waiting for
+release. Choose a mode per link or region:
+
+| Mode                | Behavior                                                                  |
+| ------------------- | ------------------------------------------------------------------------- |
+| `release` (default) | Prepare on press; navigate on the accepted click. Releasing away cancels. |
+| `immediate`         | Navigate on press. Moving away before release cannot cancel it.           |
+| `native`            | Leave navigation to the ordinary link, including client routing.          |
 
 Keep optimizing page speed and using prefetching. Fast Link doesn't fix slow
 pages; it starts navigation earlier.
@@ -18,11 +24,12 @@ Keep ordinary click behavior for:
 - Links that perform actions, such as submitting a form, placing an order, signing
   out, or deleting something.
 - Links whose click handlers must run before navigation, such as validation or an
-  unsaved-changes warning.
+  unsaved-changes warning, unless they use `FastLink` in release mode.
 - Links that open or toggle UI, such as a modal, menu, or tab.
-- Downloads and links that need release-time cancellation or URL dragging.
+- Downloads and links that need URL dragging, and links that need
+  release-time cancellation in immediate mode.
 
-Use `enabled={false}` or `data-no-fast-link` to opt out of early navigation.
+Use `mode="native"` or `data-no-fast-link` to opt out of early navigation.
 
 See [Known limitations](#known-limitations) for press timing and accessibility details.
 
@@ -68,7 +75,8 @@ export function AccountLink() {
 ```
 
 - Preserves Next Link options and synchronous `onNavigate` cancellation.
-- Starts primary mouse navigation on press (`pointerdown`).
+- Prepares primary mouse navigation on press and navigates on the accepted
+  click. Use `mode="immediate"` to navigate on press.
 - Keeps normal Link and browser behavior for other input methods.
 
 Use `FastLinkRegion` when existing links share one navigation policy:
@@ -89,14 +97,16 @@ export function Navigation() {
 }
 ```
 
-- Use `FastLink` for per-link options. It keeps its own options and policy inside
-  a region.
+- Use `FastLink` for per-link options. It keeps its own mode, options, and
+  policy inside a region.
+- An ordinary link uses its closest region's mode and policy.
 - Regions cannot read Next Link options from ordinary rendered anchors.
 
 Before adopting either interface:
 
-- Click-time guard on `FastLink`: opt out with `enabled={false}`.
-- Click-time guard on an ordinary region link: add `data-no-fast-link`.
+- Click-time guard on `FastLink`: keep release mode, or use `mode="native"`.
+- Click-time guard on an ordinary region link: add `data-no-fast-link`. Release
+  regions accept during click capture, before child click handlers.
 - For API routes or another application's pages, choose an explicit routing
   policy or opt out. Same origin does not imply App Router ownership.
 
@@ -113,9 +123,12 @@ Fast Link accepts unmodified primary-mouse `pointerdown` on eligible same-origin
 - Native behavior: touch, pen, keyboard, middle, right, and modified clicks.
 - Also native: downloads, external or hash-only URLs, non-`_self` targets,
   nested controls, and `data-no-fast-link` opt-outs.
-- After accepted navigation: the matching click is default-prevented but still
-  propagates. Handlers run if still mounted at release.
-- Dragging away can navigate without producing a click.
+- Release mode navigates only on an accepted click and discards preparation on
+  release away. Preparation through `@fast-link/next` requires the
+  [supported experimental Next runtime](./packages/next/README.md#requirements).
+- Immediate mode navigates on press. The follow-up click is default-prevented
+  but still propagates; handlers run if still mounted at release. Dragging away
+  can navigate without producing a click.
 
 See core's [eligibility rules](./packages/core/README.md#know-which-interactions-fast-link-accepts).
 
@@ -162,10 +175,12 @@ conditions, and environment in the report before using it to support a claim.
 - Next.js `useLinkStatus().pending` does not update during early navigation.
 - Use route-level loading UI or [manage pending state in your app](./packages/next/README.md#pending-state).
 
-Fast Link starts mouse navigation on press. Moving away before release won't
-cancel it, and Fast Link provides no built-in abort or undo.
+In immediate mode, Fast Link starts mouse navigation on press. Moving away
+before release won't cancel it, and Fast Link provides no built-in abort or
+undo. Release mode keeps release-time cancellation, but opting into either
+mode does not by itself establish WCAG conformance.
 
-This is an accessibility limitation under
+Immediate mode is an accessibility limitation under
 [WCAG 2.5.2: Pointer Cancellation (Level A)](https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html).
 See [failure F101](https://www.w3.org/WAI/WCAG22/Techniques/failures/F101) for activation on press without cancellation or reversal.
 
