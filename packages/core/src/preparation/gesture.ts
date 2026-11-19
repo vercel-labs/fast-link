@@ -44,7 +44,8 @@ export interface ClickGesture<P> {
 
 /**
  * Creates the shared click gesture engine. `isOwner` rechecks the root's live
- * ownership of an anchor before a matched click is consumed.
+ * ownership of an anchor, including containment, before a matched click is
+ * consumed.
  */
 export function createClickGesture<P>(
   root: HTMLElement,

@@ -61,18 +61,22 @@ export function hasAnchorOwner(anchor: HTMLAnchorElement): boolean {
   return coordination.anchorOwners.has(anchor);
 }
 
-/** Reports whether a registered region lies between `anchor` and `root`, exclusive. */
-export function hasCloserRegion(
+/**
+ * Reports whether `root` contains `anchor` with no registered region between
+ * them. False once `anchor` has left `root`.
+ */
+export function isClosestRegion(
   root: HTMLElement,
   anchor: HTMLAnchorElement,
 ): boolean {
   const { regionOwners } = coordination;
   for (
     let element = anchor.parentElement;
-    element && element !== root;
+    element;
     element = element.parentElement
   ) {
-    if (regionOwners.has(element)) return true;
+    if (element === root) return true;
+    if (regionOwners.has(element)) return false;
   }
   return false;
 }

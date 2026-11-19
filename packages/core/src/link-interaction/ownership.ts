@@ -1,6 +1,6 @@
 import {
   hasAnchorOwner,
-  hasCloserRegion,
+  isClosestRegion,
   registerAnchorOwner,
   registerRegionOwner,
 } from '../coordination';
@@ -21,14 +21,14 @@ export function registerInteractionRoot(root: HTMLElement): () => void {
 
 /**
  * A managed anchor owns its own interactions. Otherwise the closest registered
- * region owns an ordinary link, including a native region.
+ * region that still contains an ordinary link owns it, including a native region.
  */
 export function isInteractionOwner(
   root: HTMLElement,
   anchor: HTMLAnchorElement,
 ): boolean {
   if (anchor === root) return true;
-  return !hasAnchorOwner(anchor) && !hasCloserRegion(root, anchor);
+  return !hasAnchorOwner(anchor) && isClosestRegion(root, anchor);
 }
 
 /** Resolves and claims an eligible press only when this root owns its anchor. */
