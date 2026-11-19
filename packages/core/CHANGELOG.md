@@ -22,6 +22,13 @@
   `isActive` argument.
 - Add `validateFastNavigationDecision` to check a policy result without
   navigating or observing.
+- Remove `createFastLink`, `FastLinkController`, and `FastLinkOptions`. Use
+  `createLinkInteraction(root, { mode: 'immediate', navigate })` for
+  navigation on press. `navigate` is now required; for the earlier default,
+  pass `({ url, anchor }) => anchor.ownerDocument.defaultView?.location.assign(url.href)`.
+  Run an observer before navigating, or use `beforeNavigate`, which can also
+  cancel. Replace `enabled: false` with `{ mode: 'native' }`, and call
+  `suppressClick` from a framework click-capture handler as before.
 
 ## 0.0.2
 

@@ -36,17 +36,25 @@ A single script unrelated to existing groups may stay directly under `scripts/`.
 - `FastLinkIntent.href` is the authored attribute, `url` is the resolved
   same-origin destination, and `anchor` is the source element. Each framework
   adapter handles router-specific history, scroll, state, and transitions.
-- `createFastLink` copies options. Adapters change configuration through
+- Core controllers copy options. Adapters change configuration through
   `controller.update()`, which replaces every option without clearing a pending
   follow-up pointer click.
 - `createLinkInteraction` requires an explicit mode: `release`, `immediate`, or
   `native`. Mode changes keep the controller and any follow-up click
   suppression. Its regions register at creation, and an ordinary link belongs
   to its closest region; managed anchors keep priority over every region.
+- Next applies the `release` default once, binds every entry point through
+  `useLinkInteraction`, and constructs only the selected mode's callbacks.
+  `FastLink` accepts a release click in Next Link's `onNavigate`; regions and
+  `useFastLink` accept during click capture. Preparation and navigation share
+  one routing owner in `packages/next/src/navigation`.
+- `createFastLink` and React `useFastLink` were removed in 0.1.0. Do not
+  restore them, `enabled` on Next entry points, `as`, `legacyBehavior`, or
+  optional-href and non-anchor custom hooks.
 - Core accepts only primary mouse pointerdown. Touch and pen remain native
   because gesture intent is unknown when contact begins.
 - Core prevents only the pointer-generated click that follows a press accepted
-  by `createFastLink` or immediate mode, including an immediate press whose
+  in immediate mode, including an immediate press whose
   guard cancels or throws. In release mode, the adapter prevents the click
   after accepting it. Keyboard clicks remain native, and prevented clicks
   continue to propagate.

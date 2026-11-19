@@ -11,6 +11,10 @@
 - Both hooks keep pending work across same-element reattachment, leave presses
   native and reject activation while detached, and destroy the controller when
   the element is replaced or unmounts.
+- Remove `useFastLink`. Use `useLinkInteraction` with
+  `mode: 'immediate'` and a `navigate` callback, attach `ref`, and pass
+  `suppressClick` as `onClickCapture`. Call any capture handler of your own
+  after it. `enabled: false` becomes `mode: 'native'`.
 - Update the core dependency to `^0.1.0`.
 
 ## 0.0.2

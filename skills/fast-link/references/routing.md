@@ -27,7 +27,11 @@ Check existing callers and routing configuration before transforming prefixes.
 
 ## Choose a supported decision
 
-The policy runs synchronously and returns one of:
+The policy runs synchronously, without side effects, and returns one of the
+decisions below. Release mode can call it twice per gesture: on press, when
+Next preparation is available, and again after the click guards. Immediate
+mode calls it once on press, after `onNavigate`. Native mode never calls it.
+Read current routing data on every call.
 
 | Decision                                  | Effect                                                           |
 | ----------------------------------------- | ---------------------------------------------------------------- |
@@ -42,8 +46,8 @@ The policy runs synchronously and returns one of:
   from the application's history requirement.
 
 Policies cannot cancel, defer, or replace the destination. Use synchronous
-managed-link `onNavigate` cancellation for press-time validation, or opt out for
-release-time checks.
+managed-link `onNavigate` cancellation for validation, keep release mode for
+click-time checks, or opt out.
 
 Read the [core decision contract](https://github.com/vercel-labs/fast-link/tree/main/packages/core#share-navigation-decisions-in-an-adapter)
 for accepted fields, defaults, and custom-adapter usage.
@@ -53,8 +57,9 @@ for accepted fields, defaults, and custom-adapter usage.
 For Next.js, bind the policy in the selected application integration; see the
 [link and region example](next.md#application-owned-links-and-regions).
 A managed link owns its press and does not inherit the
-surrounding region's policy. Ordinary links use the region policy. Nested
-regions use outer-first capture ordering.
+surrounding region's mode or policy. An ordinary link uses the mode and policy
+of its closest region together; a native inner region means no outer policy
+runs for its links.
 
 Use `onFastNavigate(intent, decision)` for observation before navigation.
 It cannot change or cancel the selected action.
