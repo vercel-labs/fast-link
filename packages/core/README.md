@@ -106,16 +106,21 @@ bundled copies of core, navigate once.
 
 ## API reference
 
-| Export                   | Kind     | Purpose                                                |
-| ------------------------ | -------- | ------------------------------------------------------ |
-| `createFastLink`         | Function | Attach navigation behavior to an anchor or region      |
-| `runFastNavigation`      | Function | Apply a router or document navigation decision         |
-| `FastLinkController`     | Type     | Update, suppress clicks, or destroy a controller       |
-| `FastLinkOptions`        | Type     | Configure controller eligibility and callbacks         |
-| `FastLinkIntent`         | Type     | Describe an accepted anchor and destination            |
-| `FastNavigationDecision` | Type     | Select router or document navigation                   |
-| `FastRouterDecision`     | Type     | Use the adapter route with an optional scroll override |
-| `FastDocumentDecision`   | Type     | Load the validated URL with `assign` or `replace`      |
+| Export                           | Kind     | Purpose                                                |
+| -------------------------------- | -------- | ------------------------------------------------------ |
+| `createFastLink`                 | Function | Attach navigation behavior to an anchor or region      |
+| `createClickPreparation`         | Function | Prepare on press and match the accepted click          |
+| `runFastNavigation`              | Function | Apply a router or document navigation decision         |
+| `validateFastNavigationDecision` | Function | Check a policy result without navigating               |
+| `FastLinkController`             | Type     | Update, suppress clicks, or destroy a controller       |
+| `FastLinkOptions`                | Type     | Configure controller eligibility and callbacks         |
+| `ClickPreparationController`     | Type     | Update, match clicks, discard, or destroy preparation  |
+| `ClickPreparationOptions`        | Type     | Configure preparation and whether it is enabled        |
+| `PreparedClick`                  | Type     | Consume or discard one matched click                   |
+| `FastLinkIntent`                 | Type     | Describe an accepted anchor and destination            |
+| `FastNavigationDecision`         | Type     | Select router or document navigation                   |
+| `FastRouterDecision`             | Type     | Use the adapter route with an optional scroll override |
+| `FastDocumentDecision`           | Type     | Load the validated URL with `assign` or `replace`      |
 
 ### `createFastLink`
 
@@ -179,6 +184,62 @@ accepted anchor and its controller root consume that pending click. Unrelated
 clicks and detail-zero clicks remain native, and calls after destroy do nothing.
 Use `@fast-link/react` to supply this capture binding in React rather than
 implementing it in an app.
+
+### `createClickPreparation`
+
+```ts
+function createClickPreparation<P>(
+  root: HTMLElement,
+  options: { enabled?: boolean; prepare(intent: FastLinkIntent): P | null },
+): ClickPreparationController<P>;
+```
+
+`prepare` runs on eligible primary mouse press and must not navigate. Core stores
+its return value without checking whether the work is ready or providing a way
+to abort it. If `prepare` throws, core ignores the error so the adapter can still
+handle the click.
+
+Handle the click in this order:
+
+1. Pass the native click to `controller.matchClick(event)` before running
+   synchronous cancellation handlers.
+2. If it returns a candidate and the handlers allow navigation, call
+   `candidate.consume()`. Navigate only if it returns a result.
+3. Call `candidate?.discard()` in `finally`, including when a handler throws or
+   the framework handles the click.
+
+Complete this sequence synchronously during the click event. The adapter calls
+`preventDefault()` and performs navigation after consuming a valid candidate.
+
+`consume()` rechecks the link's current eligibility and per-link priority over
+containing regions. It returns one of these results:
+
+| Result                        | Meaning                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `null`                        | The candidate was already consumed or is no longer valid. Do not navigate through it.          |
+| `{ intent, prepared: value }` | The click can navigate using the current intent and the stored preparation.                    |
+| `{ intent, prepared: null }`  | The click can navigate, but no preparation can be reused. This includes a changed destination. |
+
+New input, cancellation, dragging, release away, blur, destruction, and
+disabling invalidate preparation, including while cancellation handlers run. A
+release with no click expires on the next timer turn. Core never prevents the
+click or navigates.
+
+| Controller method   | Behavior                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `update(options)`   | Copies and replaces every option. Disabling discards the gesture; other updates preserve it for the adapter to revalidate. |
+| `matchClick(event)` | Returns a once-only candidate for the click that completes the prepared gesture, or `null`.                                |
+| `discard()`         | Drops the current gesture.                                                                                                 |
+| `destroy()`         | Discards the gesture, removes listeners, and releases the anchor's priority over containing regions.                       |
+
+Discarding preparation does not abort the work started by `prepare`.
+
+### `validateFastNavigationDecision`
+
+Validates an unknown value and returns a frozen copy of a supported router or
+document decision. Invalid values, including thenables, throw `TypeError`.
+Extra fields are ignored. This function performs no navigation or observation;
+use it for speculative classification without the runner's document fallback.
 
 ### `FastLinkIntent`
 

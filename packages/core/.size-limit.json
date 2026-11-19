@@ -4,5 +4,11 @@
     "path": "src/index.ts",
     "import": "{ createFastLink }",
     "limit": "2 kB"
+  },
+  {
+    "name": "createClickPreparation",
+    "path": "src/index.ts",
+    "import": "{ createClickPreparation }",
+    "limit": "2 kB"
   }
 ]

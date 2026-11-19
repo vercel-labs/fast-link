@@ -35,3 +35,22 @@ export const coordination: CoordinationState = Reflect.get(
   handledEvents: new WeakSet<Event>(),
 };
 Reflect.set(globalThis, COORDINATION, coordination);
+
+/** Registers a managed anchor until released; containing roots do not register. */
+export function registerAnchorOwner(
+  root: HTMLElement,
+): (() => void) | undefined {
+  if (root.tagName !== 'A') return undefined;
+  const { anchorOwners } = coordination;
+  anchorOwners.set(root, (anchorOwners.get(root) ?? 0) + 1);
+  return () => {
+    const remaining = (anchorOwners.get(root) ?? 1) - 1;
+    if (remaining) anchorOwners.set(root, remaining);
+    else anchorOwners.delete(root);
+  };
+}
+
+/** Includes disabled and native controllers, whose anchors keep priority over regions. */
+export function hasAnchorOwner(anchor: HTMLAnchorElement): boolean {
+  return coordination.anchorOwners.has(anchor);
+}

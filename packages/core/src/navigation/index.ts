@@ -17,7 +17,7 @@ export type FastNavigationDecision = FastRouterDecision | FastDocumentDecision;
 
 /**
  * Selects and runs navigation synchronously for an accepted Fast Link intent.
- * The caller must claim the press before calling this function.
+ * The caller must claim the accepted interaction before calling this function.
  *
  * - With no policy, uses `defaultRouterDecision`.
  * - Extra decision properties are ignored. Omitted `scroll` keeps the
@@ -43,7 +43,7 @@ export function runFastNavigation(
   const location = intent.anchor.ownerDocument.defaultView?.location;
   let decision: FastNavigationDecision;
   try {
-    decision = validateDecision(
+    decision = validateFastNavigationDecision(
       options.policy === undefined
         ? options.defaultRouterDecision
         : options.policy(),
@@ -61,7 +61,10 @@ export function runFastNavigation(
   }
 }
 
-function validateDecision(value: unknown): FastNavigationDecision {
+/** Validates and copies a synchronous decision without performing navigation or observation. */
+export function validateFastNavigationDecision(
+  value: unknown,
+): FastNavigationDecision {
   if (
     value !== null &&
     typeof value === 'object' &&
