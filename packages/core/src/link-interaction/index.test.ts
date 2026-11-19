@@ -829,7 +829,7 @@ describe('updates', () => {
 
 describe('root activity', () => {
   it.each(['release', 'immediate'] as const)(
-    'leaves a %s press native while the root is inactive',
+    'leaves %s presses native while the root is inactive',
     (mode) => {
       const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
       const calls: Calls = [];

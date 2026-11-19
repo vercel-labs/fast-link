@@ -99,7 +99,7 @@ export function createClickGesture<P>(
   function matchClick(event: MouseEvent): PreparedClick<P> | null {
     const gesture = pending;
     if (!gesture) return null;
-    // An inactive root neither matches nor, below, consumes.
+    // An inactive root rejects the click here and again in consume().
     if (!isActive()) {
       discard();
       return null;
