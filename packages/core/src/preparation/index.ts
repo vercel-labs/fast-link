@@ -79,8 +79,7 @@ function prepareFromPress<P>(
   state.gesture.prepare(event, intent);
 }
 
-// Containing preparation roots keep outside-in order; only managed anchors take
-// priority. A root never owns a link it no longer contains.
+// Containing preparation roots keep outside-in order; only managed anchors take priority.
 function hasAnchorPriority(
   root: HTMLElement,
   anchor: HTMLAnchorElement,
