@@ -7,7 +7,13 @@
 
 import type { LinkInteractionOptions, LinkMode } from '@fast-link/core';
 import { render } from '@testing-library/react';
-import { StrictMode, useCallback, useState, type MouseEvent } from 'react';
+import {
+  createRef,
+  StrictMode,
+  useCallback,
+  useState,
+  type MouseEvent,
+} from 'react';
 import { flushSync } from 'react-dom';
 
 import { useLinkInteraction, type LinkInteractionBinding } from './index';
@@ -78,10 +84,14 @@ function acceptClick(
 
 it('switches modes on one mounted anchor without remounting it or rendering for gestures', () => {
   const calls: string[] = [];
+  const objectRef = createRef<HTMLAnchorElement>();
   let renders = 0;
   function Link({ mode }: { mode: LinkMode }) {
     renders++;
-    const binding = useLinkInteraction(recording(mode, calls));
+    const binding = useLinkInteraction({
+      ...recording(mode, calls),
+      forwardedRef: objectRef,
+    });
     return (
       <a
         href="/guide"
@@ -137,6 +147,7 @@ it('switches modes on one mounted anchor without remounting it or rendering for 
   expect(renders).toBe(committedRenders);
   expect(getByRole('link')).toBe(anchor);
   expect(document.activeElement).toBe(anchor);
+  expect(objectRef.current).toBe(anchor);
 
   rerender(
     <StrictMode>
@@ -146,6 +157,7 @@ it('switches modes on one mounted anchor without remounting it or rendering for 
   unmount();
   press(anchor);
   expect(calls).toEqual(['navigate:/guide']);
+  expect(objectRef.current).toBeNull();
 });
 
 it('publishes committed options before a changed caller ref dispatches input', () => {
@@ -232,7 +244,7 @@ it.each(['release', 'native'] as const)(
   },
 );
 
-it('rejects immediate navigation when its guard removes the root', async () => {
+it('rejects immediate navigation when its guard removes the root', () => {
   const navigate = vi.fn();
   function Link() {
     const [visible, setVisible] = useState(true);

@@ -286,7 +286,8 @@ the interaction.
 - Reattaching the same element within one React commit keeps pending work.
 - While the ref is detached, navigation is rejected: `matchClick` returns
   `null`, a candidate's `consume()` returns `null`, and an immediate press does
-  not call `beforeNavigate` or `navigate`. Existing click suppression can still
+  not call `beforeNavigate` or `navigate`. Like a canceled guard, that press
+  still suppresses its follow-up click. Existing click suppression can still
   settle.
 - Replacing the element or unmounting destroys the controller. If the ref stays
   detached, cleanup runs after the commit.

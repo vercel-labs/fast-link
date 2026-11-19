@@ -159,6 +159,40 @@ it('preserves the gesture when a renderer reattaches its ref to the same anchor'
   expect(accepted).toHaveBeenCalledExactlyOnceWith('/second', null);
 });
 
+it('passes enabled to the controller, discarding a held gesture when disabled', () => {
+  const prepare = vi.fn(() => 'prepared');
+  const accepted = vi.fn();
+  function Link({ enabled }: { enabled: boolean }) {
+    const binding = useClickPreparation({ enabled, prepare });
+    return (
+      <a
+        href="/guide"
+        ref={binding.ref}
+        onClick={(event) => {
+          const activation = binding.matchClick(event.nativeEvent)?.consume();
+          event.preventDefault();
+          if (activation) accepted(activation.prepared);
+        }}
+      >
+        Guide
+      </a>
+    );
+  }
+  const { getByRole, rerender } = render(<Link enabled />);
+  const anchor = getByRole('link');
+  press(anchor);
+  rerender(<Link enabled={false} />);
+  fireEvent.click(anchor, { detail: 1 });
+  press(anchor);
+  expect(accepted).not.toHaveBeenCalled();
+  expect(prepare).toHaveBeenCalledTimes(1);
+
+  rerender(<Link enabled />);
+  press(anchor);
+  fireEvent.click(anchor, { detail: 1 });
+  expect(accepted).toHaveBeenCalledExactlyOnceWith('prepared');
+});
+
 it.each(['before-match', 'after-match'] as const)(
   'rejects activation when a guard removes only the root %s and cleans up its listeners',
   async (timing) => {

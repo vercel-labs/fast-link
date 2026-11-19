@@ -88,6 +88,7 @@ function createRootBinding<
 
   function ensureController(): void {
     if (element && !controller) {
+      // `root` records which element owns the controller across a detach.
       controller = createController((root = element), options, isAttached);
     }
   }
@@ -105,7 +106,8 @@ function createRootBinding<
 
   function ref(nextElement: T | null): void {
     if (element === nextElement) return;
-    if (nextElement && root !== nextElement) destroyController();
+    const isReplacement = nextElement !== null && root !== nextElement;
+    if (isReplacement) destroyController();
     // Record the detachment first: caller ref cleanup can dispatch input.
     element = nextElement;
     replaceRef();
