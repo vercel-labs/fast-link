@@ -5,6 +5,7 @@
  */
 
 import type { FastLinkIntent } from '../interaction';
+import { createClickPreparation } from '../preparation';
 import type { LinkInteractionOptions, LinkMode } from './index';
 import { createLinkInteraction } from './index';
 
@@ -364,6 +365,47 @@ describe('ownership', () => {
       }
     } finally {
       Reflect.set(globalThis, key, previous);
+    }
+  });
+
+  it('keeps a native managed anchor native inside a preparation-only region', () => {
+    const root = setup('<a href="/guide">Guide</a>');
+    const anchor = find(root, 'a');
+    const prepare = vi.fn(() => 'region');
+    const region = createClickPreparation(root, { prepare });
+    const managed = createLinkInteraction(anchor, { mode: 'native' });
+    try {
+      press(anchor);
+      expect(prepare).not.toHaveBeenCalled();
+      expect(region.matchClick(clickEvent(anchor))).toBeNull();
+    } finally {
+      managed.destroy();
+      region.destroy();
+    }
+  });
+
+  it('gives a preparation-only managed anchor priority over a link interaction region', () => {
+    const root = setup('<a href="/guide">Guide</a>');
+    const anchor = find(root, 'a');
+    const navigate = vi.fn();
+    const region = createLinkInteraction<null>(root, {
+      mode: 'immediate',
+      navigate,
+    });
+    const managed = createClickPreparation(anchor, {
+      prepare: () => 'managed',
+    });
+    try {
+      press(anchor);
+      expect(navigate).not.toHaveBeenCalled();
+      expect(click(anchor)).toBe(false);
+      press(anchor);
+      expect(managed.matchClick(clickEvent(anchor))?.consume()?.prepared).toBe(
+        'managed',
+      );
+    } finally {
+      managed.destroy();
+      region.destroy();
     }
   });
 

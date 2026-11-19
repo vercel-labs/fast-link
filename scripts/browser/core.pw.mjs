@@ -61,6 +61,7 @@ test('fast-link: iframe', ({ page }) => checkIframe(page));
 for (const scenario of [
   'native-inner-region',
   'immediate-inner-region',
+  'release-inner-region',
   'switch-to-native',
 ]) {
   test(`link-interaction: ${scenario}`, ({ page }) =>
@@ -121,7 +122,7 @@ async function checkScenario(name, page, kind, scenario) {
         return;
       }
       bind(ownCore, controllerKind, root, ({ href }) => {
-        window.observed.routes.push(href);
+        window.observed.routes.push(`outer:${href}`);
         window.observed.order.push('navigate');
         // Press kinds change the DOM while navigating; release changes it before release.
         if (controllerKind === 'release') return;
@@ -137,7 +138,7 @@ async function checkScenario(name, page, kind, scenario) {
         root.append(inner);
         inner.append(anchor);
         bind(otherCopy, controllerKind, inner, ({ href }) =>
-          window.observed.routes.push(href),
+          window.observed.routes.push(`inner:${href}`),
         );
         if (caseName === 'copies-nonextensible') {
           document.addEventListener(
@@ -186,7 +187,7 @@ async function checkScenario(name, page, kind, scenario) {
   await page.mouse.down();
   assert.deepEqual(
     await page.evaluate(() => window.observed.routes),
-    isRelease ? [] : ['/first'],
+    isRelease ? [] : expectedRoutes(kind, scenario),
   );
   if (isRelease) await changePressedLink(page, scenario);
   if (scenario === 'descendant' || scenario === 'sibling') {
@@ -281,11 +282,14 @@ function changePressedLink(page, scenario) {
 }
 
 function expectedRoutes(kind, scenario) {
-  if (kind !== 'release') return ['/first'];
+  // The press controller keeps outer-first order; link interaction roots use the closest root.
+  const owner =
+    scenario.startsWith('copies-') && kind !== 'fast-link' ? 'inner' : 'outer';
+  if (kind !== 'release') return [`${owner}:/first`];
   // Release away, or removing the pressed target, cancels activation.
   if (['sibling', 'replace-anchor', 'remove-target'].includes(scenario))
     return [];
-  return [scenario === 'change-href' ? '/changed' : '/first'];
+  return [`${owner}:${scenario === 'change-href' ? '/changed' : '/first'}`];
 }
 
 async function checkSvg(page, kind, scenario) {
@@ -390,26 +394,25 @@ async function checkRegions(page, scenario) {
   await page.evaluate(async (caseName) => {
     const outerCore = await import('/core.js');
     const innerCore = await import('/core.js?copy=2');
+    const { bind } = await import('/binding.js');
     window.observed = { routes: [], clicks: [] };
     const modes = {
       'native-inner-region': ['immediate', 'native'],
       'immediate-inner-region': ['native', 'immediate'],
+      'release-inner-region': ['immediate', 'release'],
       'switch-to-native': ['native', 'immediate'],
     }[caseName];
     for (const [copy, name, mode] of [
       [outerCore, 'root', modes[0]],
       [innerCore, 'inner', modes[1]],
     ]) {
-      window[name] = copy.createLinkInteraction(
-        document.querySelector(`#${name}`),
+      const element = document.querySelector(`#${name}`);
+      window[name] =
         mode === 'native'
-          ? { mode }
-          : {
-              mode,
-              navigate: ({ href }) =>
-                window.observed.routes.push(`${name}:${href}`),
-            },
-      );
+          ? copy.createLinkInteraction(element, { mode })
+          : bind(copy, mode, element, ({ href }) =>
+              window.observed.routes.push(`${name}:${href}`),
+            );
     }
     document.addEventListener('click', (event) => {
       window.observed.clicks.push({
@@ -425,9 +428,11 @@ async function checkRegions(page, scenario) {
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   const isNative = scenario === 'native-inner-region';
+  // Release waits for the accepted click; the immediate outer root must not navigate.
+  const navigatesOnPress = !isNative && scenario !== 'release-inner-region';
   assert.deepEqual(
     await page.evaluate(() => window.observed.routes),
-    isNative ? [] : ['inner:/first'],
+    navigatesOnPress ? ['inner:/first'] : [],
   );
   if (scenario === 'switch-to-native') {
     await page.evaluate(() => window.inner.update({ mode: 'native' }));

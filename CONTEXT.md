@@ -1,6 +1,6 @@
 # Fast Link
 
-Fast Link starts eligible mouse navigation when a link is pressed, while other
+Fast Link speeds up eligible mouse link navigation from a press, while other
 interactions keep their native behavior.
 
 ## Language
