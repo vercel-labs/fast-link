@@ -37,13 +37,19 @@ export function resolveFastLink(
     !isPlainPrimaryEvent(event) ||
     // Touch and pen may start a gesture, so leave them to the browser.
     event.pointerType !== 'mouse' ||
-    isHandled(event)
+    // Another root or bundled copy already claimed this press.
+    handledEvents.has(event) ||
+    Reflect.get(event, HANDLED_EVENT) === true
   ) {
     return null;
   }
 
   const intent = getLinkIntent(event.target, anchor);
-  if (intent) markHandled(event);
+  if (intent) {
+    // The set covers events that cannot hold the symbol marker.
+    handledEvents.add(event);
+    Reflect.set(event, HANDLED_EVENT, true);
+  }
   return intent;
 }
 
@@ -107,15 +113,6 @@ export function findAnchor(
     anchor = anchor.parentElement?.closest('a') ?? null;
   }
   return anchor && root.contains(anchor) ? anchor : null;
-}
-
-function isHandled(event: Event): boolean {
-  return handledEvents.has(event) || Reflect.get(event, HANDLED_EVENT) === true;
-}
-
-function markHandled(event: Event): void {
-  handledEvents.add(event);
-  Reflect.set(event, HANDLED_EVENT, true);
 }
 
 function isOptedOut(
