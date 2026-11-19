@@ -55,6 +55,8 @@ vi.mock('next/link', async () => {
         ref,
         onClick(event) {
           onClick?.(event);
+          // Like Next Link, leave downloads to the browser without onNavigate.
+          if (event.currentTarget.hasAttribute('download')) return;
           if (!event.defaultPrevented) {
             event.preventDefault();
             onNavigate?.({ preventDefault: () => event.preventDefault() });

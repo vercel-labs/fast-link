@@ -2,7 +2,13 @@ import { fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import { pointerDown, router, captureErrors, stubLocation } from '../testing';
+import {
+  pointerDown,
+  router,
+  captureErrors,
+  stubLocation,
+  trackListeners,
+} from '../testing';
 import { FastLink } from './index';
 
 it('prepares before click and commits once after caller guards', () => {
@@ -259,3 +265,66 @@ it('uses an onNavigate guard committed during onClick', () => {
   expect(push).not.toHaveBeenCalled();
   expect(router.push).not.toHaveBeenCalled();
 });
+
+it('discards preparation in a microtask when Next Link never calls onNavigate', async () => {
+  const { getByRole } = render(
+    <FastLink
+      href="/guide"
+      onClick={(event) => event.currentTarget.setAttribute('download', '')}
+    >
+      Guide
+    </FastLink>,
+  );
+  const anchor = getByRole('link');
+  const stopPreventing = preventUnhandledClicks();
+  const listeners = trackListeners();
+  try {
+    pointerDown(anchor);
+    fireEvent.click(anchor, { detail: 1 });
+    expect(listeners.live()).not.toEqual([]);
+    await Promise.resolve();
+    expect(listeners.live()).toEqual([]);
+    expect(router.push).not.toHaveBeenCalled();
+  } finally {
+    listeners.restore();
+    stopPreventing();
+  }
+});
+
+it('discards preparation when the caller onClick throws', () => {
+  const failure = new Error('onClick failed');
+  const { getByRole } = render(
+    <FastLink
+      href="/guide"
+      onClick={() => {
+        throw failure;
+      }}
+    >
+      Guide
+    </FastLink>,
+  );
+  const anchor = getByRole('link');
+  const stopPreventing = preventUnhandledClicks();
+  const listeners = trackListeners();
+  try {
+    pointerDown(anchor);
+    expect(captureErrors(() => fireEvent.click(anchor, { detail: 1 }))).toEqual(
+      [failure],
+    );
+    expect(listeners.live()).toEqual([]);
+    expect(router.push).not.toHaveBeenCalled();
+  } finally {
+    listeners.restore();
+    stopPreventing();
+  }
+});
+
+// Keeps jsdom from attempting the document navigation of a click left native.
+function preventUnhandledClicks(): () => void {
+  document.addEventListener('click', preventDefault);
+  return () => document.removeEventListener('click', preventDefault);
+}
+
+function preventDefault(event: Event): void {
+  event.preventDefault();
+}
