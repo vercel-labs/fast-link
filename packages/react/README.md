@@ -160,6 +160,12 @@ returned object and its handlers are stable.
 the prevented event. A region's capture handler also suppresses a click owed to
 a managed link inside it.
 
+Avoid capture-phase `stopPropagation()` on clicks above an immediate root. It
+stops the follow-up click before core can prevent it, including from a React
+ancestor's `onClickCapture` whenever the React root container contains the
+immediate root. If the source link is still mounted at release, the click then
+also performs a document navigation.
+
 ## `useClickPreparation` reference
 
 `useClickPreparation<P, T>(options)` accepts `enabled`, `prepare(intent)`, and an
