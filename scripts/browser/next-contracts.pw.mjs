@@ -312,6 +312,7 @@ test.describe('release mode changes before acceptance', () => {
     const history = await historyLength(page);
     const requests = countRequests(page, DESTINATION);
     await pressAndHold(page, 'release-to-native');
+    await waitForPreparation(page, 'release-to-native');
     await page.mouse.up();
     await expectDestination(page, 'release-to-native');
     assert.deepEqual(await readLog(page), [
@@ -331,6 +332,7 @@ test.describe('release mode changes before acceptance', () => {
     const history = await historyLength(page);
     const requests = countRequests(page, DESTINATION);
     await pressAndHold(page, 'hook-to-native');
+    await waitForPreparation(page, 'hook-to-native');
     await page.mouse.up();
     await expectDestination(page, 'hook-to-native');
     // The renderer runs its own guards after the hook's guards, as documented.
@@ -421,6 +423,7 @@ test.describe('prefetch enabled during the guard', () => {
           await page.mouse.up();
         }
       } else {
+        await waitForPreparation(page, testId);
         await page.mouse.up();
       }
       await expectDestination(page, testId);
@@ -716,4 +719,11 @@ function readLog(page) {
 
 async function expectLog(page, entries) {
   await expect.poll(() => readLog(page)).toEqual(entries);
+}
+
+// Release preparation runs in the task after pointerdown, so a busy browser can
+// dispatch the click first and route without it (ADR 0006). Cases that expect
+// press-time preparation wait for its policy call before releasing.
+async function waitForPreparation(page, testId) {
+  if (expectsPreparation) await expectLog(page, [`${testId}:policy`]);
 }
