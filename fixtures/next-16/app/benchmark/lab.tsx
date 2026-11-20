@@ -1,25 +1,37 @@
 'use client';
 
-import { createLinkInteraction } from '@fast-link/core';
-import { FastLink, FastLinkRegion } from '@fast-link/next';
-import { useLinkInteraction } from '@fast-link/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLayoutEffect, useState, type JSX } from 'react';
 import { flushSync } from 'react-dom';
 
-// Browser protocol consumed by scripts/benchmarks/measure.mjs and navigation.mjs.
-// Fast Link variants use immediate mode, the press-time navigation these
-// benchmarks measure.
+import {
+  api,
+  BenchmarkFastLink,
+  BenchmarkRegion,
+  bindCore,
+  supportedModes,
+  useAnchorBinding,
+  type Mode,
+} from './bindings';
 
-type Variant = 'bare' | 'core' | 'plain' | 'react' | 'next' | 'fast' | 'region';
+// Browser protocol consumed by scripts/benchmarks/measure.mjs and navigation.mjs.
+// Fast Link variants run in an explicit mode; `next` and `plain` have none.
+
+type Variant = 'plain' | 'react' | 'next' | 'fast' | 'region';
 type Metric = { unit: 'us/op' | 'ms'; value: number; correct: boolean };
 type InteractionWorkload = { interactions: number; warmup: number };
 type List = {
   variant: Variant;
+  mode: Mode;
   count: number;
   version: number;
   navigation: boolean;
+  prefetch: boolean;
+  // Navigation destination; defaults to the static target.
+  destination?: string;
+  // Changes on every render request so an unchanged list still rerenders.
+  render: number;
 };
 type Navigation = {
   start: number;
@@ -30,17 +42,36 @@ type Navigation = {
   suppressed: number;
 };
 type Lab = {
+  api: string;
+  modes: readonly Mode[];
+  preparation: boolean;
   micro: (
     variant: 'bare' | 'core',
+    mode: Mode,
     workload: InteractionWorkload,
   ) => Record<string, Metric>;
-  lifecycle: (variant: Variant, count: number) => Record<string, Metric>;
+  lifecycle: (
+    variant: Variant,
+    mode: Mode,
+    count: number,
+  ) => Record<string, Metric>;
+  modeSwitch: (
+    variant: 'fast' | 'region',
+    modes: readonly Mode[],
+    count: number,
+  ) => Record<string, Metric>;
   interaction: (
     variant: 'plain' | 'react',
+    mode: Mode,
     workload: InteractionWorkload,
   ) => Record<string, Metric>;
-  navigation: (variant: 'next' | 'fast' | 'region') => void;
-  prefetch: () => void;
+  navigation: (
+    variant: 'next' | 'fast' | 'region',
+    mode: Mode,
+    prefetch: boolean,
+    destination?: string,
+  ) => void;
+  prefetch: (destination?: string) => void;
   events: Navigation;
 };
 
@@ -51,9 +82,12 @@ declare global {
   }
 }
 
+const TARGET = '/benchmark/target';
+
 let navigations = 0;
 let updatedNavigations = 0;
 let suppressedClicks = 0;
+let renders = 0;
 const navigate = () => {
   navigations++;
 };
@@ -63,17 +97,14 @@ const navigateUpdated = () => {
 
 // Rendered variants share content, destination, and wrapper structure.
 
-function ReactAnchor({ version }: { version: number }) {
+function ReactAnchor({ version, mode }: { version: number; mode: Mode }) {
   const callback = version ? navigateUpdated : navigate;
-  const bindings = useLinkInteraction<never, HTMLAnchorElement>({
-    mode: 'immediate',
-    navigate: callback,
-  });
+  const binding = useAnchorBinding(mode, callback);
   return (
     <a
       href={`/docs/benchmark/target?v=${version}`}
-      ref={bindings.ref}
-      onClickCapture={bindings.suppressClick}
+      ref={binding.ref}
+      onClickCapture={binding.onClickCapture}
       onClick={(event) => {
         if (event.defaultPrevented) suppressedClicks++;
         event.preventDefault();
@@ -104,37 +135,48 @@ function PlainAnchor({ version }: { version: number }) {
   );
 }
 
-function Links({ variant, count, version, navigation }: List) {
+/** Counts link clicks that a Fast Link binding prevented before `onClick`. */
+function countSuppressed(event: { defaultPrevented: boolean }) {
+  if (event.defaultPrevented) window.benchmark.events.suppressed++;
+}
+
+function Links({
+  variant,
+  mode,
+  count,
+  version,
+  navigation,
+  prefetch,
+  destination = TARGET,
+}: List) {
+  renders++;
+  const href = navigation ? destination : `${TARGET}?v=${version}`;
+  // `undefined` keeps Next Link's default prefetch for the prefetch cache case.
+  const prefetchProp = prefetch ? undefined : false;
   const children = Array.from({ length: count }, (_, index) => {
     if (variant === 'plain')
       return <PlainAnchor key={index} version={version} />;
     if (variant === 'react')
-      return <ReactAnchor key={index} version={version} />;
-    const props = {
-      href: navigation ? '/benchmark/target' : `/benchmark/target?v=${version}`,
-      prefetch: false,
-      children: `Link ${version}`,
-      onClick: (event: { defaultPrevented: boolean }) => {
-        if (event.defaultPrevented) window.benchmark.events.suppressed++;
-      },
-    };
+      return <ReactAnchor key={index} version={version} mode={mode} />;
     if (variant === 'fast')
       return (
-        <FastLink
+        <BenchmarkFastLink
           key={index}
-          {...props}
-          mode="immediate"
+          href={href}
+          prefetch={prefetchProp}
+          onClick={countSuppressed}
+          mode={mode}
           onFastNavigate={() => window.benchmark.events.accepted++}
-        />
+        >
+          Link {version}
+        </BenchmarkFastLink>
       );
     return (
       <Link
         key={index}
-        onClick={props.onClick}
-        href={
-          navigation ? '/benchmark/target' : `/benchmark/target?v=${version}`
-        }
-        prefetch={false}
+        onClick={countSuppressed}
+        href={href}
+        prefetch={prefetchProp}
       >
         Link {version}
       </Link>
@@ -143,13 +185,13 @@ function Links({ variant, count, version, navigation }: List) {
   // All Next variants have the same wrapper and anchor structure.
   if (variant === 'region')
     return (
-      <FastLinkRegion
+      <BenchmarkRegion
         basePath="/docs"
-        mode="immediate"
+        mode={mode}
         onFastNavigate={() => window.benchmark.events.accepted++}
       >
         {children}
-      </FastLinkRegion>
+      </BenchmarkRegion>
     );
   return <div style={{ display: 'contents' }}>{children}</div>;
 }
@@ -182,12 +224,24 @@ function bareClick(event: MouseEvent) {
   event.preventDefault();
 }
 
-/** Excludes event construction and warmup from the timed dispatch loop. */
+/** Whether an accepted press/click pair navigates and prevents its click. */
+function isAccelerated(
+  variant: 'bare' | 'core' | 'plain' | 'react',
+  mode: Mode,
+) {
+  return variant === 'bare' || variant === 'plain' || mode !== 'native';
+}
+
+/**
+ * Excludes event construction and warmup from the timed dispatch loop.
+ * `prevented` counts clicks the measured binding prevented before they reached
+ * the caller's last handler; plain anchors have no binding to check.
+ */
 function interactions(
   anchor: HTMLAnchorElement,
   { interactions: iterations, warmup }: InteractionWorkload,
-  fast: boolean,
-  react = false,
+  accelerated: boolean,
+  prevented: (() => number) | null,
 ): Record<string, Metric> {
   const measure = (ignored: boolean) => {
     const events = Array.from({ length: iterations + warmup }, () => ({
@@ -203,7 +257,7 @@ function interactions(
 
     navigations = 0;
     suppressedClicks = 0;
-    let prevented = 0;
+    const preventedBefore = prevented?.() ?? 0;
 
     const start = performance.now();
     for (const { down, up } of events.slice(warmup)) {
@@ -212,13 +266,10 @@ function interactions(
     }
     const elapsed = performance.now() - start;
 
-    for (const { up } of events.slice(warmup))
-      if (up.defaultPrevented) prevented++;
-
+    const expected = !ignored && accelerated ? iterations : 0;
     const correct =
-      navigations === (ignored ? 0 : iterations) &&
-      (ignored || !fast || prevented === iterations) &&
-      (ignored || !react || suppressedClicks === iterations);
+      navigations === expected &&
+      (ignored || !prevented || prevented() - preventedBefore === expected);
     return {
       value: (elapsed * 1000) / iterations,
       unit: 'us/op' as const,
@@ -230,34 +281,57 @@ function interactions(
 
 // Scenario execution and correctness checks.
 
-type RenderList = (value: List | null) => void;
+type RenderList = (value: Omit<List, 'render'> | null) => void;
+
+/** Dispatches a press/click pair to a removed anchor; returns whether nothing navigated. */
+function isDetachedInert(anchor: HTMLAnchorElement, before: () => number) {
+  const start = before();
+  anchor.addEventListener('click', bareClick, { once: true });
+  anchor.dispatchEvent(press());
+  anchor.dispatchEvent(click());
+  anchor.removeEventListener('click', bareClick);
+  return before() === start;
+}
 
 /** Measures core dispatch and verifies retained anchors stop navigating after destroy. */
 function measureCore(
   area: HTMLElement,
   variant: 'bare' | 'core',
+  mode: Mode,
   workload: InteractionWorkload,
 ): Record<string, Metric> {
   const anchor = document.createElement('a');
   anchor.href = '/docs/benchmark/target';
   area.append(anchor);
-  const controller =
-    variant === 'core'
-      ? createLinkInteraction(anchor, { mode: 'immediate', navigate })
-      : null;
-  if (!controller) {
+  let cleanup = () => {
+    anchor.removeEventListener('pointerdown', bareDown);
+    anchor.removeEventListener('click', bareClick);
+  };
+  if (variant === 'core') cleanup = bindCore(anchor, mode, navigate);
+  else {
     anchor.addEventListener('pointerdown', bareDown);
     anchor.addEventListener('click', bareClick);
   }
+  // Registered last, so it observes the measured variant's prevention and
+  // keeps a native-mode click from following the link.
+  let prevented = 0;
+  const lastClick = (event: MouseEvent) => {
+    if (event.defaultPrevented) prevented++;
+    event.preventDefault();
+  };
+  anchor.addEventListener('click', lastClick);
 
-  const result = interactions(anchor, workload, true);
+  const result = interactions(
+    anchor,
+    workload,
+    isAccelerated(variant, mode),
+    () => prevented,
+  );
 
-  controller?.destroy();
-  anchor.removeEventListener('pointerdown', bareDown);
-  anchor.removeEventListener('click', bareClick);
+  cleanup();
+  anchor.removeEventListener('click', lastClick);
   navigations = 0;
-  anchor.dispatchEvent(press());
-  result.accepted.correct &&= navigations === 0;
+  result.accepted.correct &&= isDetachedInert(anchor, () => navigations);
   anchor.remove();
 
   return result;
@@ -268,9 +342,17 @@ function measureReactInteraction(
   area: HTMLElement,
   render: RenderList,
   variant: 'plain' | 'react',
+  mode: Mode,
   workload: InteractionWorkload,
 ): Record<string, Metric> {
-  render({ variant, count: 1, version: 0, navigation: false });
+  render({
+    variant,
+    mode,
+    count: 1,
+    version: 0,
+    navigation: false,
+    prefetch: false,
+  });
 
   const anchor = area.querySelector('a');
   if (!anchor) throw new Error('Missing benchmark anchor');
@@ -278,34 +360,42 @@ function measureReactInteraction(
   const result = interactions(
     anchor,
     workload,
-    variant === 'react',
-    variant === 'react',
+    isAccelerated(variant, mode),
+    variant === 'react' ? () => suppressedClicks : null,
   );
 
   render(null);
   navigations = 0;
-  anchor.dispatchEvent(press());
-  result.accepted.correct &&= navigations === 0;
+  result.accepted.correct &&= isDetachedInert(anchor, () => navigations);
 
   return result;
 }
 
-/** Times synchronous mount, changed hrefs/labels, and cleanup; checks run outside timing. */
+/**
+ * Times synchronous mount, an unchanged rerender, changed hrefs/labels, and
+ * cleanup; checks run outside timing.
+ */
 function measureLifecycle(
   area: HTMLElement,
   render: RenderList,
   events: Navigation,
   variant: Variant,
+  mode: Mode,
   count: number,
 ): Record<string, Metric> {
-  const mount = timeCommit(() =>
-    render({ variant, count, version: 0, navigation: false }),
-  );
+  const list = { variant, mode, count, navigation: false, prefetch: false };
+  const mount = timeCommit(() => render({ ...list, version: 0 }));
   mount.correct = area.querySelectorAll('a').length === count;
 
-  const update = timeCommit(() =>
-    render({ variant, count, version: 1, navigation: false }),
-  );
+  const mounted = [...area.querySelectorAll('a')];
+  const rendersBefore = renders;
+  const rerender = timeCommit(() => render({ ...list, version: 0 }));
+  rerender.correct =
+    renders === rendersBefore + 1 &&
+    isSameAnchors(area, mounted) &&
+    mounted.every((a) => a.search === '?v=0');
+
+  const update = timeCommit(() => render({ ...list, version: 1 }));
   update.correct = [...area.querySelectorAll('a')].every(
     (a) => a.textContent === 'Link 1' && a.search === '?v=1',
   );
@@ -316,7 +406,8 @@ function measureLifecycle(
     updatedNavigations = 0;
     anchor.dispatchEvent(press());
     anchor.dispatchEvent(click());
-    update.correct &&= updatedNavigations === 1;
+    update.correct &&=
+      updatedNavigations === (isAccelerated(variant, mode) ? 1 : 0);
   }
 
   const unmount = timeCommit(() => render(null));
@@ -328,7 +419,46 @@ function measureLifecycle(
     updatedNavigations === 0 &&
     events.accepted === acceptedBefore;
 
-  return { mount, update, unmount };
+  return { mount, rerender, update, unmount };
+}
+
+/**
+ * Mounts the first mode outside timing, then times each change to the next
+ * mode in order, ending on the first again. A mode change keeps every anchor.
+ */
+function measureModeSwitch(
+  area: HTMLElement,
+  render: RenderList,
+  variant: 'fast' | 'region',
+  modes: readonly Mode[],
+  count: number,
+): Record<string, Metric> {
+  const list = {
+    variant,
+    count,
+    version: 0,
+    navigation: false,
+    prefetch: false,
+  };
+  render({ ...list, mode: modes[0] });
+  const mounted = [...area.querySelectorAll('a')];
+  const metrics: Record<string, Metric> = {};
+  for (let index = 1; index <= modes.length; index++) {
+    const mode = modes[index % modes.length];
+    const metric = timeCommit(() => render({ ...list, mode }));
+    metric.correct = mounted.length === count && isSameAnchors(area, mounted);
+    metrics[mode] = metric;
+  }
+  render(null);
+  return metrics;
+}
+
+function isSameAnchors(area: HTMLElement, expected: HTMLAnchorElement[]) {
+  const anchors = area.querySelectorAll('a');
+  return (
+    anchors.length === expected.length &&
+    expected.every((anchor, index) => anchors[index] === anchor)
+  );
 }
 
 /** Times a synchronous operation in milliseconds; assertions run afterward. */
@@ -377,7 +507,9 @@ export function BenchmarkLab(): JSX.Element {
   useLayoutEffect(() => {
     const area = document.querySelector<HTMLElement>('[data-benchmark-area]');
     if (!area) throw new Error('Missing benchmark area');
-    const render = (value: List | null) => flushSync(() => setList(value));
+    let requests = 0;
+    const render: RenderList = (value) =>
+      flushSync(() => setList(value && { ...value, render: ++requests }));
     const events: Navigation = {
       start: 0,
       release: 0,
@@ -389,15 +521,32 @@ export function BenchmarkLab(): JSX.Element {
     const stopObserving = observeNavigation(area, events);
 
     window.benchmark = {
+      api,
+      modes: supportedModes,
+      // Release preparation needs this router method from the pinned runtime.
+      preparation:
+        typeof (router as { experimental_prepare?: unknown })
+          .experimental_prepare === 'function',
       events,
-      prefetch: () => router.prefetch('/benchmark/target'),
-      navigation: (variant) =>
-        render({ variant, count: 1, version: 0, navigation: true }),
-      micro: (variant, workload) => measureCore(area, variant, workload),
-      interaction: (variant, workload) =>
-        measureReactInteraction(area, render, variant, workload),
-      lifecycle: (variant, count) =>
-        measureLifecycle(area, render, events, variant, count),
+      prefetch: (destination = TARGET) => router.prefetch(destination),
+      navigation: (variant, mode, prefetch, destination) =>
+        render({
+          variant,
+          mode,
+          count: 1,
+          version: 0,
+          navigation: true,
+          prefetch,
+          destination,
+        }),
+      micro: (variant, mode, workload) =>
+        measureCore(area, variant, mode, workload),
+      interaction: (variant, mode, workload) =>
+        measureReactInteraction(area, render, variant, mode, workload),
+      lifecycle: (variant, mode, count) =>
+        measureLifecycle(area, render, events, variant, mode, count),
+      modeSwitch: (variant, modes, count) =>
+        measureModeSwitch(area, render, variant, modes, count),
     };
     return stopObserving;
   }, [router]);
