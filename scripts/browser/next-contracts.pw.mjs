@@ -722,8 +722,8 @@ async function expectLog(page, entries) {
 }
 
 // Release preparation runs in the task after pointerdown, so a busy browser can
-// dispatch the click first and route without it (ADR 0006). Cases that expect
-// press-time preparation wait for its policy call before releasing.
+// dispatch pointerup and click first and route without it (ADR 0006). Cases
+// that expect press-time preparation wait for its policy call before releasing.
 async function waitForPreparation(page, testId) {
   if (expectsPreparation) await expectLog(page, [`${testId}:policy`]);
 }
