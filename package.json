@@ -12,6 +12,7 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "prepare": "lefthook install || true",
+    "probe:soft-navigation": "node scripts/browser/soft-navigation/run.mjs",
     "size": "turbo run size",
     "test": "turbo run test",
     "test:browser": "turbo run test:browser",

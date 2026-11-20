@@ -53,6 +53,7 @@ Keep exhaustive cases with their owner:
 - Prove actual Next Link/router behavior, hydration, history, scroll, base paths, prefetch, and composed navigation.
 - Extend `fixtures/next-16` with `scripts/browser/next.pw.mjs` for app behavior, or `scripts/browser/next-contracts.pw.mjs` for navigation mode contracts; keep the production app pinned.
 - Router mocks cannot establish real framework behavior.
+- When a change can alter when Next entry points commit navigation, run `pnpm probe:soft-navigation --output FILE` manually to compare Chrome soft-navigation reporting with Next Link; see [browser suites](../../../CONTRIBUTING.md#browser-suites).
 - Preserve `fixtures/core` to verify the built public core package in Node without framework or browser globals.
 - Use `fixtures/react` to verify SSR through the built public React package without DOM globals.
 
