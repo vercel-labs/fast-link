@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- Add `useLinkInteraction` and `LinkInteractionBinding` to bind a core link
+  interaction controller in `release`, `immediate`, or `native` mode. Changing
+  the mode keeps the element, the controller, and any follow-up click
+  suppression. `suppressClick` also prevents the React event.
+- Add `useClickPreparation` to bind core click preparation, with its `enabled`
+  option.
+- Both hooks keep pending work when a ref reattaches to the same element,
+  reject activation while the ref is detached, and destroy the controller when
+  the element is replaced or unmounts.
 - Update the core dependency to `^0.1.0`.
 
 ## 0.0.2
