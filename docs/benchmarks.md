@@ -122,6 +122,7 @@ The proxy in [`delay-proxy.mjs`](../scripts/benchmarks/delay-proxy.mjs) sits bet
 
 - It delays every TCP chunk by RTT/2 in each direction, in arrival order, and keeps streamed chunk boundaries.
 - It models a warm keep-alive connection. Connection setup isn't delayed and bandwidth isn't limited.
+- It buffers delayed chunks without backpressure, which is fine for fixture-sized payloads.
 - Each sample loads and hydrates the source page without delay, then turns the delay on.
 - Chrome DevTools Protocol latency emulation isn't used. It starts the response delay when the request is sent, so the delay overlaps server time instead of adding to it.
 
@@ -129,18 +130,13 @@ The dynamic destination, `fixtures/next-16/app/benchmark/dynamic`, calls `connec
 
 - A prefetch must return a successful route response. It isn't required to contain destination content, because a dynamic prefetch carries none.
 - Every navigation, cold or prefetched, must make exactly one route request after the press. Prefetch requests made before the press don't count.
-- A dynamic route request may end as `net::ERR_ABORTED`, but only after a successful response. Any other failure, an abort without a successful response, or an abort on the static destination fails the run. Each `navigationChecks` entry records `beforeAborts` and `navigationAborts`.
+- A dynamic route request may end as `net::ERR_ABORTED`, but only after a successful response. Any other failure, an abort without a successful response, or an abort on the static destination fails the run. Each `navigationChecks` entry records `beforeAborts` and `navigationAborts`, and the report's `routeAborts` totals them per scenario.
 
-Chromium reports these aborts for Next Link and every Fast Link mode alike, so Fast Link does not cause them. The proxy doesn't cause them either. Over 12 pages each, measured with Playwright request events:
-
-| Connection          | Full prefetch aborted | Navigation aborted |
-| ------------------- | --------------------- | ------------------ |
-| Direct, no proxy    | 11 of 12              | 12 of 12           |
-| Proxy at RTT 100 ms | 3 of 12               | 12 of 12           |
+Chromium reports these aborts for Next Link, release and immediate, so Fast Link does not cause them. The proxy doesn't cause them either. On 2026-11-20, at the revision before this network matrix was added, Playwright request events over 12 pages each showed Next Link's default prefetch request aborted on 11 of 12 pages over a direct connection and on 3 of 12 through the proxy at 100 ms RTT. The navigation request was aborted on all 12 pages in both cases.
 
 The underlying cause hasn't been established.
 Destination commit still requires the destination content. Only the navigation request can deliver it, because a dynamic prefetch carries no page data.
-If prefetched data were lost, the navigation would refetch and fail the one-request check.
+The one-request check can't tell whether a prefetch was used, because a dynamic navigation makes one request either way; `beforeAborts` records aborted prefetches.
 
 Before each press, a delayed run also waits until the page has had no request in flight for 50 ms. On a delayed network, a prefetch response triggers the destination's client chunk request only after it arrives. Without this wait, pressing during that load times the chunk instead of the navigation.
 

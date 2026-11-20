@@ -1,4 +1,4 @@
-import { summarize, validateReport } from './report.mjs';
+import { summarize, summarizeRouteAborts, validateReport } from './report.mjs';
 
 /** Combines one revision's batches and validates the resulting complete report. */
 export function combineBatches(reports) {
@@ -8,6 +8,7 @@ export function combineBatches(reports) {
   combined.navigationChecks = reports.flatMap(
     (report) => report.navigationChecks ?? [],
   );
+  combined.routeAborts = summarizeRouteAborts(combined.navigationChecks);
   combined.elapsedMs = reports.reduce(
     (sum, report) => sum + report.elapsedMs,
     0,

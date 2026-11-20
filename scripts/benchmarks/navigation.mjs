@@ -164,13 +164,13 @@ async function prepareCache(
     await requireRouteResponses(
       [(await prefetched).request()],
       requests,
-      destination,
+      destination.name,
     );
   if (settleNetwork) await waitForQuietNetwork(requests.pending);
   const abortedRequests = await requireRouteResponses(
     routeRequests,
     requests,
-    destination,
+    destination.name,
   );
   const beforeRequests = routeRequests.length;
   if (
@@ -203,24 +203,21 @@ async function pressAndWait(page, holdMs) {
 /**
  * Requires a successful response for each route request and that the request
  * finished; returns how many ended aborted instead. Chromium reports dynamic
- * destination requests as `net::ERR_ABORTED` after their successful response,
- * for Next Link and every Fast Link mode alike, and with or without network
- * delay. Only that abort is tolerated: a navigation that lost prefetch data
- * would refetch and fail `verifyCacheUse`, and the committed destination
- * content, checked separately, could only arrive in the navigation request.
+ * route requests as `net::ERR_ABORTED` after their successful response, for
+ * Next Link, release and immediate, with or without network delay. Only that
+ * abort is tolerated. The one-request check in `verifyCacheUse` can't tell
+ * whether a prefetch was used, because a dynamic navigation makes one request
+ * either way; `beforeAborts` records aborted prefetches. `route` is `static` or
+ * `dynamic`.
  */
-export async function requireRouteResponses(
-  routeRequests,
-  requests,
-  destination,
-) {
+export async function requireRouteResponses(routeRequests, requests, route) {
   const failures = await Promise.all(
     routeRequests.map(async (request) => {
       const failure = await requests.settled(request);
       if (!(await request.response())?.ok())
         throw new Error('Benchmark route response failed');
       const isToleratedAbort =
-        destination.name === 'dynamic' && failure === 'net::ERR_ABORTED';
+        route === 'dynamic' && failure === 'net::ERR_ABORTED';
       if (failure && !isToleratedAbort)
         throw new Error(`Benchmark route request failed: ${failure}`);
       return failure;
@@ -236,14 +233,9 @@ export async function requireRouteResponses(
  * navigation must not request the route and cold navigation must. Static
  * prefetch navigation records what Next requested without a requirement.
  */
-export function verifyCacheUse(
-  cache,
-  destination,
-  beforeRequests,
-  requestCount,
-) {
+export function verifyCacheUse(cache, route, beforeRequests, requestCount) {
   const navigationRequests = requestCount - beforeRequests;
-  if (destination === 'dynamic') {
+  if (route === 'dynamic') {
     if (navigationRequests !== 1)
       throw new Error(
         `Dynamic navigation made ${navigationRequests} route requests`,
@@ -277,8 +269,9 @@ function readRouteTimings(page, routePath) {
  * cache. Timings are pointerdown to destination client layout effect
  * (`navigation`), pointerdown to pointerup (`pressDuration`), and pointerup to
  * destination commit (`releaseToCommit`, negative when committed before release).
- * The destination commit is not a paint timestamp. `destination` is `static`
- * or `dynamic`; `settleNetwork` waits for network quiet before pressing.
+ * The destination commit is not a paint timestamp. The `destination` option
+ * names the route, `static` or `dynamic`; `settleNetwork` waits for network
+ * quiet before pressing.
  */
 export async function measureNavigation(
   openPage,
@@ -287,14 +280,14 @@ export async function measureNavigation(
     mode,
     cache,
     holdMs,
-    destination: name = 'static',
+    destination: route = 'static',
     settleNetwork = false,
     batch,
     sample,
   },
 ) {
-  const href = DESTINATION_HREFS[name];
-  const destination = { name, href, path: `${BASE_PATH}${href}` };
+  const href = DESTINATION_HREFS[route];
+  const destination = { name: route, href, path: `${BASE_PATH}${href}` };
   const { context, page } = await openPage();
   try {
     const requests = trackRequests(page);
@@ -325,7 +318,7 @@ export async function measureNavigation(
     const navigationAborts = await requireRouteResponses(
       routeRequests.slice(beforeRequests),
       requests,
-      destination,
+      route,
     );
     const observed = await page.evaluate(() => ({
       ...window.benchmark.events,
@@ -338,7 +331,7 @@ export async function measureNavigation(
     const expected = expectedNavigation(variant, mode);
     const correct = navigationCorrect(observed, expected, historyBefore);
 
-    verifyCacheUse(cache, name, beforeRequests, routeRequests.length);
+    verifyCacheUse(cache, route, beforeRequests, routeRequests.length);
 
     const metric = (value, signed = false) => ({
       value,
@@ -359,7 +352,7 @@ export async function measureNavigation(
         variant,
         mode: variant === 'next' ? null : mode,
         cache,
-        route: name,
+        route,
         holdMs,
         batch,
         sample,

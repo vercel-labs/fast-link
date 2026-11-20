@@ -163,13 +163,10 @@ export function createMeasurements(browser, origin, result, proxy) {
               batch,
               sample,
             });
-            saveMetrics(
-              `${scenarioPrefix('next', variant, mode)}.${cache}.hold${holdMs}`,
-              metrics,
-              batch,
-            );
+            const scenario = `${scenarioPrefix('next', variant, mode)}.${cache}.hold${holdMs}`;
+            saveMetrics(scenario, metrics, batch);
             result.navigationChecks ??= [];
-            result.navigationChecks.push(check);
+            result.navigationChecks.push({ scenario, ...check });
           }
   }
 
@@ -206,13 +203,10 @@ export function createMeasurements(browser, origin, result, proxy) {
                   sample,
                 },
               );
-              saveMetrics(
-                `${scenarioPrefix('next', variant, mode)}.rtt${rttMs}.${destination}.${cache}.hold${holdMs}`,
-                metrics,
-                batch,
-              );
+              const scenario = `${scenarioPrefix('next', variant, mode)}.rtt${rttMs}.${destination}.${cache}.hold${holdMs}`;
+              saveMetrics(scenario, metrics, batch);
               result.navigationChecks ??= [];
-              result.navigationChecks.push(check);
+              result.navigationChecks.push({ scenario, ...check });
             }
   }
 

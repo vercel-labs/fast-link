@@ -29,6 +29,26 @@ export function summarize(samples, { signed = false } = {}) {
   };
 }
 
+/**
+ * Totals route request aborts per navigation scenario so a change in abort
+ * rates shows without reading every check. Keys are scenario IDs without the
+ * metric name.
+ */
+export function summarizeRouteAborts(navigationChecks = []) {
+  const totals = {};
+  for (const { scenario, beforeAborts, navigationAborts } of navigationChecks) {
+    const total = (totals[scenario] ??= {
+      navigations: 0,
+      beforeAborts: 0,
+      navigationAborts: 0,
+    });
+    total.navigations++;
+    total.beforeAborts += beforeAborts;
+    total.navigationAborts += navigationAborts;
+  }
+  return totals;
+}
+
 /** Rejects incomplete work before accepting a measurement. */
 export function validateReport(report) {
   if (
