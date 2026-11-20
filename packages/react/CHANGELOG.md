@@ -7,7 +7,7 @@
   the mode keeps the element, the controller, and any follow-up click
   suppression. `suppressClick` also prevents the React event.
 - Add `useClickPreparation` to bind core click preparation, with its `enabled`
-  option.
+  option. Release preparation runs in the task after press, as in core.
 - Both hooks keep pending work across same-element reattachment, leave presses
   native and reject activation while detached, and destroy the controller when
   the element is replaced or unmounts.

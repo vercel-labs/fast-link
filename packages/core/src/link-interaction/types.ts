@@ -13,10 +13,14 @@ export type LinkInteractionOptions<P> =
   | ImmediateLinkOptions
   | NativeLinkOptions;
 
-/** Prepares on eligible press; the adapter accepts the matching click and navigates. */
+/** Prepares after eligible press; the adapter accepts the matching click and navigates. */
 export interface ReleaseLinkOptions<P> {
   mode: 'release';
-  /** Starts work without navigating. Errors are ignored and leave click-time navigation available. */
+  /**
+   * Starts work without navigating, in the task after an eligible press. A
+   * gesture discarded, matched, or no longer owned before then is not
+   * prepared. Errors are ignored and leave click-time navigation available.
+   */
   prepare(intent: FastLinkIntent): P | null;
 }
 

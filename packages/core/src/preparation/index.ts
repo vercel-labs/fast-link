@@ -27,7 +27,8 @@ export interface ClickPreparationController<P> {
 }
 
 /**
- * Prepares eligible mouse presses, then matches their clicks without navigating.
+ * Prepares in the task after an eligible mouse press, then matches its click
+ * without navigating.
  * Managed anchors retain priority even when disabled. New input, drag, cancellation,
  * release away, and destruction discard preparation. Destroy when the root detaches.
  * Discarding opaque preparation does not cancel provider work.

@@ -1,7 +1,7 @@
 import type { FastLinkIntent } from '../interaction';
 import { createClickPreparation } from './index';
 
-function press(target: Element, options: MouseEventInit = {}): void {
+function dispatchPress(target: Element, options: MouseEventInit = {}): void {
   const event = new MouseEvent('pointerdown', {
     bubbles: true,
     cancelable: true,
@@ -10,6 +10,12 @@ function press(target: Element, options: MouseEventInit = {}): void {
   });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   target.dispatchEvent(event);
+}
+
+/** Presses, then runs the preparation task that follows the press. */
+function press(target: Element, options: MouseEventInit = {}): void {
+  dispatchPress(target, options);
+  vi.runOnlyPendingTimers();
 }
 
 function click(target: Element, options: MouseEventInit = {}): MouseEvent {
@@ -26,7 +32,15 @@ function failPreparation(): never {
   throw new Error('speculative failure');
 }
 
-it('prepares on press and consumes a matched click only once', () => {
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+it('prepares after press and consumes a matched click only once', () => {
   const anchor = document.body.appendChild(document.createElement('a'));
   anchor.href = '/pricing';
   const prepared = { request: 'pricing' };
@@ -39,6 +53,7 @@ it('prepares on press and consumes a matched click only once', () => {
     });
     Object.defineProperty(pressEvent, 'pointerType', { value: 'mouse' });
     anchor.dispatchEvent(pressEvent);
+    vi.runOnlyPendingTimers();
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(window.location.pathname).toBe('/');
 
@@ -74,7 +89,6 @@ it.each([
   'release-no-click',
   'destroy',
 ])('discards after %s', async (action) => {
-  vi.useFakeTimers();
   const anchor = document.body.appendChild(document.createElement('a'));
   anchor.href = '/guide';
   const controller = createClickPreparation(anchor, {
@@ -96,7 +110,6 @@ it.each([
   } finally {
     controller.destroy();
     anchor.remove();
-    vi.useRealTimers();
   }
 });
 
@@ -189,6 +202,7 @@ it('coordinates nested roots, disabled managed anchors, frozen events, and separ
     const event = new MouseEvent('pointerdown', { bubbles: true, button: 0 });
     Object.defineProperty(event, 'pointerType', { value: 'mouse' });
     anchor.dispatchEvent(Object.freeze(event));
+    vi.runOnlyPendingTimers();
     expect(outerPrepare).toHaveBeenCalledTimes(1);
     expect(innerPrepare).not.toHaveBeenCalled();
     const activationEvent = Object.freeze(click(anchor));
@@ -241,6 +255,7 @@ it.each([
       pointerId: { value: 7 },
     });
     anchor.dispatchEvent(down);
+    vi.runOnlyPendingTimers();
     expect(prepare).toHaveBeenCalledTimes(1);
 
     const event = click(anchor);
@@ -297,7 +312,6 @@ it.each([
 it.each(['consume', 'cancel', 'destroy'] as const)(
   'releases gesture listeners and the release timer after %s',
   (finish) => {
-    vi.useFakeTimers();
     const host = document.body.appendChild(document.createElement('div'));
     const shadow = host.attachShadow({ mode: 'closed' });
     const anchor = shadow.appendChild(document.createElement('a'));
@@ -351,7 +365,6 @@ it.each(['consume', 'cancel', 'destroy'] as const)(
         remove.mockRestore();
       }
       host.remove();
-      vi.useRealTimers();
     }
   },
 );
@@ -568,5 +581,125 @@ it('prepares and consumes nothing while the root is inactive', () => {
   } finally {
     controller.destroy();
     anchor.remove();
+  }
+});
+
+it('prepares in the task after pointerdown, not during it', () => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => 'request');
+  const controller = createClickPreparation(anchor, { prepare });
+  try {
+    dispatchPress(anchor);
+    expect(prepare).not.toHaveBeenCalled();
+    vi.runOnlyPendingTimers();
+    expect(prepare).toHaveBeenCalledExactlyOnceWith({
+      anchor,
+      href: '/guide',
+      url: new URL('https://example.com/guide'),
+    });
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
+it('gives a click matched before the task no preparation and never prepares', () => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => 'request');
+  const controller = createClickPreparation(anchor, { prepare });
+  try {
+    dispatchPress(anchor);
+    expect(controller.matchClick(click(anchor))?.consume()).toEqual({
+      intent: {
+        anchor,
+        href: '/guide',
+        url: new URL('https://example.com/guide'),
+      },
+      prepared: null,
+    });
+    vi.runAllTimers();
+    expect(prepare).not.toHaveBeenCalled();
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
+it.each([
+  'release away',
+  'pointercancel',
+  'press elsewhere',
+  'disable',
+  'inactive root',
+  'destroy',
+])('never prepares after %s before the task', (action) => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => 'request');
+  let isActive = true;
+  const controller = createClickPreparation(
+    anchor,
+    { prepare },
+    () => isActive,
+  );
+  try {
+    dispatchPress(anchor);
+    if (action === 'release away')
+      document.body.dispatchEvent(
+        new MouseEvent('pointerup', { bubbles: true }),
+      );
+    else if (action === 'pointercancel')
+      anchor.dispatchEvent(new Event('pointercancel', { bubbles: true }));
+    else if (action === 'press elsewhere') dispatchPress(document.body);
+    else if (action === 'disable')
+      controller.update({ enabled: false, prepare });
+    else if (action === 'inactive root') isActive = false;
+    else controller.destroy();
+    vi.runAllTimers();
+    expect(prepare).not.toHaveBeenCalled();
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
+it('prepares only the latest of two presses before the task', () => {
+  const anchor = document.body.appendChild(document.createElement('a'));
+  anchor.href = '/first';
+  const prepare = vi.fn((intent: FastLinkIntent) => intent.href);
+  const controller = createClickPreparation(anchor, { prepare });
+  try {
+    dispatchPress(anchor);
+    anchor.href = '/second';
+    dispatchPress(anchor);
+    vi.runAllTimers();
+    expect(prepare.mock.calls.map(([{ href }]) => href)).toEqual(['/second']);
+  } finally {
+    controller.destroy();
+    anchor.remove();
+  }
+});
+
+it('skips the task when a managed anchor takes ownership first', () => {
+  const root = document.body.appendChild(document.createElement('div'));
+  const anchor = root.appendChild(document.createElement('a'));
+  anchor.href = '/guide';
+  const prepare = vi.fn(() => 'region');
+  const region = createClickPreparation(root, { prepare });
+  let managed: ReturnType<typeof createClickPreparation<string>> | undefined;
+  try {
+    dispatchPress(anchor);
+    managed = createClickPreparation(anchor, {
+      enabled: false,
+      prepare: () => 'managed',
+    });
+    vi.runAllTimers();
+    expect(prepare).not.toHaveBeenCalled();
+  } finally {
+    managed?.destroy();
+    region.destroy();
+    root.remove();
   }
 });

@@ -22,6 +22,7 @@ const { Activity } = React as {
   Activity?: ComponentType<{ mode: 'visible' | 'hidden'; children: ReactNode }>;
 };
 
+/** Presses, then runs the release preparation task that follows the press. */
 function press(element: Element): void {
   const event = new window.MouseEvent('pointerdown', {
     bubbles: true,
@@ -29,7 +30,16 @@ function press(element: Element): void {
   });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   element.dispatchEvent(event);
+  vi.runOnlyPendingTimers();
 }
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 it('preserves preparation across committed updates and cleans up replaced roots and refs', () => {
   const prepare = vi.fn(() => 'request');

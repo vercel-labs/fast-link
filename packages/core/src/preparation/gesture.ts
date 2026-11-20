@@ -15,6 +15,10 @@ const CANCELLATION_EVENTS = [
 
 /** Prepares work without navigating. A failed preparation leaves click-time fallback available. */
 export interface GestureOptions<P> {
+  /**
+   * Runs in the task after an eligible press, while the gesture is still
+   * pending and owned. A click matched before then gets no prepared value.
+   */
   prepare(intent: FastLinkIntent): P | null;
 }
 
@@ -59,10 +63,12 @@ export function createClickGesture<P>(
   let generation = 0;
   let isDestroyed = false;
   let stopObserving: (() => void) | undefined;
+  let prepareTimer: ReturnType<typeof setTimeout> | undefined;
 
   function discard(): void {
     generation++;
     pending = null;
+    clearTimeout(prepareTimer);
     stopObserving?.();
     stopObserving = undefined;
   }
@@ -80,13 +86,15 @@ export function createClickGesture<P>(
     };
     pending = gesture;
     stopObserving = observeGestureCancellation(root, () => pending, discard);
-    tryPrepareGesture(gesture, intent);
+    prepareTimer = setTimeout(tryPrepareGesture, 0, gesture, intent);
   }
 
   function tryPrepareGesture(
     gesture: Gesture<P>,
     intent: FastLinkIntent,
   ): void {
+    // A matched, discarded, inactive, or no longer owned gesture prepares nothing.
+    if (pending !== gesture || !isActive() || !isOwner(gesture.anchor)) return;
     try {
       const prepared = options.prepare(intent);
       // The callback can synchronously replace or discard this gesture.

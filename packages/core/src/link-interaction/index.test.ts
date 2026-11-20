@@ -11,7 +11,7 @@ import { createLinkInteraction } from './index';
 
 type Calls = string[];
 
-function press(target: Element, pointerType = 'mouse'): PointerEvent {
+function dispatchPress(target: Element, pointerType = 'mouse'): PointerEvent {
   const event = new MouseEvent('pointerdown', {
     bubbles: true,
     cancelable: true,
@@ -20,6 +20,13 @@ function press(target: Element, pointerType = 'mouse'): PointerEvent {
   Object.defineProperty(event, 'pointerType', { value: pointerType });
   target.dispatchEvent(event);
   return event as PointerEvent;
+}
+
+/** Presses, then runs the release preparation task that follows the press. */
+function press(target: Element, pointerType = 'mouse'): PointerEvent {
+  const event = dispatchPress(target, pointerType);
+  vi.runOnlyPendingTimers();
+  return event;
 }
 
 /** Dispatches a pointer click and reports whether its default was prevented. */
@@ -103,7 +110,12 @@ function setup(html: string): HTMLElement {
   return container;
 }
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   document.body.replaceChildren();
 });
 
@@ -791,6 +803,25 @@ describe('updates', () => {
       expect(navigate).not.toHaveBeenCalled();
       expect(prepare).toHaveBeenCalledTimes(1);
       expect(click(anchor)).toBe(false);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('never prepares after a mode change before the task', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const prepare = vi.fn(() => 'request');
+    const controller = createLinkInteraction(anchor, {
+      mode: 'release',
+      prepare,
+    });
+    try {
+      dispatchPress(anchor);
+      controller.update({ mode: 'native' });
+      controller.update({ mode: 'release', prepare });
+      vi.runAllTimers();
+      expect(prepare).not.toHaveBeenCalled();
+      expect(controller.matchClick(clickEvent(anchor))).toBeNull();
     } finally {
       controller.destroy();
     }

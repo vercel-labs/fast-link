@@ -4,11 +4,11 @@
 anchor or navigation region. Use it when an application or framework adapter
 needs its own routing policy.
 
-| Hook                  | Binds                                                                      |
-| --------------------- | -------------------------------------------------------------------------- |
-| `useLinkInteraction`  | `createLinkInteraction` in `release`, `immediate`, or `native` mode        |
-| `useClickPreparation` | `createClickPreparation`: prepare on press, navigate on the accepted click |
-| `useFastLink`         | `createFastLink`: navigate on press, with document navigation by default   |
+| Hook                  | Binds                                                                         |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `useLinkInteraction`  | `createLinkInteraction` in `release`, `immediate`, or `native` mode           |
+| `useClickPreparation` | `createClickPreparation`: prepare after press, navigate on the accepted click |
+| `useFastLink`         | `createFastLink`: navigate on press, with document navigation by default      |
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
@@ -71,8 +71,8 @@ In immediate mode, primary mouse navigation inside the region calls `route` on
 leaves new clicks to the browser or the application's link handling. A click
 still owed suppression by an earlier immediate press stays suppressed.
 
-Release mode prepares on press. Accept its click with `matchClick` as in
-[the preparation example](#prepare-on-press-and-navigate-on-click).
+Release mode prepares in the task after press. Accept its click with
+`matchClick` as in [the preparation example](#prepare-after-press-and-navigate-on-click).
 
 ## Bind navigation to a React region
 
@@ -116,7 +116,7 @@ state, and transitions.
 The package renders no wrapper and imports no router. The `display: contents`
 element in the example belongs to the application.
 
-## Prepare on press and navigate on click
+## Prepare after press and navigate on click
 
 ```tsx
 'use client';

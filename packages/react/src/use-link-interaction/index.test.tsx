@@ -18,6 +18,7 @@ import { flushSync } from 'react-dom';
 
 import { useLinkInteraction, type LinkInteractionBinding } from './index';
 
+/** Presses, then runs the release preparation task that follows the press. */
 function press(element: Element): void {
   const event = new window.MouseEvent('pointerdown', {
     bubbles: true,
@@ -25,7 +26,16 @@ function press(element: Element): void {
   });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   element.dispatchEvent(event);
+  vi.runOnlyPendingTimers();
 }
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 /** Dispatches a pointer click and reports whether its native default was prevented. */
 function click(target: Element): boolean {

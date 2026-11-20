@@ -26,7 +26,8 @@ export type {
 /**
  * Handles eligible primary mouse input on one root in the selected mode:
  *
- * - `release` prepares on press; the adapter accepts the matching click.
+ * - `release` prepares in the task after press; the adapter accepts the
+ *   matching click.
  * - `immediate` navigates on press and suppresses the follow-up click.
  * - `native` leaves new interactions to ordinary link behavior.
  *

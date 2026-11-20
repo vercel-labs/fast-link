@@ -1,9 +1,9 @@
 # ▲ @fast-link/core
 
 `@fast-link/core` starts work for eligible same-origin link navigation on a
-primary mouse press. It can prepare on press and navigate on the accepted
-click, or navigate on press. Use it with plain DOM elements or as the
-interaction layer for a framework adapter.
+primary mouse press. It can start preparing right after press and navigate on
+the accepted click, or navigate on press. Use it with plain DOM elements or as
+the interaction layer for a framework adapter.
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
@@ -35,7 +35,7 @@ mouse input in an explicit mode:
 
 | Mode        | Behavior                                                              |
 | ----------- | --------------------------------------------------------------------- |
-| `release`   | Prepare on press; the adapter navigates on the accepted click.        |
+| `release`   | Prepare after press; the adapter navigates on the accepted click.     |
 | `immediate` | Navigate on press, before release. Releasing away cannot cancel it.   |
 | `native`    | Leave new interactions to ordinary link behavior. Needs no callbacks. |
 
@@ -151,7 +151,7 @@ bundled copies of core, navigate once.
 | -------------------------------- | -------- | ------------------------------------------------------ |
 | `createLinkInteraction`          | Function | Handle a root in release, immediate, or native mode    |
 | `createFastLink`                 | Function | Attach navigation behavior to an anchor or region      |
-| `createClickPreparation`         | Function | Prepare on press and match the accepted click          |
+| `createClickPreparation`         | Function | Prepare after press and match the accepted click       |
 | `runFastNavigation`              | Function | Apply a router or document navigation decision         |
 | `validateFastNavigationDecision` | Function | Check a policy result without navigating               |
 | `LinkMode`                       | Type     | `'release' \| 'immediate' \| 'native'`                 |
@@ -306,7 +306,10 @@ function createClickPreparation<P>(
 ): ClickPreparationController<P>;
 ```
 
-`prepare` runs on eligible primary mouse press and must not navigate. Core stores
+`prepare` runs in the task after an eligible primary mouse press and must not
+navigate. It runs only while the gesture is still pending, the root is active,
+and the root still owns the link. A click matched before then gets
+`prepared: null`. Core stores
 its return value without checking whether the work is ready or providing a way
 to abort it. If `prepare` throws, core ignores the error so the adapter can still
 handle the click.
@@ -330,11 +333,11 @@ Complete this sequence synchronously during the click event. The adapter calls
 `consume()` rechecks the link's current eligibility, its per-link priority over
 containing regions, and the root's activity. It returns one of these results:
 
-| Result                        | Meaning                                                                                        |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `null`                        | The candidate was already consumed or is no longer valid. Do not navigate through it.          |
-| `{ intent, prepared: value }` | The click can navigate using the current intent and the stored preparation.                    |
-| `{ intent, prepared: null }`  | The click can navigate, but no preparation can be reused. This includes a changed destination. |
+| Result                        | Meaning                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `null`                        | The candidate was already consumed or is no longer valid. Do not navigate through it.                                           |
+| `{ intent, prepared: value }` | The click can navigate using the current intent and the stored preparation.                                                     |
+| `{ intent, prepared: null }`  | The click can navigate, but no preparation can be reused. This includes a changed destination and a click before `prepare` ran. |
 
 New input, cancellation, dragging, release away, blur, destruction, and
 disabling invalidate preparation, including while cancellation handlers run. A

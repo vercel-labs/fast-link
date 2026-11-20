@@ -13,11 +13,14 @@
   destruction. Leaving release mode discards preparation without navigating.
 - Link interaction roots use the closest region for ordinary links, including
   native regions; managed anchors keep priority over every region.
-- Add `createClickPreparation` to prepare on eligible mouse press and return a
-  once-only candidate for the matching click. Adapters accept the candidate,
+- Add `createClickPreparation` to prepare in the task after an eligible mouse
+  press and return a once-only candidate for the matching click. Adapters accept the candidate,
   prevent the click, and navigate. New input, cancellation, dragging, release
   away, blur, disabling, and destruction discard the gesture. It accepts the
   same optional `isActive` argument.
+- Release preparation runs in the task after pointerdown, not inside it. A
+  discarded, inactive, or no longer owned gesture never calls `prepare`, and a
+  click matched before the task gets `prepared: null`.
 - Add `validateFastNavigationDecision` to check a policy result without
   navigating or observing.
 
