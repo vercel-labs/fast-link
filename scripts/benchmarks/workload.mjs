@@ -11,8 +11,9 @@ export const workload = Object.freeze({
   caches: Object.freeze(['warm', 'cold', 'prefetch']),
   listSizes: Object.freeze([1, 100, 1000]),
   // Navigation scenarios measured instead of every other workload when `--rtt`
-  // adds network delay. Warm and native navigations make no route request
-  // after the press, so delay cannot change them.
+  // adds network delay. Warm navigations make no route request after the
+  // press, so delay can't change them. Native mode navigates like Next Link,
+  // so the baseline covers it.
   network: Object.freeze({
     destinations: Object.freeze(['static', 'dynamic']),
     caches: Object.freeze(['cold', 'prefetch']),

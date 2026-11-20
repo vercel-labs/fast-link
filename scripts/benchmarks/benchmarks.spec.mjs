@@ -294,7 +294,14 @@ describe('comparison reports', () => {
     const batches = Array.from({ length: 5 }, (_, batch) => ({
       ...report(10),
       elapsedMs: 100,
-      navigationChecks: [{ batch }],
+      navigationChecks: [
+        {
+          batch,
+          scenario: 'next.next.rtt100.dynamic.cold.hold0',
+          beforeAborts: 0,
+          navigationAborts: batch % 2,
+        },
+      ],
       metrics: {
         'core.core.accepted': {
           unit: 'us/op',
@@ -317,6 +324,13 @@ describe('comparison reports', () => {
       max: 5,
     });
     expect(combined.navigationChecks).toHaveLength(5);
+    expect(combined.routeAborts).toEqual({
+      'next.next.rtt100.dynamic.cold.hold0': {
+        navigations: 5,
+        beforeAborts: 0,
+        navigationAborts: 2,
+      },
+    });
     expect(combined.elapsedMs).toBe(500);
     expect(batches).toEqual(original);
 
@@ -537,23 +551,33 @@ describe('navigation route requests', () => {
   it('counts aborts after an OK response only for the dynamic destination', async () => {
     const requests = [routeRequest(null), routeRequest('net::ERR_ABORTED')];
     await expect(
-      requireRouteResponses(requests, settledRequests, { name: 'dynamic' }),
+      requireRouteResponses(requests, settledRequests, 'dynamic'),
     ).resolves.toBe(1);
     await expect(
-      requireRouteResponses(requests, settledRequests, { name: 'static' }),
-    ).rejects.toThrow('route request failed: net::ERR_ABORTED');
+      requireRouteResponses(requests, settledRequests, 'static'),
+    ).rejects.toThrow('Benchmark route request failed: net::ERR_ABORTED');
   });
 
   it.each([
-    ['another failure', routeRequest('net::ERR_CONNECTION_RESET')],
     [
-      'an abort without an OK response',
-      routeRequest('net::ERR_ABORTED', false),
+      'another failure',
+      routeRequest('net::ERR_CONNECTION_RESET'),
+      'Benchmark route request failed: net::ERR_CONNECTION_RESET',
     ],
-  ])('rejects a dynamic request with %s', async (_, request) => {
+    [
+      'an abort after a failed response',
+      routeRequest('net::ERR_ABORTED', false),
+      'Benchmark route response failed',
+    ],
+    [
+      'an abort before headers',
+      { ...routeRequest('net::ERR_ABORTED'), response: async () => null },
+      'Benchmark route response failed',
+    ],
+  ])('rejects a dynamic request with %s', async (_, request, message) => {
     await expect(
-      requireRouteResponses([request], settledRequests, { name: 'dynamic' }),
-    ).rejects.toThrow(/route (request|response) failed/);
+      requireRouteResponses([request], settledRequests, 'dynamic'),
+    ).rejects.toThrow(new Error(message));
   });
 
   it.each([
@@ -628,6 +652,43 @@ describe('delay proxy', () => {
     socket.write('second;');
 
     await expect(receive('second;')).resolves.toBe('first;second;');
+  });
+
+  it('delivers a reply sent after the client ends its request', async () => {
+    const acknowledger = createServer({ allowHalfOpen: true }, (connection) => {
+      let received = '';
+      connection.on('data', (chunk) => (received += chunk));
+      connection.on('end', () => connection.end(`ack:${received}`));
+    });
+    acknowledger.listen(0, '127.0.0.1');
+    await once(acknowledger, 'listening');
+    const ackProxy = await startDelayProxy(
+      `http://127.0.0.1:${acknowledger.address().port}`,
+    );
+    const client = createConnection(
+      Number(new URL(ackProxy.origin).port),
+      '127.0.0.1',
+    );
+    try {
+      await once(client, 'connect');
+      ackProxy.setRtt(100);
+      let reply = '';
+      client.on('data', (chunk) => (reply += chunk));
+      const started = performance.now();
+      client.end('req');
+      await once(client, 'end');
+      const elapsed = performance.now() - started;
+
+      // The request end must follow its queued chunk, and the proxy must keep
+      // the reply direction open after the client ends.
+      expect(reply).toBe('ack:req');
+      expect(elapsed).toBeGreaterThanOrEqual(99);
+      expect(elapsed).toBeLessThan(190);
+    } finally {
+      client.destroy();
+      await ackProxy.close();
+      await new Promise((done) => acknowledger.close(done));
+    }
   });
 });
 

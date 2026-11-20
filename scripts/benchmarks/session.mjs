@@ -10,7 +10,12 @@ import { chromium } from 'playwright';
 import { startFixture } from '../browser/fixture-server.mjs';
 import { startDelayProxy } from './delay-proxy.mjs';
 import { createMeasurements } from './measure.mjs';
-import { expectedScenarios, summarize, validateReport } from './report.mjs';
+import {
+  expectedScenarios,
+  summarize,
+  summarizeRouteAborts,
+  validateReport,
+} from './report.mjs';
 import { workload } from './workload.mjs';
 
 /** Captures source identity, tested versions, environment, and measurement conditions. */
@@ -67,6 +72,8 @@ function completeReport(result, batch) {
     JSON.stringify(expectedScenarios(result).toSorted())
   )
     throw new Error('Benchmark scenarios are incomplete');
+  if (result.navigationChecks)
+    result.routeAborts = summarizeRouteAborts(result.navigationChecks);
   if (batch === undefined)
     for (const metric of Object.values(result.metrics))
       Object.assign(metric, summarize(metric.samples, metric));
