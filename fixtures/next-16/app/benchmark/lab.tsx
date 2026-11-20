@@ -28,6 +28,8 @@ type List = {
   version: number;
   navigation: boolean;
   prefetch: boolean;
+  // Navigation destination; defaults to the static target.
+  destination?: string;
   // Changes on every render request so an unchanged list still rerenders.
   render: number;
 };
@@ -67,8 +69,9 @@ type Lab = {
     variant: 'next' | 'fast' | 'region',
     mode: Mode,
     prefetch: boolean,
+    destination?: string,
   ) => void;
-  prefetch: () => void;
+  prefetch: (destination?: string) => void;
   events: Navigation;
 };
 
@@ -78,6 +81,8 @@ declare global {
     benchmarkDestination?: { text: string; committed: number };
   }
 }
+
+const TARGET = '/benchmark/target';
 
 let navigations = 0;
 let updatedNavigations = 0;
@@ -135,11 +140,17 @@ function countSuppressed(event: { defaultPrevented: boolean }) {
   if (event.defaultPrevented) window.benchmark.events.suppressed++;
 }
 
-function Links({ variant, mode, count, version, navigation, prefetch }: List) {
+function Links({
+  variant,
+  mode,
+  count,
+  version,
+  navigation,
+  prefetch,
+  destination = TARGET,
+}: List) {
   renders++;
-  const href = navigation
-    ? '/benchmark/target'
-    : `/benchmark/target?v=${version}`;
+  const href = navigation ? destination : `${TARGET}?v=${version}`;
   // `undefined` keeps Next Link's default prefetch for the prefetch cache case.
   const prefetchProp = prefetch ? undefined : false;
   const children = Array.from({ length: count }, (_, index) => {
@@ -517,8 +528,8 @@ export function BenchmarkLab(): JSX.Element {
         typeof (router as { experimental_prepare?: unknown })
           .experimental_prepare === 'function',
       events,
-      prefetch: () => router.prefetch('/benchmark/target'),
-      navigation: (variant, mode, prefetch) =>
+      prefetch: (destination = TARGET) => router.prefetch(destination),
+      navigation: (variant, mode, prefetch, destination) =>
         render({
           variant,
           mode,
@@ -526,6 +537,7 @@ export function BenchmarkLab(): JSX.Element {
           version: 0,
           navigation: true,
           prefetch,
+          destination,
         }),
       micro: (variant, mode, workload) =>
         measureCore(area, variant, mode, workload),

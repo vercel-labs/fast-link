@@ -45,7 +45,7 @@ export function validateReport(report) {
   if (report.errors?.length) throw new Error('Benchmark reported errors');
 
   if (report.conditions) {
-    const expected = scenarioNames(report.conditions);
+    const expected = expectedScenarios(report);
     if (
       JSON.stringify(Object.keys(report.metrics).toSorted()) !==
       JSON.stringify(expected.toSorted())
@@ -69,8 +69,20 @@ const NAVIGATION = ['navigation', 'pressDuration', 'releaseToCommit'];
 const INTERACTION = ['accepted', 'ignored'];
 
 /**
+ * Lists a report's required scenarios from its recorded conditions and RTT.
+ * Reports without a recorded RTT were measured on localhost.
+ */
+export function expectedScenarios(report) {
+  return scenarioNames({
+    ...report.conditions,
+    rttMs: report.environment?.rttMs ?? 0,
+  });
+}
+
+/**
  * Lists required scenarios from recorded conditions when validating saved
- * reports. Missing conditions use the current workload.
+ * reports. Missing conditions use the current workload. A positive `rttMs`
+ * selects only the network navigation scenarios.
  */
 export function scenarioNames({
   case: selected = 'all',
@@ -78,6 +90,8 @@ export function scenarioNames({
   modes = workload.modes,
   caches = workload.caches,
   holdsMs = workload.holdsMs,
+  network = workload.network,
+  rttMs = 0,
 } = {}) {
   if (!['all', 'core', 'react', 'next'].includes(selected))
     throw new Error('Unknown benchmark case');
@@ -87,6 +101,12 @@ export function scenarioNames({
   const add = (prefix, kinds) => {
     for (const kind of kinds) names.push(`${prefix}.${kind}`);
   };
+  if (rttMs > 0) {
+    if (selected !== 'next')
+      throw new Error('Network benchmarks measure only the next case');
+    addNetwork(add, network, modes, rttMs);
+    return names;
+  }
   if (selected === 'all' || selected === 'core') addCore(add, modes);
   if (selected === 'all' || selected === 'react') addReact(add, modes);
   if (selected === 'all' || selected === 'next')
@@ -126,6 +146,29 @@ function addNext(add, { listSizes, modes, caches, holdsMs }) {
       add(`next.${variant}.switch.${count}`, modes);
 }
 
+/**
+ * Lists the network matrix's [variant, mode] pairs that use selected modes.
+ * The Next Link baseline always remains.
+ */
+export function networkVariants(network, modes) {
+  return network.variants.filter(
+    ([variant, mode]) => variant === 'next' || modes.includes(mode),
+  );
+}
+
+function addNetwork(add, network, modes, rttMs) {
+  for (const [variant, mode] of networkVariants(network, modes)) {
+    const prefix = mode ? `next.${variant}.${mode}` : `next.${variant}`;
+    for (const destination of network.destinations)
+      for (const cache of network.caches)
+        for (const hold of network.holdsMs)
+          add(
+            `${prefix}.rtt${rttMs}.${destination}.${cache}.hold${hold}`,
+            NAVIGATION,
+          );
+  }
+}
+
 /** Rejects differences in scenario sets, runner, units, or sample counts before comparison. */
 function assertComparable(base, head) {
   validateReport(base);
@@ -138,7 +181,14 @@ function assertComparable(base, head) {
   )
     throw new Error('Scenario sets differ');
 
-  for (const key of ['platform', 'cpu', 'node', 'playwright', 'browser'])
+  for (const key of [
+    'platform',
+    'cpu',
+    'node',
+    'playwright',
+    'browser',
+    'rttMs',
+  ])
     if (base.environment[key] !== head.environment[key])
       throw new Error(`Environments differ: ${key}`);
 

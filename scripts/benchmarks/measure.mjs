@@ -1,12 +1,16 @@
 /* oxlint-disable no-await-in-loop -- Measure variants sequentially without contention. */
 import { measureNavigation } from './navigation.mjs';
+import { networkVariants } from './report.mjs';
 
 /**
- * Executes the report's recorded workload in one browser.
- * The caller owns the browser and fixture lifetime; each batch closes its contexts.
+ * Executes the report's recorded workload in one browser. With a positive
+ * recorded RTT, `origin` is the delay `proxy`'s and only network navigations run.
+ * The caller owns the browser, fixture, and proxy lifetime; each batch closes
+ * its contexts.
  */
-export function createMeasurements(browser, origin, result) {
+export function createMeasurements(browser, origin, result, proxy) {
   const { conditions } = result;
+  const { rttMs } = result.environment;
   const selected = conditions.case;
   const { modes } = conditions;
 
@@ -32,6 +36,8 @@ export function createMeasurements(browser, origin, result) {
 
   /** Opens an isolated page and records uncaught browser errors in the run report. */
   async function openPage() {
+    // Load and hydrate without delay; only the measured navigation is delayed.
+    proxy?.setRtt(0);
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
@@ -167,6 +173,49 @@ export function createMeasurements(browser, origin, result) {
           }
   }
 
+  /** Opens a hydrated page, then delays its traffic by the recorded RTT. */
+  async function openDelayedPage() {
+    const opened = await openPage();
+    proxy.setRtt(rttMs);
+    return opened;
+  }
+
+  /**
+   * Runs the network navigation matrix with the same round-robin and
+   * alternating variant order as localhost navigation.
+   */
+  async function measureNetworkNavigations(batch) {
+    const { network } = conditions;
+    const variants = networkVariants(network, modes);
+    if (batch % 2) variants.reverse();
+    for (let sample = 0; sample < conditions.navigationSamples; sample++)
+      for (const destination of network.destinations)
+        for (const cache of network.caches)
+          for (const holdMs of network.holdsMs)
+            for (const [variant, mode] of variants) {
+              const { metrics, check } = await measureNavigation(
+                openDelayedPage,
+                {
+                  variant,
+                  mode,
+                  cache,
+                  holdMs,
+                  destination,
+                  settleNetwork: true,
+                  batch,
+                  sample,
+                },
+              );
+              saveMetrics(
+                `${scenarioPrefix('next', variant, mode)}.rtt${rttMs}.${destination}.${cache}.hold${holdMs}`,
+                metrics,
+                batch,
+              );
+              result.navigationChecks ??= [];
+              result.navigationChecks.push(check);
+            }
+  }
+
   /** Shares a page for dispatch and lifecycle work; navigation gets fresh contexts. */
   async function measureBatch(batch) {
     const { context, page } = await openPage();
@@ -174,12 +223,15 @@ export function createMeasurements(browser, origin, result) {
       await recordFixture(page);
       const groups =
         selected === 'all' ? ['core', 'react', 'next'] : [selected];
-      for (const group of groups) await measureGroup(page, group, batch);
+      // A delayed run measures only network navigation.
+      if (rttMs === 0)
+        for (const group of groups) await measureGroup(page, group, batch);
     } finally {
       await context.close();
     }
 
-    if (selected === 'all' || selected === 'next')
+    if (rttMs > 0) await measureNetworkNavigations(batch);
+    else if (selected === 'all' || selected === 'next')
       await measureNavigations(batch);
   }
 
