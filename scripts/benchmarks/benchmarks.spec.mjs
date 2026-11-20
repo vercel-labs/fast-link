@@ -298,7 +298,7 @@ describe('comparison reports', () => {
         {
           batch,
           scenario: 'next.next.rtt100.dynamic.cold.hold0',
-          beforeAborts: 0,
+          beforeAborts: batch === 0 ? 1 : 0,
           navigationAborts: batch % 2,
         },
       ],
@@ -327,7 +327,7 @@ describe('comparison reports', () => {
     expect(combined.routeAborts).toEqual({
       'next.next.rtt100.dynamic.cold.hold0': {
         navigations: 5,
-        beforeAborts: 0,
+        beforeAborts: 1,
         navigationAborts: 2,
       },
     });
