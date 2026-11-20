@@ -23,14 +23,15 @@ See the [runtime limitations](https://github.com/vercel-labs/fast-link#known-lim
 ## Requirements
 
 Supports Node.js 22 or later, with stable Next.js 16, Next `16.5.0-canary.42`
-or a later 16.5.0 canary, and React 19 (`>=19 <20`).
+or a later 16.5.0 prerelease, and React 19 (`>=19 <20`).
 Requires the Next.js App Router.
 
-Early preparation requires Next `16.5.0-canary.42` or a later 16.5.0 canary
-with `experimental: { prepareNavigation: true }` in `next.config`. It uses the
-public optional `router.experimental_prepare` API. Without that API, or if
-preparation throws, all three integrations route at the accepted click and apply
-the navigation policy as usual. If router navigation throws, Fast Link doesn't
+Early preparation requires a Next version whose router provides
+`experimental_prepare` (from `16.5.0-canary.42`), with
+`experimental: { prepareNavigation: true }` in `next.config`. Fast Link detects
+the public optional `router.experimental_prepare` API at runtime. Without that
+API, or if preparation throws, all three integrations route at the accepted
+click and apply the navigation policy as usual. If router navigation throws, Fast Link doesn't
 retry it. Immediate mode never prepares. Preparation is tested with Next
 `16.5.0-canary.54`.
 

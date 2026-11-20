@@ -39,12 +39,11 @@
     attach the returned `ref` to the renderer's anchor. `forwardedRef` and
     `onClickCapture` are typed for `HTMLAnchorElement`.
 - Widen the Next peer range to `>=16 <17 || >=16.5.0-canary.42 <16.5.0`,
-  which adds Next `16.5.0-canary.42` and every later 16.5.0 canary. These
-  canaries provide the experimental `router.experimental_prepare` API that
-  release mode uses after press; it requires
-  `experimental: { prepareNavigation: true }` in `next.config`. On other Next
-  versions, release mode does not prepare and
-  routes at the accepted click.
+  which adds Next `16.5.0-canary.42` and every later 16.5.0 prerelease.
+  Release mode prepares after press when the router provides the experimental
+  `router.experimental_prepare` API (from `16.5.0-canary.42`, with
+  `experimental: { prepareNavigation: true }` in `next.config`). Without that
+  API, release mode does not prepare and routes at the accepted click.
 - Update the core and React dependencies to `^0.1.0`.
 
 ## 0.0.2
