@@ -22,9 +22,9 @@ versions navigated on press, so a consumer upgrading from `enabled` that wants
 the same timing selects `mode="immediate"`.
 
 Don't present release mode as faster than Next Link. Preparation after press
-needs Next `16.5.0-canary.42` or a later 16.5.0 canary, and
-`experimental: { prepareNavigation: true }` in `next.config`; on other versions
-release mode routes at the accepted click.
+needs a Next version whose router provides `experimental_prepare` (from
+`16.5.0-canary.42`) and `experimental: { prepareNavigation: true }` in
+`next.config`; without that API, release mode routes at the accepted click.
 Even with preparation, release mode can save at most the part of the route
 fetch that overlaps the press, so it never saves more than the press lasts. A
 warm or prefetched route has no fetch to overlap. No published measurement
