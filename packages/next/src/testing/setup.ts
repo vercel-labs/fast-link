@@ -77,10 +77,16 @@ function toMockHref(href: LinkProps['href']): string {
 }
 
 beforeEach(() => {
+  // Release preparation runs in a task; `pointerDown` runs it explicitly.
+  vi.useFakeTimers();
   routing.current = router;
   router.push.mockClear();
   router.replace.mockClear();
   delete router.experimental_prepare;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 export { router, routing };
