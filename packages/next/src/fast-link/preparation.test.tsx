@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import {
+  dispatchPointerDown,
   pointerDown,
   router,
   captureErrors,
@@ -47,6 +48,27 @@ it('prepares before click and commits once after caller guards', () => {
   ]);
   expect(push).toHaveBeenCalledTimes(1);
   expect(router.push).not.toHaveBeenCalled();
+});
+
+it('routes a click accepted before the preparation task without preparing', () => {
+  const prepare = vi.fn(() => ({ push: vi.fn(), replace: vi.fn() }));
+  router.experimental_prepare = prepare;
+  const policy = vi.fn(() => ({ kind: 'router' as const }));
+  const { getByRole } = render(
+    <FastLink href="/guide" navigationPolicy={policy}>
+      Guide
+    </FastLink>,
+  );
+  const anchor = getByRole('link');
+  dispatchPointerDown(anchor);
+  fireEvent.click(anchor, { detail: 1 });
+  vi.runAllTimers();
+  expect(router.push).toHaveBeenCalledExactlyOnceWith('/guide', {
+    scroll: undefined,
+    transitionTypes: undefined,
+  });
+  expect(policy).toHaveBeenCalledTimes(1);
+  expect(prepare).not.toHaveBeenCalled();
 });
 
 it.each(['onClick', 'onNavigate'] as const)(

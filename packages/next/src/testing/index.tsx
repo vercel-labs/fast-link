@@ -6,10 +6,21 @@ import { useFastLink } from '../use-fast-link';
 export { router, routing } from './setup';
 
 /**
- * Dispatches `pointerdown` with the given pointer type and event options.
- * Defaults to a cancelable primary mouse press.
+ * Dispatches `pointerdown` with the given pointer type and event options, then
+ * runs the release preparation task that follows it. Defaults to a cancelable
+ * primary mouse press.
  */
 export function pointerDown(
+  anchor: Element,
+  pointerType = 'mouse',
+  extra: MouseEventInit = {},
+): void {
+  dispatchPointerDown(anchor, pointerType, extra);
+  vi.runOnlyPendingTimers();
+}
+
+/** Dispatches `pointerdown` like `pointerDown`, without running later tasks. */
+export function dispatchPointerDown(
   anchor: Element,
   pointerType = 'mouse',
   extra: MouseEventInit = {},
