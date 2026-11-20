@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   paths:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       lightweight: ${{ steps.changes.outputs.lightweight }}
@@ -31,7 +31,7 @@ jobs:
   validate:
     needs: paths
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Fail when path detection fails
@@ -47,8 +47,10 @@ jobs:
           registry-url: https://registry.npmjs.org
           turbo-cache: ${{ needs.paths.outputs.lightweight != 'true' }}
 
+      # Compare with the default branch, not the PR base: a stacked PR's base
+      # already carries the stack's unreleased version bumps.
       - name: Check package release intent
-        run: node scripts/release/check-package-version.mjs "${{ github.event.pull_request.base.sha }}"
+        run: node scripts/release/check-package-version.mjs "$(git merge-base "origin/${{ github.event.repository.default_branch }}" HEAD)"
 
       - name: Validate formatting
         if: ${{ needs.paths.outputs.lightweight == 'true' }}
@@ -90,7 +92,7 @@ jobs:
   browser:
     needs: paths
     if: ${{ needs.paths.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,7 +105,7 @@ jobs:
         run: bash scripts/ci/install-browsers.sh chromium firefox webkit
 
       - name: Run browser and App Router tests
-        run: pnpm exec turbo run test:browser test:fixtures
+        run: pnpm exec turbo run test:browser test:fixtures --concurrency=1
 
       - name: Upload browser failure artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -117,7 +119,7 @@ jobs:
   packed-consumers:
     needs: [paths, validate]
     if: ${{ needs.paths.result == 'success' && needs.validate.result == 'success' && needs.paths.outputs.lightweight != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       matrix:
