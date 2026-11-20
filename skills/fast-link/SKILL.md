@@ -9,7 +9,8 @@ license: MIT
 Fast Link starts work for eligible primary-mouse navigation on `pointerdown`.
 Each link or region selects a `mode`:
 
-- `release`, the default: prepare on press, navigate on the accepted click.
+- `release`, the default: prepare right after press, navigate on the accepted
+  click.
   Releasing away cancels.
 - `immediate`: navigate on press. Use it only where pressing the link is enough
   to commit.

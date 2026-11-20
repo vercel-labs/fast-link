@@ -1,8 +1,8 @@
 # ▲ @fast-link/next
 
 `FastLink`, `FastLinkRegion`, and `useFastLink` add mode-aware mouse
-navigation to App Router. In the default release mode they prepare on press
-and navigate on the accepted click. Preparation needs a supported Next runtime
+navigation to App Router. In the default release mode they start preparing
+right after press and navigate on the accepted click. Preparation needs a supported Next runtime
 (see [Requirements](#requirements)); on other versions release mode routes at
 the accepted click. `FastLink` runs your `onClick` and `onNavigate` handlers
 before navigating. Regions and custom hooks
@@ -67,12 +67,12 @@ Every interface accepts `mode`:
 
 | Mode                | Behavior                                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------ |
-| `release` (default) | Prepare on mouse press; navigate on the accepted click. Releasing away cancels.            |
+| `release` (default) | Prepare after mouse press; navigate on the accepted click. Releasing away cancels.         |
 | `immediate`         | Navigate on mouse press, before release. Releasing away or a later click cannot cancel it. |
 | `native`            | Leave navigation to Next Link or the renderer, including client routing. No forced reload. |
 
 ```tsx
-<FastLink href="/pricing">Prepare on press, navigate on click</FastLink>
+<FastLink href="/pricing">Prepare after press, navigate on click</FastLink>
 <FastLink href="/pricing" mode="immediate">Navigate on press</FastLink>
 <FastLink href="/pricing" mode="native">Ordinary Next Link behavior</FastLink>
 ```
@@ -154,7 +154,7 @@ export default function Navigation() {
 }
 ```
 
-In release mode, regions prepare on press and
+In release mode, regions prepare after press and
 [accept during click capture](#leave-one-region-link-on-its-normal-path).
 
 - Use `FastLink` for per-link options. It keeps its own options and policy inside
@@ -224,9 +224,10 @@ export function AccountLink() {
   or opt out. See [application boundaries](#route-links-across-application-boundaries).
 
 The rest of this section describes release mode. When preparation is
-available, Fast Link checks the navigation policy on mouse
-press. If it chooses App Router navigation, Fast Link prepares the destination
-without changing the URL, history, or page content.
+available, Fast Link checks the navigation policy in the task after an eligible
+mouse press. If it chooses App Router navigation, Fast Link prepares the
+destination without changing the URL, history, or page content. A click
+accepted before that task routes without preparation.
 
 On click, `FastLink` runs your `onClick`, Next Link's checks, and your `onNavigate`.
 Either callback can cancel navigation.
@@ -331,8 +332,9 @@ uses the region policy, while `AppLink` uses its own policy and Link options.
 Policies must be synchronous and side-effect-free, and must read current
 metadata on each call:
 
-- Release calls the policy on eligible press when preparation is available, and
-  again after accepted-click guards.
+- Release calls the policy in the task after an eligible press when preparation
+  is available and the click has not been accepted yet, and again after
+  accepted-click guards.
 - Immediate calls it once on press, after `onNavigate`.
 - Native never calls it.
 
@@ -383,7 +385,7 @@ export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
 );
 ```
 
-In release mode the hook prepares on press and
+In release mode the hook prepares after press and
 [accepts during click capture](#leave-one-region-link-on-its-normal-path) after the supplied `onClickCapture` and
 `onNavigate` guards. If a guard changes the mode, or the anchor's ownership or
 attachment changes before acceptance, the hook leaves the click to the
