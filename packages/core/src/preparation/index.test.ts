@@ -611,7 +611,10 @@ it('gives a click matched before the task no preparation and never prepares', ()
   const controller = createClickPreparation(anchor, { prepare });
   try {
     dispatchPress(anchor);
-    expect(controller.matchClick(click(anchor))?.consume()).toEqual({
+    const activation = controller.matchClick(click(anchor));
+    vi.runAllTimers();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(activation?.consume()).toEqual({
       intent: {
         anchor,
         href: '/guide',
@@ -619,8 +622,6 @@ it('gives a click matched before the task no preparation and never prepares', ()
       },
       prepared: null,
     });
-    vi.runAllTimers();
-    expect(prepare).not.toHaveBeenCalled();
   } finally {
     controller.destroy();
     anchor.remove();
@@ -628,6 +629,7 @@ it('gives a click matched before the task no preparation and never prepares', ()
 });
 
 it.each([
+  'release on the link with no click',
   'release away',
   'pointercancel',
   'press elsewhere',
@@ -646,7 +648,9 @@ it.each([
   );
   try {
     dispatchPress(anchor);
-    if (action === 'release away')
+    if (action === 'release on the link with no click')
+      anchor.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    else if (action === 'release away')
       document.body.dispatchEvent(
         new MouseEvent('pointerup', { bubbles: true }),
       );

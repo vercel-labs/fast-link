@@ -36,7 +36,10 @@ export interface PreparedClick<P> {
  * engine holds only its copied options.
  */
 export interface ClickGesture<P> {
-  /** Replaces options and keeps any pending gesture. */
+  /**
+   * Replaces options and keeps any pending gesture. An update before the
+   * preparation task makes the task call the latest `prepare`.
+   */
   update(options: GestureOptions<P>): void;
   /** Starts a gesture for an eligible press already claimed by the owner. */
   prepare(event: PointerEvent, intent: FastLinkIntent): void;
@@ -85,7 +88,12 @@ export function createClickGesture<P>(
       prepared: null,
     };
     pending = gesture;
-    stopObserving = observeGestureCancellation(root, () => pending, discard);
+    stopObserving = observeGestureCancellation(
+      root,
+      () => pending,
+      discard,
+      () => clearTimeout(prepareTimer),
+    );
     prepareTimer = setTimeout(tryPrepareGesture, 0, gesture, intent);
   }
 
@@ -218,6 +226,7 @@ function observeGestureCancellation<P>(
   root: HTMLElement,
   getPending: () => Gesture<P> | null,
   discard: () => void,
+  cancelPreparation: () => void,
 ): () => void {
   const document = root.ownerDocument;
   const view = document.defaultView;
@@ -228,6 +237,9 @@ function observeGestureCancellation<P>(
   function finishRelease(event: PointerEvent): void {
     const gesture = getPending();
     if (!gesture) return;
+    // No release needs the task: a release away discards, and a release on the
+    // link is followed by its click, which is matched before any task runs.
+    cancelPreparation();
     // A release must report the prepared pointer, unlike a click.
     const isPreparedRelease =
       event.pointerId === gesture.pointerId &&

@@ -341,8 +341,9 @@ containing regions, and the root's activity. It returns one of these results:
 
 New input, cancellation, dragging, release away, blur, destruction, and
 disabling invalidate preparation, including while cancellation handlers run. A
-release with no click expires on the next timer turn. Core never prevents the
-click or navigates.
+release cancels a `prepare` call that has not run yet, and a release with no
+click expires on the next timer turn. Core never prevents the click or
+navigates.
 
 | Controller method   | Behavior                                                                                                                   |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |

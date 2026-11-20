@@ -16,7 +16,10 @@ export interface ClickPreparationOptions<P> extends GestureOptions<P> {
 
 /** Owns one root's eligible mouse gesture; adapters own click acceptance and navigation. */
 export interface ClickPreparationController<P> {
-  /** Replaces options. Disabling discards the gesture; other updates preserve it. */
+  /**
+   * Replaces options. Disabling discards the gesture; other updates preserve it.
+   * An update before the preparation task makes the task call the latest `prepare`.
+   */
   update(options: ClickPreparationOptions<P>): void;
   /** Matches before synchronous guards. Consume or discard every returned candidate. */
   matchClick(event: MouseEvent): PreparedClick<P> | null;

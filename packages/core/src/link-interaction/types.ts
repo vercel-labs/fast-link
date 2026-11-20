@@ -44,7 +44,9 @@ export interface NativeLinkOptions {
 /** Controls one root's selected mode, its listeners, and follow-up click suppression. */
 export interface LinkInteractionController<P> {
   /**
-   * Copies and replaces every option. A same-mode update keeps pending work.
+   * Copies and replaces every option. A same-mode update keeps pending work,
+   * and a release update before the preparation task makes it call the latest
+   * `prepare`.
    * A mode change discards click preparation and cancels a running guard, but
    * never clears follow-up click suppression.
    */
