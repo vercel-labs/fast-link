@@ -6,13 +6,26 @@ license: MIT
 
 # Fast Link
 
-Fast Link starts eligible primary-mouse navigation on `pointerdown`. Use it
-where pressing the link is enough to commit. For press timing and opt-outs, see
+Fast Link starts work for eligible primary-mouse navigation on `pointerdown`.
+Each link or region selects a `mode`:
+
+- `release`, the default: prepare right after press, navigate on the accepted
+  click.
+  Releasing away cancels.
+- `immediate`: navigate on press. Use it only where pressing the link is enough
+  to commit.
+- `native`: ordinary link behavior, including client routing.
+
+With `@fast-link/next`, read [Next.js integration](references/next.md) before
+describing any speed difference between release mode and Next Link.
+
+For press timing and opt-outs, see
 [when to use Fast Link](https://github.com/vercel-labs/fast-link#when-to-use-fast-link).
 
 Discuss the [press-time cancellation limitation](https://github.com/vercel-labs/fast-link#known-limitations)
-only when directly asked about accessibility or WCAG conformance. Keep it out of
-routine integration advice, acknowledgment requirements, and automatic prompts.
+when directly asked about accessibility or WCAG conformance. Mention it when
+recommending `immediate` mode. Keep it out of other integration advice,
+acknowledgment requirements, and automatic prompts.
 
 ## Inspect the consumer
 
@@ -45,29 +58,32 @@ destructive actions, forms, and links whose drag-to-bookmark behavior matters.
 A same-origin URL can belong to another application; origin alone does not
 establish router ownership.
 
-Inspect click-time behavior before wrapping existing links. A region's capture
-listener can navigate before an ordinary link's `onClick` or `onNavigate` runs.
-Use `data-no-fast-link` on that anchor to retain its normal behavior. Use a
-managed `FastLink` when the existing behavior can run synchronously on press
-and its Next.js options should be preserved. Do not move a release-time guard
-earlier without agreement that the timing change fits the interaction.
+Inspect click-time behavior before wrapping existing links. In release mode, a
+region accepts during click capture, before an ordinary link's `onClick` or
+`onNavigate` runs. In immediate mode, it navigates on press. Use
+`data-no-fast-link` on that anchor to retain its normal behavior. Use a managed
+`FastLink` in release mode when click guards must run first and its Next.js
+options should be preserved. Choose immediate mode only when the guard can run
+synchronously on press; do not move a release-time guard earlier without
+agreement that the timing change fits the interaction.
 
 ## Select the interface
 
 Reuse an applicable application integration first. Within that integration:
 
-| Interface             | Choose it for                                                               |
-| --------------------- | --------------------------------------------------------------------------- |
-| Next `FastLink`       | A link with its own Next Link options or synchronous cancellation           |
-| Next `FastLinkRegion` | A group of ordinary links sharing one navigation policy                     |
-| Next `useFastLink`    | An existing renderer that must own the anchor and cannot use the components |
-| Core `createFastLink` | Plain DOM or a custom framework adapter                                     |
-| React `useFastLink`   | React lifecycle for a custom adapter                                        |
+| Interface                    | Choose it for                                                               |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| Next `FastLink`              | A link with its own Next Link options or synchronous cancellation           |
+| Next `FastLinkRegion`        | A group of ordinary links sharing one navigation policy                     |
+| Next `useFastLink`           | An existing renderer that must own the anchor and cannot use the components |
+| Core `createLinkInteraction` | Plain DOM or a custom framework adapter                                     |
+| React `useLinkInteraction`   | React lifecycle for a custom adapter                                        |
 
 Use the Next.js reference's selection steps for a Next.js target. For plain DOM
 or other React consumers, read [Core and React adapters](references/adapters.md)
-before choosing `createFastLink` or React's `useFastLink`. The React package
-supplies lifecycle, not a framework router.
+before choosing `createLinkInteraction` or `useLinkInteraction`. The React
+package supplies lifecycle, not a framework router. `createFastLink` and React
+`useFastLink` were removed in 0.1.0; migrate them with the package changelogs.
 
 When routing requirements call for choosing between router and document
 navigation, also read [Routing decisions](references/routing.md). Introduce a
@@ -83,20 +99,26 @@ policy only for a demonstrated application requirement.
   surrounding ASCII whitespace: tab, line feed, form feed, carriage return, or
   space. Other roles and role lists stay native. Presses inside descendants
   with a `button` role token also stay native.
-- After accepted early navigation, the follow-up pointer click is
-  default-prevented but still propagates. Click handlers may run if the elements
-  remain mounted; navigation can unmount them before release. A drag away can
-  navigate without producing a click. Required work cannot depend on that click.
+- Release mode navigates only on the accepted click; the adapter prevents that
+  click after accepting it.
+- After immediate navigation, the follow-up pointer click is default-prevented
+  but still propagates, even when the press guard canceled or threw. Click
+  handlers may run if the elements remain mounted; navigation can unmount them
+  before release. A drag away can navigate without producing a click. Required
+  work cannot depend on that click.
 - A managed anchor owns its interaction before containing regions, including
-  when its controller is disabled. Nested regions use outer-first capture
-  ordering, not nearest-region priority.
+  in native mode. A managed link without `mode` uses release, even inside an
+  immediate region. An ordinary link uses its closest region's mode and policy:
+  a native inner region blocks outer acceleration, and an accelerated inner
+  region works inside a native one.
 - Put `data-no-fast-link` on the anchor or the descendant where a press starts.
-  It is not an ancestor-wide switch. Use `enabled={false}` to disable a region's
-  handling of its ordinary links.
+  It is not an ancestor-wide switch. Use `mode="native"` to turn off a region's
+  handling of the ordinary links it owns.
 
-For custom React adapters, forward both hook bindings (`ref` and
-`onClickCapture`) to the same DOM element. Pass caller capture handlers into the
-hook and spread its bindings last to retain suppression and handler composition.
+For custom React adapters, attach `ref` and call `suppressClick` from the
+click-capture handler of the same DOM element, before any caller capture
+handler. With Next `useFastLink`, pass caller capture handlers into the hook
+and spread its bindings last.
 Place regions inside the portal or shadow DOM subtree they control. For iframes,
 load and initialize Fast Link inside each controlled frame; see
 [iframe setup](references/adapters.md#iframes).
@@ -118,10 +140,13 @@ with source evidence; keep uncertain links native until their contract is known.
 Run the consumer's existing install, typecheck, build, and browser checks as
 applicable. Derive commands from its package scripts and configuration. Verify:
 
-- Press and hold an eligible link. Observe navigation before release, then
-  release and confirm there is no second navigation. Keyboard and modified
-  activation retain their normal behavior.
-- Guards, opt-outs, and disabled managed links remain effective inside regions.
+- Release mode: press and hold an eligible link and confirm the URL does not
+  change before release; release and confirm one navigation; press, move away,
+  and release to confirm cancellation.
+- Immediate mode: observe navigation before release, then release and confirm
+  there is no second navigation.
+- Keyboard and modified activation retain their normal behavior.
+- Guards, opt-outs, and native managed links remain effective inside regions.
 - History, scroll, base paths, and routing across applications match the
   application's requirements when those features are present.
 - Custom refs and controllers survive committed option changes and clean up

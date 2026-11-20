@@ -32,7 +32,7 @@ failure behavior differ. Sharing it in core keeps those rules consistent while
 leaving framework routes and application ownership with their callers.
 
 Implementation: [`runFastNavigation`](../../packages/core/src/navigation/index.ts)
-and [`useFastLink`](../../packages/next/src/use-fast-link/index.ts).
+and the Next [navigation owner](../../packages/next/src/navigation/index.ts).
 The [core navigation reference](../../packages/core/README.md#share-navigation-decisions-in-an-adapter)
 documents the supported decision fields.
 The [navigation policy tests](../../packages/next/src/navigation-policy/index.test.tsx)

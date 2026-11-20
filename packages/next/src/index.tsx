@@ -7,4 +7,8 @@ export type {
   FastNavigationPolicy,
   FastRouterProposal,
 } from './navigation-policy';
-export type { FastLinkIntent, FastNavigationDecision } from '@fast-link/core';
+export type {
+  FastLinkIntent,
+  FastNavigationDecision,
+  LinkMode,
+} from '@fast-link/core';

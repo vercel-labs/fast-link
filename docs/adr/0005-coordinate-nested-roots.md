@@ -11,8 +11,8 @@ managed links inside a region retain per-link options, cancellation, and policy.
 - Core shares ownership counts across bundled copies in a `WeakMap`. Ownership
   ends when the last controller for that anchor is destroyed, without keeping
   removed anchors alive.
-- Nested press and preparation-only regions retain capture ordering from the
-  outside in. Anchor priority does not make the innermost region win. Link
+- Nested preparation-only regions retain capture ordering from the outside
+  in. Anchor priority does not make the innermost region win. Link
   interaction regions use the closest region instead; see
   [ADR 0008](./0008-use-closest-region-for-ordinary-links.md).
 
@@ -63,13 +63,14 @@ versions to coexist, including non-extensible events that rely on the shared
 `handledEvents` collection.
 
 Versions before `regionOwners` create a registry without it; later versions add
-the field to that registry in place. Press and immediate controllers share
-`pendingClickOwners` and `suppressedClicks`, so containing roots from either
-can suppress the other's follow-up click.
+the field to that registry in place. Immediate controllers in separately
+bundled copies share `pendingClickOwners` and `suppressedClicks`, so a
+containing root from one copy can suppress a follow-up click owed to another.
+Core copies older than 0.1.0 don't register regions, so they keep outside-in
+precedence, and a native inner region doesn't block an older outer region.
 
 Controllers own registration and cleanup; weak collections do not keep anchors
-or events alive. The [controller tests](../../packages/core/src/controller/index.test.ts),
-[preparation tests](../../packages/core/src/preparation/index.test.ts), and
+or events alive. The [preparation tests](../../packages/core/src/preparation/index.test.ts) and
 [link interaction tests](../../packages/core/src/link-interaction/index.test.ts)
 cover independently loaded copies, an earlier registry, disabled and native
 anchors, click suppression, and ownership cleanup through controller behavior.

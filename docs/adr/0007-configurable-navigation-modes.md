@@ -25,9 +25,8 @@ claim, and native mode constructs neither.
 All three modes ship in every entry point; selecting a mode at runtime
 doesn't reduce bundle size.
 
-The core controller requires an explicit mode. Framework entry points that
-adopt modes will apply the `release` default and replace a separate `enabled`
-control with `native`.
+The core controller requires an explicit mode. The Next entry points apply the
+`release` default and replace their separate `enabled` control with `native`.
 The preparation-only controller keeps its `enabled` option.
 
 This supersedes the universal click-only rule in

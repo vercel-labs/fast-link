@@ -22,9 +22,11 @@ consumed. A root that loses does no work for that interaction.
 This supersedes only the nested-region precedence in
 [ADR 0005](./0005-coordinate-nested-roots.md) for link interaction roots.
 Anchor priority, shared event markers, and cross-copy coordination remain
-required. `createClickPreparation` and `createFastLink` roots neither register
+required. `createClickPreparation` roots neither register
 nor check regions: they follow outside-in capture order, including when nested
-with link interaction regions, and still defer to managed anchors.
+with link interaction regions, and still defer to managed anchors. Core copies
+older than 0.1.0 don't register regions either: they keep outside-in
+precedence, so a native inner region doesn't block an older outer region.
 
 Implementation: [ownership](../../packages/core/src/link-interaction/ownership.ts)
 and the [link interaction tests](../../packages/core/src/link-interaction/index.test.ts),

@@ -58,6 +58,18 @@ workspace links can hide.
 ### Framework support
 
 React adapters support React `>=19 <20`; the Next.js adapter supports Next.js
-`>=16 <17`. When adding support for a new major, update the peer ranges and
-compatibility checks together. CI covers the minimum supported versions and
-the pinned fixture.
+`>=16 <17` and `16.5.0-canary.42` or a later 16.5.0 prerelease
+(`>=16.5.0-canary.42 <16.5.0`). When
+adding support for a new major, update the peer ranges and compatibility checks
+together. CI covers the minimum supported versions and the pinned fixture.
+
+npm admits a prerelease only when the range names a prerelease of the same
+`major.minor.patch`, so a 16.6.0 canary fails the peer check. When changing
+the pinned Next version:
+
+- Pin `next` exactly in `fixtures/next-16/package.json` and the
+  `packages/next` dev dependencies, within the peer range, then run
+  `pnpm install`.
+- Once Next's canary line moves past 16.5.0, update or drop the canary clause of
+  the `packages/next` peer range.
+- Update "Preparation is tested with Next ..." in `packages/next/README.md`.
