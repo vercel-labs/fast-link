@@ -1,5 +1,8 @@
 # Start navigation on primary mouse pointerdown
 
+Since [ADR 0007](./0007-configurable-navigation-modes.md), this is immediate
+mode. Release mode keeps release-time cancellation instead.
+
 Fast Link starts eligible same-origin navigation on primary mouse `pointerdown`
 rather than waiting for `click`. This removes the wait for release and gives up
 release-time cancellation for those interactions.

@@ -1,6 +1,6 @@
 # Fast Link
 
-Fast Link starts eligible mouse navigation when a link is pressed, while other
+Fast Link starts work for eligible mouse link navigation on press, while other
 interactions keep their native behavior.
 
 ## Language
@@ -46,7 +46,38 @@ _Avoid_: Managed link
 
 **Anchor ownership**:
 A managed link's priority over containing regions for its interactions.
-_Avoid_: Router ownership, nearest-region priority
+_Avoid_: Router ownership
+
+**Region ownership**:
+An ordinary link's closest link interaction region supplies its mode and
+navigation policy, including native mode.
+_Avoid_: Outer-first priority, inherited mode
+
+**Release mode**:
+Fast Link behavior that prepares on an eligible mouse press and navigates on an
+accepted click. Releasing away cancels activation.
+_Avoid_: Pointerup mode, prepared mode
+
+**Immediate mode**:
+Fast Link behavior that navigates on an eligible mouse press, before release.
+Later release or click cancellation cannot reverse that navigation.
+_Avoid_: Fastest mode, safe mode
+
+**Native mode**:
+The mode that turns off a root's acceleration and leaves navigation to ordinary
+link behavior. It does not force a full-page reload.
+_Avoid_: Disabled link, document navigation
+
+**Preparation**:
+Work started for a possible destination before navigation is accepted.
+Preparation alone does not navigate.
+_Avoid_: Navigation, completed page load
+
+**Accepted click**:
+A matching click that passes the guards available to its Fast Link
+integration. Later handlers cannot undo navigation already accepted by that
+integration.
+_Avoid_: Pointerup, any release
 
 **Follow-up click**:
 The pointer-generated click associated with an accepted Fast Link interaction.

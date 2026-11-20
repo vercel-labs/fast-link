@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0
+
+- Add `createLinkInteraction` and `LinkMode`. One controller per root handles
+  eligible mouse input in an explicit `release`, `immediate`, or `native` mode
+  and keeps its identity across mode changes. Native mode needs no callbacks.
+- Immediate mode arms follow-up click suppression before its `beforeNavigate`
+  guard, then navigates with current inputs. Suppression survives mode, option,
+  and `href` changes and settles on its click, the next press at the root, or
+  destruction. Leaving release mode discards preparation without navigating.
+- Link interaction roots use the closest region for ordinary links, including
+  native regions; managed anchors keep priority over every region.
+- Add `createClickPreparation` to prepare on eligible mouse press and return a
+  once-only candidate for the matching click. Adapters accept the candidate,
+  prevent the click, and navigate. New input, cancellation, dragging, release
+  away, blur, disabling, and destruction discard the gesture.
+- Add `validateFastNavigationDecision` to check a policy result without
+  navigating or observing.
+
 ## 0.0.2
 
 - Bundle the canonical Fast Link agent skill, references, and agent metadata at

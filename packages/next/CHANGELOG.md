@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0
+
+- Update the core and React dependencies to `^0.1.0`.
+
 ## 0.0.2
 
 - Bundle the canonical Fast Link agent skill, references, and agent metadata at

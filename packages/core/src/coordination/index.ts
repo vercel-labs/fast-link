@@ -15,6 +15,8 @@ interface CoordinationState {
   readonly suppressedClicks: WeakSet<FollowupClick>;
   /** Accepted presses, including events that cannot hold the symbol marker. */
   readonly handledEvents: WeakSet<Event>;
+  /** Live link-interaction controller count, including native controllers, for each containing root. */
+  readonly regionOwners: WeakMap<HTMLElement, number>;
 }
 
 // These keys and field meanings are shared between independently bundled versions.
@@ -33,5 +35,60 @@ export const coordination: CoordinationState = Reflect.get(
   >(),
   suppressedClicks: new WeakSet<FollowupClick>(),
   handledEvents: new WeakSet<Event>(),
+  regionOwners: new WeakMap<HTMLElement, number>(),
 };
 Reflect.set(globalThis, COORDINATION, coordination);
+// A registry created by an earlier version lacks later fields. Add them in place.
+if (!Reflect.has(coordination, 'regionOwners')) {
+  Reflect.set(coordination, 'regionOwners', new WeakMap<HTMLElement, number>());
+}
+
+/** Registers a managed anchor until released; returns `undefined` for any other root. */
+export function registerAnchorOwner(
+  root: HTMLElement,
+): (() => void) | undefined {
+  if (root.tagName !== 'A') return undefined;
+  return retainOwner(coordination.anchorOwners, root);
+}
+
+/** Registers a containing link-interaction root, in any mode, until released. */
+export function registerRegionOwner(root: HTMLElement): () => void {
+  return retainOwner(coordination.regionOwners, root);
+}
+
+/** Includes disabled and native controllers, whose anchors keep priority over regions. */
+export function hasAnchorOwner(anchor: HTMLAnchorElement): boolean {
+  return coordination.anchorOwners.has(anchor);
+}
+
+/**
+ * Reports whether `root` contains `anchor` with no registered region between
+ * them. False once `anchor` has left `root`.
+ */
+export function isClosestRegion(
+  root: HTMLElement,
+  anchor: HTMLAnchorElement,
+): boolean {
+  const { regionOwners } = coordination;
+  for (
+    let element = anchor.parentElement;
+    element;
+    element = element.parentElement
+  ) {
+    if (element === root) return true;
+    if (regionOwners.has(element)) return false;
+  }
+  return false;
+}
+
+function retainOwner(
+  owners: WeakMap<HTMLElement, number>,
+  root: HTMLElement,
+): () => void {
+  owners.set(root, (owners.get(root) ?? 0) + 1);
+  return () => {
+    const remaining = (owners.get(root) ?? 1) - 1;
+    if (remaining) owners.set(root, remaining);
+    else owners.delete(root);
+  };
+}

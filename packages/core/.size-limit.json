@@ -4,5 +4,21 @@
     "path": "src/index.ts",
     "import": "{ createFastLink }",
     "limit": "2 kB"
+  },
+  {
+    "name": "createClickPreparation",
+    "path": "src/index.ts",
+    "import": "{ createClickPreparation }",
+    "limit": "2 kB"
+  },
+  {
+    "name": "createLinkInteraction",
+    "path": "src/index.ts",
+    "import": "{ createLinkInteraction }"
+  },
+  {
+    "name": "validateFastNavigationDecision",
+    "path": "src/index.ts",
+    "import": "{ validateFastNavigationDecision }"
   }
 ]
