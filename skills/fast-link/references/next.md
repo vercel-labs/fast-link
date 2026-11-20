@@ -21,7 +21,7 @@ replaces `enabled`: migrate `enabled={false}` to `mode="native"`. Earlier
 versions navigated on press, so a consumer upgrading from `enabled` that wants
 the same timing selects `mode="immediate"`.
 
-Don't present release mode as faster than Next Link. Preparation on press
+Don't present release mode as faster than Next Link. Preparation after press
 needs Next `16.5.0-canary.42` and `experimental: { prepareNavigation: true }`
 in `next.config`; on other versions release mode routes at the accepted click.
 Even with preparation, release mode can save at most the part of the route

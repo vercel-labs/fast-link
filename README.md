@@ -4,13 +4,13 @@ Fast Link can start work for eligible same-origin link navigation when you
 press the mouse, instead of waiting for release. Choose a mode per link or
 region:
 
-| Mode                | Behavior                                                                  |
-| ------------------- | ------------------------------------------------------------------------- |
-| `release` (default) | Prepare on press; navigate on the accepted click. Releasing away cancels. |
-| `immediate`         | Navigate on press. Moving away before release cannot cancel it.           |
-| `native`            | Leave navigation to the ordinary link, including client routing.          |
+| Mode                | Behavior                                                                     |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `release` (default) | Prepare after press; navigate on the accepted click. Releasing away cancels. |
+| `immediate`         | Navigate on press. Moving away before release cannot cancel it.              |
+| `native`            | Leave navigation to the ordinary link, including client routing.             |
 
-With `@fast-link/next`, release mode prepares on press only on a Next.js
+With `@fast-link/next`, release mode prepares after press only on a Next.js
 runtime that supports navigation preparation; see the
 [requirements](./packages/next/README.md#requirements). Elsewhere it routes at
 the accepted click.
@@ -80,8 +80,8 @@ export function AccountLink() {
 ```
 
 - Preserves Next Link options and synchronous `onNavigate` cancellation.
-- Prepares primary mouse navigation on press and navigates on the accepted
-  click. Use `mode="immediate"` to navigate on press.
+- Starts preparing primary mouse navigation right after press and navigates on
+  the accepted click. Use `mode="immediate"` to navigate on press.
 - Keeps normal Link and browser behavior for other input methods.
 
 Use `FastLinkRegion` when existing links share one navigation policy:
