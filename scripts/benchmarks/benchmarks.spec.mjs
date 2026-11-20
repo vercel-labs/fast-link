@@ -1,10 +1,19 @@
+import { once } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { combineBatches } from './comparison-results.mjs';
-import { expectedNavigation, navigationCorrect } from './navigation.mjs';
-import { readModes } from './options.mjs';
+import { startDelayProxy } from './delay-proxy.mjs';
+import {
+  expectedNavigation,
+  navigationCorrect,
+  requireRouteResponses,
+  verifyCacheUse,
+} from './navigation.mjs';
+import { readCase, readModes, readRtt } from './options.mjs';
 import { selectFixtureBindings } from './prepare.mjs';
 import {
   evaluateComparison,
@@ -72,6 +81,59 @@ describe('benchmark results', () => {
     expect(readModes(undefined)).toEqual(['release', 'immediate', 'native']);
     expect(readModes('native,release')).toEqual(['release', 'native']);
     expect(() => readModes('release,eager')).toThrow('Unknown benchmark modes');
+  });
+
+  it.each([
+    [undefined, 0],
+    ['0', 0],
+    ['100', 100],
+  ])('reads --rtt %s as %d ms', (value, rttMs) => {
+    expect(readRtt(value)).toBe(rttMs);
+  });
+
+  it.each(['-5', '1.5', '100ms', ''])('rejects --rtt %j', (value) => {
+    expect(() => readRtt(value)).toThrow('Invalid benchmark RTT');
+  });
+
+  it('limits delayed runs to Next.js navigation', () => {
+    expect(readCase('core', 0)).toBe('core');
+    expect(readCase('all', 100)).toBe('next');
+    expect(readCase('next', 100)).toBe('next');
+    expect(() => readCase('react', 100)).toThrow('--rtt measures only');
+    expect(() => readCase('browser', 0)).toThrow('Unknown benchmark case');
+  });
+
+  it('validates network scenarios against the recorded RTT', () => {
+    const input = report(10);
+    input.environment.rttMs = 100;
+    input.conditions = { case: 'next', modes: ['release'] };
+    input.metrics = Object.fromEntries(
+      scenarioNames({ ...input.conditions, rttMs: 100 }).map((name) => [
+        name,
+        metric(10),
+      ]),
+    );
+
+    expect(Object.keys(input.metrics)).toContain(
+      'next.region.release.rtt100.dynamic.prefetch.hold100.releaseToCommit',
+    );
+    expect(Object.keys(input.metrics)).toContain(
+      'next.next.rtt100.static.cold.hold0.navigation',
+    );
+    expect(
+      Object.keys(input.metrics).filter((name) =>
+        /immediate|warm|hold85|\.1\./.test(name),
+      ),
+    ).toEqual([]);
+    expect(() => validateReport(input)).not.toThrow();
+    input.environment.rttMs = 50;
+    expect(() => validateReport(input)).toThrow(
+      'Missing or unexpected benchmark scenarios',
+    );
+    delete input.environment.rttMs;
+    expect(() => validateReport(input)).toThrow(
+      'Missing or unexpected benchmark scenarios',
+    );
   });
 
   it('accepts negative samples only for signed metrics', () => {
@@ -194,6 +256,13 @@ describe('benchmark results', () => {
         input.environment.browser = 'Other browser';
       },
       'Environments differ: browser',
+    ],
+    [
+      'network RTTs',
+      (input) => {
+        input.environment.rttMs = 100;
+      },
+      'Environments differ: rttMs',
     ],
     [
       'units',
@@ -455,6 +524,110 @@ describe('navigation correctness', () => {
     expect(
       navigationCorrect(observed(change), expectedNavigation(variant, mode), 2),
     ).toBe(false);
+  });
+});
+
+describe('navigation route requests', () => {
+  const routeRequest = (failure, ok = true) => ({
+    failure,
+    response: async () => ({ ok: () => ok }),
+  });
+  const settledRequests = { settled: async (request) => request.failure };
+
+  it('counts aborts after an OK response only for the dynamic destination', async () => {
+    const requests = [routeRequest(null), routeRequest('net::ERR_ABORTED')];
+    await expect(
+      requireRouteResponses(requests, settledRequests, { name: 'dynamic' }),
+    ).resolves.toBe(1);
+    await expect(
+      requireRouteResponses(requests, settledRequests, { name: 'static' }),
+    ).rejects.toThrow('route request failed: net::ERR_ABORTED');
+  });
+
+  it.each([
+    ['another failure', routeRequest('net::ERR_CONNECTION_RESET')],
+    [
+      'an abort without an OK response',
+      routeRequest('net::ERR_ABORTED', false),
+    ],
+  ])('rejects a dynamic request with %s', async (_, request) => {
+    await expect(
+      requireRouteResponses([request], settledRequests, { name: 'dynamic' }),
+    ).rejects.toThrow(/route (request|response) failed/);
+  });
+
+  it.each([
+    ['cold', 0, 1],
+    ['prefetch', 2, 3],
+  ])('requires one %s dynamic navigation request', (cache, before, after) => {
+    expect(() => verifyCacheUse(cache, 'dynamic', before, after)).not.toThrow();
+    expect(() => verifyCacheUse(cache, 'dynamic', before, before)).toThrow(
+      'Dynamic navigation made 0 route requests',
+    );
+    expect(() => verifyCacheUse(cache, 'dynamic', before, after + 1)).toThrow(
+      'Dynamic navigation made 2 route requests',
+    );
+  });
+
+  it('keeps static cache rules for static navigation', () => {
+    expect(() => verifyCacheUse('prefetch', 'static', 2, 2)).not.toThrow();
+    expect(() => verifyCacheUse('cold', 'static', 0, 0)).toThrow('cold');
+    expect(() => verifyCacheUse('warm', 'static', 1, 2)).toThrow('warm');
+  });
+});
+
+describe('delay proxy', () => {
+  let echo;
+  let proxy;
+  let socket;
+
+  beforeEach(async () => {
+    echo = createServer((connection) => connection.pipe(connection));
+    echo.listen(0, '127.0.0.1');
+    await once(echo, 'listening');
+    proxy = await startDelayProxy(`http://127.0.0.1:${echo.address().port}`);
+    socket = createConnection(Number(new URL(proxy.origin).port), '127.0.0.1');
+    await once(socket, 'connect');
+  });
+
+  afterEach(async () => {
+    socket?.destroy();
+    await proxy?.close();
+    await new Promise((done) => echo.close(done));
+  });
+
+  /** Resolves with everything received until `text` has arrived. */
+  async function receive(text) {
+    let received = '';
+    while (!received.includes(text))
+      // oxlint-disable-next-line no-await-in-loop -- Read chunks in order.
+      received += (await once(socket, 'data'))[0].toString();
+    return received;
+  }
+
+  it('adds the configured round trip to each exchange', async () => {
+    proxy.setRtt(100);
+    const started = performance.now();
+    socket.write('ping');
+    await receive('ping');
+    const elapsed = performance.now() - started;
+
+    // Timers fire no earlier than requested. The upper bound tolerates load but
+    // rejects a full RTT added in each direction.
+    expect(elapsed).toBeGreaterThanOrEqual(99);
+    expect(elapsed).toBeLessThan(190);
+  });
+
+  it('keeps byte order when the delay shrinks while chunks are queued', async () => {
+    proxy.setRtt(200);
+    socket.write('first;');
+    // Localhost delivery takes well under 20 ms, so the proxy holds `first;`
+    // in its 100 ms outbound queue when the delay drops.
+    await delay(20);
+    proxy.setRtt(0);
+    socket.write('second;');
+
+    await expect(receive('second;')).resolves.toBe('first;second;');
   });
 });
 

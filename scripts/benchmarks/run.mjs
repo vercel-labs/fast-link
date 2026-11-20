@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { readModes } from './options.mjs';
+import { readCase, readModes, readRtt } from './options.mjs';
 import { runCommand } from './process.mjs';
 import { createBenchmarkSession } from './session.mjs';
 
@@ -13,15 +13,19 @@ function readOptions() {
       output: { type: 'string' },
       case: { type: 'string', default: 'all' },
       modes: { type: 'string' },
+      rtt: { type: 'string' },
     },
   });
-  if (!values.output || !['all', 'core', 'react', 'next'].includes(values.case))
+  if (!values.output)
     throw new Error(
-      'Usage: pnpm benchmark --output FILE [--case core|react|next] [--modes release,immediate,native]',
+      'Usage: pnpm benchmark --output FILE [--case core|react|next] [--modes release,immediate,native] [--rtt MS]',
     );
+  const rttMs = readRtt(values.rtt);
   return {
     ...values,
+    case: readCase(values.case, rttMs),
     modes: readModes(values.modes),
+    rttMs,
     root: resolve(values.root),
     output: resolve(values.output),
   };
@@ -47,6 +51,7 @@ async function main() {
       output: values.output,
       selected: values.case,
       modes: values.modes,
+      rttMs: values.rttMs,
     });
   } finally {
     await session.close();

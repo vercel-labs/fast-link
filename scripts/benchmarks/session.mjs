@@ -8,12 +8,13 @@ import { dirname, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
 import { startFixture } from '../browser/fixture-server.mjs';
+import { startDelayProxy } from './delay-proxy.mjs';
 import { createMeasurements } from './measure.mjs';
-import { scenarioNames, summarize, validateReport } from './report.mjs';
+import { expectedScenarios, summarize, validateReport } from './report.mjs';
 import { workload } from './workload.mjs';
 
 /** Captures source identity, tested versions, environment, and measurement conditions. */
-async function createReport(root, selected, modes = workload.modes) {
+async function createReport(root, selected, modes, rttMs) {
   const manifest = async (path) =>
     JSON.parse(await readFile(resolve(root, path), 'utf8'));
   const fixtureManifest = await manifest('fixtures/next-16/package.json');
@@ -45,6 +46,8 @@ async function createReport(root, selected, modes = workload.modes) {
       node: process.version,
       playwright: createRequire(import.meta.url)('playwright/package.json')
         .version,
+      // Round-trip time the delay proxy adds; 0 measures localhost directly.
+      rttMs,
     },
     conditions: {
       ...workload,
@@ -61,7 +64,7 @@ function completeReport(result, batch) {
   if (result.errors.length) throw new Error(result.errors.join('\n'));
   if (
     JSON.stringify(Object.keys(result.metrics).toSorted()) !==
-    JSON.stringify(scenarioNames(result.conditions).toSorted())
+    JSON.stringify(expectedScenarios(result).toSorted())
   )
     throw new Error('Benchmark scenarios are incomplete');
   if (batch === undefined)
@@ -76,12 +79,14 @@ function completeReport(result, batch) {
  */
 export function createBenchmarkSession() {
   const servers = new Map();
+  const proxies = new Map();
   let browser;
 
   /** Attempts every teardown even if another resource fails to close. */
   async function close() {
     const results = await Promise.allSettled([
       browser?.close(),
+      ...Array.from(proxies.values(), (proxy) => proxy.close()),
       ...Array.from(servers.values(), (server) => server.close()),
     ]);
     const errors = results
@@ -91,8 +96,11 @@ export function createBenchmarkSession() {
       throw new AggregateError(errors, 'Benchmark cleanup failed');
   }
 
-  /** Starts each checkout once, inside the report's failure-capture boundary. */
-  async function prepare(root) {
+  /**
+   * Starts each checkout once, inside the report's failure-capture boundary.
+   * A delayed run reaches the server through that checkout's delay proxy.
+   */
+  async function prepare(root, rttMs) {
     let server = servers.get(root);
     if (!server) {
       server = await startFixture(root, '/docs/benchmark');
@@ -100,16 +108,29 @@ export function createBenchmarkSession() {
       await server.waitUntilReady();
     }
     browser ??= await chromium.launch();
-    return server.origin;
+    if (rttMs === 0) return { origin: server.origin, proxy: null };
+    let proxy = proxies.get(root);
+    if (!proxy) {
+      proxy = await startDelayProxy(server.origin);
+      proxies.set(root, proxy);
+    }
+    return { origin: proxy.origin, proxy };
   }
 
   /** Writes one batch or a full run; failed work is saved before rejection. */
-  async function measure({ root, output, selected, modes, batch }) {
+  async function measure({
+    root,
+    output,
+    selected,
+    modes = workload.modes,
+    rttMs = 0,
+    batch,
+  }) {
     const started = performance.now();
-    const result = await createReport(root, selected, modes);
+    const result = await createReport(root, selected, modes, rttMs);
 
     try {
-      const origin = await prepare(root);
+      const { origin, proxy } = await prepare(root, rttMs);
       result.environment.browser = browser.version();
       const batches =
         batch === undefined
@@ -120,7 +141,7 @@ export function createBenchmarkSession() {
           : [batch];
       if (batches.some((index) => !Number.isInteger(index) || index < 0))
         throw new Error('Invalid batch');
-      const measurements = createMeasurements(browser, origin, result);
+      const measurements = createMeasurements(browser, origin, result, proxy);
       for (const index of batches) await measurements.measureBatch(index);
       completeReport(result, batch);
     } catch (error) {
