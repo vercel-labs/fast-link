@@ -527,13 +527,13 @@ describe('navigation correctness', () => {
   });
 });
 
-describe('navigation route requests', () => {
-  const routeRequest = (failure, ok = true) => ({
-    failure,
-    response: async () => ({ ok: () => ok }),
-  });
-  const settledRequests = { settled: async (request) => request.failure };
+const routeRequest = (failure, ok = true) => ({
+  failure,
+  response: async () => ({ ok: () => ok }),
+});
+const settledRequests = { settled: async (request) => request.failure };
 
+describe('navigation route requests', () => {
   it('counts aborts after an OK response only for the dynamic destination', async () => {
     const requests = [routeRequest(null), routeRequest('net::ERR_ABORTED')];
     await expect(
