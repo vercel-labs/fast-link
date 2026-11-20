@@ -55,8 +55,8 @@ navigation policy, including native mode.
 _Avoid_: Outer-first priority, inherited mode
 
 **Release mode**:
-Fast Link behavior that prepares on an eligible mouse press and navigates on an
-accepted click. Releasing away cancels activation.
+Fast Link behavior that starts preparing right after an eligible mouse press and
+navigates on an accepted click. Releasing away cancels activation.
 _Avoid_: Pointerup mode, prepared mode
 
 **Immediate mode**:

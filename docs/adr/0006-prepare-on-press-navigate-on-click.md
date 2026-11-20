@@ -4,7 +4,7 @@ Fast Link can start router work on eligible mouse press and wait for an accepted
 click to navigate. This keeps release-time cancellation, which press navigation
 gives up, while still starting work before release.
 
-Core owns one gesture controller and opaque preparation. It prepares on press,
+Core owns one gesture controller and opaque preparation. It prepares right after press,
 tracks cancellation until the click, and returns a once-only candidate for the
 matching click. Adapters accept that candidate after their synchronous guards,
 prevent the click's default action, and navigate. Core never prevents the click
@@ -26,6 +26,17 @@ for arbitrary renderers' callbacks would require another adapter protocol.
 Preparation failures leave ordinary click-time routing available. A failed
 navigation is never retried because it may already have started. Discarding
 preparation does not abort provider work.
+
+## Preparation timing
+
+Core starts preparation in a task scheduled by the eligible press, not inside
+the `pointerdown` handler, because router preparation does synchronous work
+that delays the press event. Every discard clears the task. Before preparing,
+the task checks that the gesture is still pending, its root is active, and the
+root still owns the link, so a stale, discarded, or no-longer-owned gesture
+never prepares. A click matched before the task gets no prepared value and
+routes as it would without preparation. The cost is that preparation starts
+one task later.
 
 Implementation: [`createClickPreparation`](../../packages/core/src/preparation/index.ts)
 and its [gesture engine](../../packages/core/src/preparation/gesture.ts). The
