@@ -104,8 +104,8 @@ also performs a document navigation.
 
 ## Navigate on the accepted click
 
-Release mode keeps release-time cancellation. Core prepares on press and
-matches the click; the caller accepts it during click capture:
+Release mode keeps release-time cancellation. Core prepares in the task after
+press and matches the click; the caller accepts it during click capture:
 
 ```ts
 import { createLinkInteraction } from '@fast-link/core';
