@@ -14,7 +14,7 @@ export interface RootBinding<P, C, T extends HTMLElement> {
   /** Stable handlers shared by both hooks. */
   handlers: {
     ref(element: T | null): void;
-    /** Matches only while attached. A candidate consumed after detachment is discarded. */
+    /** Returns `null` without a controller; the controller rejects detached activation. */
     matchClick(event: MouseEvent): PreparedClick<P> | null;
     discard(): void;
   };
@@ -32,8 +32,8 @@ export interface RootBinding<P, C, T extends HTMLElement> {
  * - Reattaching the same element keeps the controller and its pending work.
  * - Replacing the element, staying detached after the commit, or unmounting
  *   destroys it.
- * - Rejects click activation while the ref is detached. `isAttached` lets the
- *   factory reject activation that its options start.
+ * - Passes `isAttached` to the factory, whose controller rejects input and
+ *   activation while the ref is detached.
  *
  * The binding renders nothing. React 19 runs no layout effects during server
  * rendering and does not warn about them.
@@ -110,26 +110,12 @@ function createRootBinding<
     });
   }
 
-  function matchClick(event: MouseEvent): PreparedClick<P> | null {
-    if (!element) {
-      discard();
-      return null;
-    }
-    const candidate = controller?.matchClick(event);
-    if (!candidate) return null;
-    return {
-      consume() {
-        // A guard can detach the root before deferred cleanup.
-        if (element) return candidate.consume();
-        candidate.discard();
-        return null;
-      },
-      discard: candidate.discard,
-    };
-  }
-
   return {
-    handlers: { ref, matchClick, discard },
+    handlers: {
+      ref,
+      matchClick: (event: MouseEvent) => controller?.matchClick(event) ?? null,
+      discard,
+    },
     controller: () => controller,
     update(nextOptions: O, nextRef: ForwardedRef<T>): void {
       const isRefChanged = forwardedRef !== nextRef;

@@ -1,9 +1,9 @@
 # ▲ @fast-link/core
 
 `@fast-link/core` starts work for eligible same-origin link navigation on a
-primary mouse press. It can prepare on press and navigate on the accepted
-click, or navigate on press. Use it with plain DOM elements or as the
-interaction layer for a framework adapter.
+primary mouse press. It can start preparing right after press and navigate on
+the accepted click, or navigate on press. Use it with plain DOM elements or as
+the interaction layer for a framework adapter.
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
@@ -35,7 +35,7 @@ mouse input in an explicit mode:
 
 | Mode        | Behavior                                                              |
 | ----------- | --------------------------------------------------------------------- |
-| `release`   | Prepare on press; the adapter navigates on the accepted click.        |
+| `release`   | Prepare after press; the adapter navigates on the accepted click.     |
 | `immediate` | Navigate on press, before release. Releasing away cannot cancel it.   |
 | `native`    | Leave new interactions to ordinary link behavior. Needs no callbacks. |
 
@@ -151,7 +151,7 @@ bundled copies of core, navigate once.
 | -------------------------------- | -------- | ------------------------------------------------------ |
 | `createLinkInteraction`          | Function | Handle a root in release, immediate, or native mode    |
 | `createFastLink`                 | Function | Attach navigation behavior to an anchor or region      |
-| `createClickPreparation`         | Function | Prepare on press and match the accepted click          |
+| `createClickPreparation`         | Function | Prepare after press and match the accepted click       |
 | `runFastNavigation`              | Function | Apply a router or document navigation decision         |
 | `validateFastNavigationDecision` | Function | Check a policy result without navigating               |
 | `LinkMode`                       | Type     | `'release' \| 'immediate' \| 'native'`                 |
@@ -180,11 +180,25 @@ function createLinkInteraction<P>(
         navigate(intent: FastLinkIntent): void;
       }
     | { mode: 'native' },
+  isActive?: () => boolean,
 ): LinkInteractionController<P>;
 ```
 
 The root can be one anchor or a region containing anchors. The mode has no
 default. Options are copied at creation and on each `update()`.
+
+Pass `isActive` when the owner can detach the root before calling `destroy()`,
+such as a framework ref that can reattach within one commit. It defaults to
+always active. While it returns `false`:
+
+- A press stays native: the root claims and prepares nothing and arms no
+  suppression. The root keeps its ownership, so containing regions leave the
+  link native too.
+- Suppression armed earlier still applies and settles on the next press, as
+  usual.
+- A guard that deactivates the root cancels immediate navigation; as with a
+  canceled guard, its follow-up click stays suppressed.
+- Release `matchClick` and `consume()` return `null`.
 
 Release mode prepares like [`createClickPreparation`](#createclickpreparation).
 Handle its clicks with `matchClick(event)` and the same consume or discard
@@ -195,9 +209,9 @@ Immediate mode handles an eligible press in this order:
 1. Claim the press and arm suppression of the follow-up click.
 2. Call `beforeNavigate(intent)`. Returning `false` cancels navigation. An error
    propagates. Either way, the follow-up click stays suppressed.
-3. Recheck the attempt. A mode change, new input at the root, destruction, a
-   change of owner, or a link that is no longer eligible cancels it. A
-   same-mode update or `href` change during the guard is used.
+3. Recheck the attempt. A mode change, new input at the root, destruction,
+   deactivation, a change of owner, or a link that is no longer eligible
+   cancels it. A same-mode update or `href` change during the guard is used.
 4. Call the current `navigate(intent)`. Errors propagate and are not retried.
 
 Native mode prepares, claims, and navigates nothing. The root still owns its
@@ -208,7 +222,7 @@ ordinary links, so containing regions leave them native too.
 | `update(options)`      | Replaces every option. A same-mode update keeps pending work. A mode change discards preparation and never revives it.                    |
 | `matchClick(event)`    | In release mode, returns a once-only candidate for the matching click. Returns `null` in other modes.                                     |
 | `suppressClick(event)` | Applies pending suppression from an earlier framework capture handler. Returns whether the click is suppressed.                           |
-| `discardClick()`       | Drops release-mode preparation and matched candidates.                                                                                    |
+| `discard()`            | Drops release-mode preparation and matched candidates. Never clears follow-up click suppression.                                          |
 | `destroy()`            | Discards pending work and suppression, removes listeners, and releases the root's ownership. Repeated calls and later updates do nothing. |
 
 Follow-up click suppression belongs to the root. It survives mode, option, and
@@ -288,13 +302,21 @@ implementing it in an app.
 function createClickPreparation<P>(
   root: HTMLElement,
   options: { enabled?: boolean; prepare(intent: FastLinkIntent): P | null },
+  isActive?: () => boolean,
 ): ClickPreparationController<P>;
 ```
 
-`prepare` runs on eligible primary mouse press and must not navigate. Core stores
+`prepare` runs in the task after an eligible primary mouse press and must not
+navigate. It runs only while the gesture is still pending, the root is active,
+and the root still owns the link. A click matched before then gets
+`prepared: null`. Core stores
 its return value without checking whether the work is ready or providing a way
 to abort it. If `prepare` throws, core ignores the error so the adapter can still
 handle the click.
+
+`isActive` works as in [`createLinkInteraction`](#createlinkinteraction): while
+it returns `false`, a press prepares nothing, and `matchClick` and `consume()`
+return `null`.
 
 Handle the click in this order:
 
@@ -308,19 +330,20 @@ Handle the click in this order:
 Complete this sequence synchronously during the click event. The adapter calls
 `preventDefault()` and performs navigation after consuming a valid candidate.
 
-`consume()` rechecks the link's current eligibility and per-link priority over
-containing regions. It returns one of these results:
+`consume()` rechecks the link's current eligibility, its per-link priority over
+containing regions, and the root's activity. It returns one of these results:
 
-| Result                        | Meaning                                                                                        |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `null`                        | The candidate was already consumed or is no longer valid. Do not navigate through it.          |
-| `{ intent, prepared: value }` | The click can navigate using the current intent and the stored preparation.                    |
-| `{ intent, prepared: null }`  | The click can navigate, but no preparation can be reused. This includes a changed destination. |
+| Result                        | Meaning                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `null`                        | The candidate was already consumed or is no longer valid. Do not navigate through it.                                           |
+| `{ intent, prepared: value }` | The click can navigate using the current intent and the stored preparation.                                                     |
+| `{ intent, prepared: null }`  | The click can navigate, but no preparation can be reused. This includes a changed destination and a click before `prepare` ran. |
 
 New input, cancellation, dragging, release away, blur, destruction, and
 disabling invalidate preparation, including while cancellation handlers run. A
-release with no click expires on the next timer turn. Core never prevents the
-click or navigates.
+release cancels a `prepare` call that has not run yet, and a release with no
+click expires on the next timer turn. Core never prevents the click or
+navigates.
 
 | Controller method   | Behavior                                                                                                                   |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |

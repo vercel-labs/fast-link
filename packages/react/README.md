@@ -4,11 +4,11 @@
 anchor or navigation region. Use it when an application or framework adapter
 needs its own routing policy.
 
-| Hook                  | Binds                                                                      |
-| --------------------- | -------------------------------------------------------------------------- |
-| `useLinkInteraction`  | `createLinkInteraction` in `release`, `immediate`, or `native` mode        |
-| `useClickPreparation` | `createClickPreparation`: prepare on press, navigate on the accepted click |
-| `useFastLink`         | `createFastLink`: navigate on press, with document navigation by default   |
+| Hook                  | Binds                                                                         |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `useLinkInteraction`  | `createLinkInteraction` in `release`, `immediate`, or `native` mode           |
+| `useClickPreparation` | `createClickPreparation`: prepare after press, navigate on the accepted click |
+| `useFastLink`         | `createFastLink`: navigate on press, with document navigation by default      |
 
 For Next.js App Router applications, use
 [`@fast-link/next`](https://github.com/vercel-labs/fast-link/tree/main/packages/next)
@@ -71,8 +71,8 @@ In immediate mode, primary mouse navigation inside the region calls `route` on
 leaves new clicks to the browser or the application's link handling. A click
 still owed suppression by an earlier immediate press stays suppressed.
 
-Release mode prepares on press. Accept its click with `matchClick` as in
-[the preparation example](#prepare-on-press-and-navigate-on-click).
+Release mode prepares in the task after press. Accept its click with
+`matchClick` as in [the preparation example](#prepare-after-press-and-navigate-on-click).
 
 ## Bind navigation to a React region
 
@@ -116,7 +116,7 @@ state, and transitions.
 The package renders no wrapper and imports no router. The `display: contents`
 element in the example belongs to the application.
 
-## Prepare on press and navigate on click
+## Prepare after press and navigate on click
 
 ```tsx
 'use client';
@@ -168,7 +168,7 @@ function useLinkInteraction<P, T extends HTMLElement = HTMLElement>(
 interface LinkInteractionBinding<P, T extends HTMLElement = HTMLElement> {
   ref(element: T | null): void;
   matchClick(event: MouseEvent): PreparedClick<P> | null;
-  discardClick(): void;
+  discard(): void;
   suppressClick(event: React.MouseEvent): boolean;
 }
 ```
@@ -181,7 +181,7 @@ returned object and its handlers are stable.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ref`                  | Attach to the anchor or region the controller handles.                                                                                                              |
 | `matchClick(event)`    | In release mode, matches the native click before synchronous guards. Consume or discard the candidate during the same dispatch. Returns `null` in other modes.      |
-| `discardClick()`       | Drops release-mode preparation and matched candidates.                                                                                                              |
+| `discard()`            | Drops release-mode preparation and matched candidates. Never clears follow-up click suppression.                                                                    |
 | `suppressClick(event)` | Call from a click-capture handler before matching. Prevents the follow-up click of an immediate press on the native and React events and returns whether it did so. |
 
 `suppressClick` keeps propagation, so later click handlers still run and see
@@ -284,11 +284,12 @@ the interaction.
 - In `useClickPreparation`, valid preparation survives updates; `enabled: false`
   discards the gesture.
 - Reattaching the same element within one React commit keeps pending work.
-- While the ref is detached, navigation is rejected: `matchClick` returns
-  `null`, a candidate's `consume()` returns `null`, and an immediate press does
-  not call `beforeNavigate` or `navigate`. Like a canceled guard, that press
-  still suppresses its follow-up click. Existing click suppression can still
-  settle.
+- While the ref is detached, the controller ignores presses and rejects
+  activation:
+  - A press prepares nothing, calls neither `beforeNavigate` nor `navigate`,
+    and leaves its click native.
+  - `matchClick` and a candidate's `consume()` return `null`.
+  - Earlier click suppression can still settle.
 - Replacing the element or unmounting destroys the controller. If the ref stays
   detached, cleanup runs after the commit.
 - When the element is replaced in the same commit as an option or caller-ref

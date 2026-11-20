@@ -1,6 +1,5 @@
 import type { FastLinkIntent } from '../interaction';
-import type { ClickGesture, PreparedClick } from '../preparation/gesture';
-import type { FollowupClaim } from './followup-click';
+import type { PreparedClick } from '../preparation/gesture';
 
 /** How a link interaction controller handles eligible primary mouse input. */
 export type LinkMode = 'release' | 'immediate' | 'native';
@@ -14,10 +13,14 @@ export type LinkInteractionOptions<P> =
   | ImmediateLinkOptions
   | NativeLinkOptions;
 
-/** Prepares on eligible press; the adapter accepts the matching click and navigates. */
+/** Prepares after eligible press; the adapter accepts the matching click and navigates. */
 export interface ReleaseLinkOptions<P> {
   mode: 'release';
-  /** Starts work without navigating. Errors are ignored and leave click-time navigation available. */
+  /**
+   * Starts work without navigating, in the task after an eligible press. A
+   * gesture discarded, matched, or no longer owned before then is not
+   * prepared. Errors are ignored and leave click-time navigation available.
+   */
   prepare(intent: FastLinkIntent): P | null;
 }
 
@@ -41,7 +44,9 @@ export interface NativeLinkOptions {
 /** Controls one root's selected mode, its listeners, and follow-up click suppression. */
 export interface LinkInteractionController<P> {
   /**
-   * Copies and replaces every option. A same-mode update keeps pending work.
+   * Copies and replaces every option. A same-mode update keeps pending work,
+   * and a release update before the preparation task makes it call the latest
+   * `prepare`.
    * A mode change discards click preparation and cancels a running guard, but
    * never clears follow-up click suppression.
    */
@@ -55,23 +60,11 @@ export interface LinkInteractionController<P> {
    * prevent its own event wrapper.
    */
   suppressClick(event: MouseEvent): boolean;
-  /** Drops release-mode preparation and matched candidates only. */
-  discardClick(): void;
+  /**
+   * Drops release-mode preparation and matched candidates only. Never clears
+   * follow-up click suppression.
+   */
+  discard(): void;
   /** Destroys pending work, suppression, listeners, and root ownership. Repeated calls do nothing. */
   destroy(): void;
 }
-
-export type SelectedPath<P> =
-  | { readonly mode: 'release'; readonly gesture: ClickGesture<P> }
-  | { readonly mode: 'immediate'; options: ImmediateLinkOptions }
-  | { readonly mode: 'native' };
-
-export type InteractionState<P> = {
-  readonly root: HTMLElement;
-  selected: SelectedPath<P>;
-  destroyed: boolean;
-  /** Changes on each root press, mode change, and destruction to invalidate a running guard. */
-  inputVersion: number;
-  /** Survives mode and option changes until its click, the next root press, or destruction. */
-  followup: FollowupClaim | null;
-};

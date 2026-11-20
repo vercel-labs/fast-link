@@ -254,15 +254,13 @@ describe('findAnchor', () => {
     const label = svg.querySelector('text');
 
     expect(findAnchor(label, root)).toBe(anchor);
-    expect(findAnchor(label, null)).toBe(anchor);
     expect(findAnchor(label, svg)).toBeNull();
   });
 
-  it('keeps non-element targets and boundaries outside the element tree native', () => {
+  it('keeps non-element targets native', () => {
     const anchor = createAnchor({ href: '/pricing' });
     const label = anchor.appendChild(document.createTextNode('Pricing'));
-    expect(findAnchor(label, null)).toBeNull();
-    expect(findAnchor(anchor, document)).toBeNull();
+    expect(findAnchor(label, anchor)).toBeNull();
   });
 });
 

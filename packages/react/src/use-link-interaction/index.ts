@@ -27,8 +27,11 @@ export interface LinkInteractionBinding<
    * while the ref is detached.
    */
   matchClick(event: MouseEvent): PreparedClick<P> | null;
-  /** Drops release-mode preparation and matched candidates. */
-  discardClick(): void;
+  /**
+   * Drops release-mode preparation and matched candidates. Never clears
+   * follow-up click suppression.
+   */
+  discard(): void;
   /**
    * Call from a click-capture handler before matching. Prevents the follow-up
    * click of an accepted immediate press on both the native event and the React
@@ -53,71 +56,23 @@ export function useLinkInteraction<P, T extends HTMLElement = HTMLElement>({
 }: LinkInteractionOptions<P> & {
   forwardedRef?: ForwardedRef<T>;
 }): LinkInteractionBinding<P, T> {
-  const binding = useRootBinding<
+  const { handlers, controller } = useRootBinding<
     P,
     LinkInteractionOptions<P>,
-    AttachedInteraction<P>,
+    LinkInteractionController<P>,
     T
-  >(createAttachedInteraction, options, forwardedRef);
-  const [handlers] = useState(
+  >(createLinkInteraction, options, forwardedRef);
+  const [binding] = useState(
     (): LinkInteractionBinding<P, T> => ({
-      ref: binding.handlers.ref,
-      matchClick: binding.handlers.matchClick,
-      discardClick: binding.handlers.discard,
+      ...handlers,
       suppressClick(event) {
         const isSuppressed =
-          binding.controller()?.suppressClick(event.nativeEvent) ?? false;
+          controller()?.suppressClick(event.nativeEvent) ?? false;
         // Core prevents the native event; later React handlers read the wrapper.
         if (isSuppressed) event.preventDefault();
         return isSuppressed;
       },
     }),
   );
-  return handlers;
-}
-
-/** The core controller in the root binding's shape. */
-type AttachedInteraction<P> = LinkInteractionController<P> & {
-  discard(): void;
-};
-
-/**
- * Adapts the core controller to the root binding and rejects a detached
- * immediate press on every update. The binding rejects click activation itself,
- * but an immediate press starts inside core from the options' callbacks, which
- * only this mode-aware adapter can wrap.
- */
-function createAttachedInteraction<P>(
-  root: HTMLElement,
-  options: LinkInteractionOptions<P>,
-  isAttached: () => boolean,
-): AttachedInteraction<P> {
-  const controller = createLinkInteraction(
-    root,
-    rejectDetachedPress(options, isAttached),
-  );
-  return {
-    ...controller,
-    discard: controller.discardClick,
-    update: (nextOptions) =>
-      controller.update(rejectDetachedPress(nextOptions, isAttached)),
-  };
-}
-
-/** Rejects an immediate press while the ref is detached, before the guard and after it returns. */
-function rejectDetachedPress<P>(
-  options: LinkInteractionOptions<P>,
-  isAttached: () => boolean,
-): LinkInteractionOptions<P> {
-  if (options.mode !== 'immediate') return options;
-  return {
-    mode: 'immediate',
-    beforeNavigate(intent) {
-      if (!isAttached()) return false;
-      return options.beforeNavigate?.(intent) ?? true;
-    },
-    navigate(intent) {
-      if (isAttached()) options.navigate(intent);
-    },
-  };
+  return binding;
 }
