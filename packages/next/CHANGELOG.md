@@ -42,7 +42,8 @@
   which adds Next `16.5.0-canary.42` and every later 16.5.0 canary. These
   canaries provide the experimental `router.experimental_prepare` API that
   release mode uses after press; it requires
-  `experimental: { prepareNavigation: true }` in `next.config`. On other Next versions, release mode does not prepare and
+  `experimental: { prepareNavigation: true }` in `next.config`. On other Next
+  versions, release mode does not prepare and
   routes at the accepted click.
 - Update the core and React dependencies to `^0.1.0`.
 
