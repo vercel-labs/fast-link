@@ -105,7 +105,7 @@ jobs:
         run: bash scripts/ci/install-browsers.sh chromium firefox webkit
 
       - name: Run browser and App Router tests
-        run: pnpm exec turbo run test:browser test:fixtures
+        run: pnpm exec turbo run test:browser test:fixtures --concurrency=1
 
       - name: Upload browser failure artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
