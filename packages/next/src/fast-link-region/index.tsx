@@ -18,7 +18,8 @@ export type FastLinkRegionProps = NavigationOptions & {
  * Applies one mode and navigation policy to ordinary links in a
  * `display: contents` div. Ordinary links push history.
  *
- * - `release` (default) prepares on press and navigates during click capture.
+ * - `release` (default) prepares right after press and navigates during click
+ *   capture.
  *   Child click guards run after acceptance and cannot veto it; use
  *   `FastLink` for guarded links.
  * - `immediate` navigates on press. `native` leaves links to their own handlers.

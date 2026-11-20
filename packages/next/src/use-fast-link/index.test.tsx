@@ -11,7 +11,7 @@ import {
 } from '../testing';
 import { useFastLink } from './index';
 
-it('prepares on press and commits at click capture after the caller guard', () => {
+it('prepares right after press and commits at click capture after the caller guard', () => {
   const events: string[] = [];
   const push = vi.fn(() => events.push('commit'));
   router.experimental_prepare = vi.fn(() => ({ push, replace: vi.fn() }));

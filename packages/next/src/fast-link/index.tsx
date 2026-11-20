@@ -33,8 +33,8 @@ type CommittedLink = CommittedNavigation &
 /**
  * Next.js Link with early mouse navigation in the selected `mode`.
  *
- * - `release` (default) prepares on press and navigates after the caller's
- *   `onClick`, Next Link's checks, and the caller's `onNavigate`.
+ * - `release` (default) prepares right after press and navigates after the
+ *   caller's `onClick`, Next Link's checks, and the caller's `onNavigate`.
  * - `immediate` runs `onNavigate`, then navigates on press. The follow-up
  *   click stays prevented even if `onNavigate` cancels or throws; click
  *   handlers still run if the link is still mounted.
