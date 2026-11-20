@@ -27,7 +27,7 @@
     "@fast-link/react": "workspace:^"
   },
   "peerDependencies": {
-    "next": ">=16 <17 || 16.5.0-canary.42",
+    "next": ">=16 <17 || >=16.5.0-canary.42 <16.5.0",
     "react": ">=19 <20"
   },
   "devDependencies": {

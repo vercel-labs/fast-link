@@ -58,6 +58,7 @@ workspace links can hide.
 ### Framework support
 
 React adapters support React `>=19 <20`; the Next.js adapter supports Next.js
-`>=16 <17` and the preparation-capable prerelease `16.5.0-canary.42`. When
+`>=16 <17` and the preparation-capable prereleases from `16.5.0-canary.42`
+through later 16.5.0 canaries (`>=16.5.0-canary.42 <16.5.0`). When
 adding support for a new major, update the peer ranges and compatibility checks
 together. CI covers the minimum supported versions and the pinned fixture.
