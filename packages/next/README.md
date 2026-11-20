@@ -31,7 +31,8 @@ with `experimental: { prepareNavigation: true }` in `next.config`. It uses the
 public optional `router.experimental_prepare` API. Without that API, or if
 preparation throws, all three integrations route at the accepted click and apply
 the navigation policy as usual. If router navigation throws, Fast Link doesn't
-retry it. Immediate mode never prepares.
+retry it. Immediate mode never prepares. Preparation is tested with Next
+`16.5.0-canary.54`.
 
 Preparation is experimental. Releasing away discards Fast Link's prepared
 navigation but doesn't abort the route request Next already started.
