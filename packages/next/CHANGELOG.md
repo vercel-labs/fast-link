@@ -25,10 +25,9 @@
   navigation is reused only for the same router and destination with current
   commit options. Missing or failed preparation falls back to click-time
   routing. A failed navigation is never retried.
-- Start release preparation in the task after an eligible press, not inside the
-  `pointerdown` handler. A click accepted before then routes without
-  preparation. A discarded gesture calls neither the policy nor
-  `experimental_prepare`.
+- Start release preparation in the task after an eligible press. A click
+  accepted before then routes without preparation. A discarded gesture calls
+  neither the policy nor `experimental_prepare`.
 - Policies must be pure and repeatable: release mode can call them after press
   and again on click.
 - Receive `FastLink` refs through React 19's `ref` prop.

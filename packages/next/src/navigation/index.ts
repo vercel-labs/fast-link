@@ -21,7 +21,7 @@ type PreparingRouter = Router & {
   experimental_prepare?: (href: string) => PreparedHandle;
 };
 
-/** Router work started on press, reusable only by the same router and destination. */
+/** Router work started right after press, reusable only by the same router and destination. */
 export type PreparedNavigation = {
   router: Router;
   destination: string;

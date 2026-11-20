@@ -34,9 +34,9 @@ export type UseFastLinkOptions = Pick<
  * Returns stable ref and click-capture bindings for a custom renderer's anchor
  * in the selected `mode`. Spread both after the renderer's other props.
  *
- * - `release` (default) prepares on press and accepts during click capture,
- *   after the supplied `onClickCapture` and `onNavigate`. Later child handlers
- *   cannot veto it. Use `FastLink` when the renderer's own click and
+ * - `release` (default) prepares right after press and accepts during click
+ *   capture, after the supplied `onClickCapture` and `onNavigate`. Later child
+ *   handlers cannot veto it. Use `FastLink` when the renderer's own click and
  *   navigation guards must run first.
  * - If a guard changes the mode, or the anchor's ownership or attachment
  *   changes before acceptance, the click is left to the renderer, which runs

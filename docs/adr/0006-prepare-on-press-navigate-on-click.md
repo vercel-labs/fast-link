@@ -36,7 +36,8 @@ the task checks that the gesture is still pending, its root is active, and the
 root still owns the link, so a stale, discarded, or no-longer-owned gesture
 never prepares. A click matched before the task gets no prepared value and
 routes as it would without preparation. The cost is that preparation starts
-one task later.
+after the press task. A click the browser dispatches before then, for example
+under main-thread load, routes without preparation.
 
 Implementation: [`createClickPreparation`](../../packages/core/src/preparation/index.ts)
 and its [gesture engine](../../packages/core/src/preparation/gesture.ts). The

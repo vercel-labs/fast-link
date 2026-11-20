@@ -33,7 +33,8 @@ export type FastNavigationPolicy = (
 /** Navigation controls shared by Next links, regions, and the custom-renderer hook. */
 export type NavigationOptions = {
   /**
-   * `release` (default) prepares on press and navigates on an accepted click.
+   * `release` (default) prepares right after press and navigates on an accepted
+   * click.
    * `immediate` navigates on press. `native` leaves navigation to the link or
    * renderer.
    */
