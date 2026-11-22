@@ -1,8 +1,8 @@
 import { hasAnchorOwner, registerAnchorOwner } from '../coordination';
 import { findAnchor, resolveFastLink } from '../interaction';
+import { listen } from '../listen';
 import {
   createClickGesture,
-  type ClickGesture,
   type GestureOptions,
   type PreparedClick,
 } from './gesture';
@@ -16,7 +16,10 @@ export interface ClickPreparationOptions<P> extends GestureOptions<P> {
 
 /** Owns one root's eligible mouse gesture; adapters own click acceptance and navigation. */
 export interface ClickPreparationController<P> {
-  /** Replaces options. Disabling discards the gesture; other updates preserve it. */
+  /**
+   * Replaces options. Disabling discards the gesture; other updates preserve it.
+   * An update before the preparation task makes the task call the latest `prepare`.
+   */
   update(options: ClickPreparationOptions<P>): void;
   /** Matches before synchronous guards. Consume or discard every returned candidate. */
   matchClick(event: MouseEvent): PreparedClick<P> | null;
@@ -27,71 +30,67 @@ export interface ClickPreparationController<P> {
 }
 
 /**
- * Prepares eligible mouse presses, then matches their clicks without navigating.
+ * Prepares in the task after an eligible mouse press, then matches its click
+ * without navigating.
  * Managed anchors retain priority even when disabled. New input, drag, cancellation,
  * release away, and destruction discard preparation. Destroy when the root detaches.
  * Discarding opaque preparation does not cancel provider work.
+ *
+ * @param isActive Reports whether the root is still attached for its owner.
+ *   While it returns `false`, a press prepares nothing, `matchClick` returns
+ *   `null`, and a matched candidate's `consume()` returns `null`. Defaults to
+ *   always active.
  */
 export function createClickPreparation<P>(
   root: HTMLElement,
   options: ClickPreparationOptions<P>,
+  isActive: () => boolean = () => true,
 ): ClickPreparationController<P> {
-  const state: PreparationState<P> = {
+  let isEnabled = options.enabled !== false;
+  let isDestroyed = false;
+  const gesture = createClickGesture(
     root,
-    options: { ...options },
-    gesture: createClickGesture(root, options, (anchor) =>
-      hasAnchorPriority(root, anchor),
-    ),
-    destroyed: false,
-  };
+    options,
+    (anchor) => isPreparationOwner(root, anchor),
+    isActive,
+  );
   const releaseAnchor = registerAnchorOwner(root);
-  const onPointerDown = (event: PointerEvent) => prepareFromPress(state, event);
+  const stopListening = listen(root, 'pointerdown', prepareFromPress, true);
 
-  root.addEventListener('pointerdown', onPointerDown, true);
+  function prepareFromPress(event: PointerEvent): void {
+    gesture.discard();
+    if (isDestroyed || !isEnabled || !isActive()) return;
+
+    const anchor = findAnchor(event.target, root);
+    if (!anchor || !isPreparationOwner(root, anchor)) return;
+    const intent = resolveFastLink(event, anchor);
+    if (!intent) return;
+    gesture.prepare(event, intent);
+  }
 
   return {
-    matchClick: (event) => state.gesture.matchClick(event),
-    discard: () => state.gesture.discard(),
+    matchClick: (event) => gesture.matchClick(event),
+    discard: () => gesture.discard(),
     update(nextOptions) {
-      state.options = { ...nextOptions };
-      state.gesture.update(state.options);
-      if (state.options.enabled === false) state.gesture.discard();
+      isEnabled = nextOptions.enabled !== false;
+      gesture.update(nextOptions);
+      if (!isEnabled) gesture.discard();
     },
     destroy() {
-      if (state.destroyed) return;
-      state.destroyed = true;
-      state.gesture.destroy();
-      root.removeEventListener('pointerdown', onPointerDown, true);
+      if (isDestroyed) return;
+      isDestroyed = true;
+      gesture.destroy();
+      stopListening();
       releaseAnchor?.();
     },
   };
 }
 
-function prepareFromPress<P>(
-  state: PreparationState<P>,
-  event: PointerEvent,
-): void {
-  state.gesture.discard();
-  if (state.destroyed || state.options.enabled === false) return;
-
-  const anchor = findAnchor(event.target, state.root);
-  if (!anchor || !hasAnchorPriority(state.root, anchor)) return;
-  const intent = resolveFastLink(event, anchor);
-  if (!intent) return;
-  state.gesture.prepare(event, intent);
-}
-
-// Containing preparation roots keep outside-in order; only managed anchors take priority.
-function hasAnchorPriority(
+// The root must still contain the anchor. Containing preparation roots keep
+// outside-in order; only managed anchors take priority.
+function isPreparationOwner(
   root: HTMLElement,
   anchor: HTMLAnchorElement,
 ): boolean {
   return anchor === root || (root.contains(anchor) && !hasAnchorOwner(anchor));
 }
-
-type PreparationState<P> = {
-  readonly root: HTMLElement;
-  options: ClickPreparationOptions<P>;
-  readonly gesture: ClickGesture<P>;
-  destroyed: boolean;
-};

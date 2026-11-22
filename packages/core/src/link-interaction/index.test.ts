@@ -11,7 +11,7 @@ import { createLinkInteraction } from './index';
 
 type Calls = string[];
 
-function press(target: Element, pointerType = 'mouse'): PointerEvent {
+function dispatchPress(target: Element, pointerType = 'mouse'): PointerEvent {
   const event = new MouseEvent('pointerdown', {
     bubbles: true,
     cancelable: true,
@@ -20,6 +20,13 @@ function press(target: Element, pointerType = 'mouse'): PointerEvent {
   Object.defineProperty(event, 'pointerType', { value: pointerType });
   target.dispatchEvent(event);
   return event as PointerEvent;
+}
+
+/** Presses, then runs the release preparation task that follows the press. */
+function press(target: Element, pointerType = 'mouse'): PointerEvent {
+  const event = dispatchPress(target, pointerType);
+  vi.runOnlyPendingTimers();
+  return event;
 }
 
 /** Dispatches a pointer click and reports whether its default was prevented. */
@@ -103,7 +110,12 @@ function setup(html: string): HTMLElement {
   return container;
 }
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   document.body.replaceChildren();
 });
 
@@ -796,6 +808,25 @@ describe('updates', () => {
     }
   });
 
+  it('never prepares after a mode change before the task', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const prepare = vi.fn(() => 'request');
+    const controller = createLinkInteraction(anchor, {
+      mode: 'release',
+      prepare,
+    });
+    try {
+      dispatchPress(anchor);
+      controller.update({ mode: 'native' });
+      controller.update({ mode: 'release', prepare });
+      vi.runAllTimers();
+      expect(prepare).not.toHaveBeenCalled();
+      expect(controller.matchClick(clickEvent(anchor))).toBeNull();
+    } finally {
+      controller.destroy();
+    }
+  });
+
   it('keeps pending release work across a same-mode update', () => {
     const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
     const second = vi.fn(() => 'second');
@@ -824,5 +855,141 @@ describe('updates', () => {
     press(anchor);
     expect(navigate).not.toHaveBeenCalled();
     expect(click(anchor)).toBe(false);
+  });
+});
+
+describe('root activity', () => {
+  it.each(['release', 'immediate'] as const)(
+    'leaves %s presses native while the root is inactive',
+    (mode) => {
+      const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+      const calls: Calls = [];
+      const controller = createLinkInteraction(
+        anchor,
+        recording(mode, 'link', calls),
+        () => false,
+      );
+      try {
+        press(anchor);
+        expect(calls).toEqual([]);
+        expect(click(anchor)).toBe(false);
+      } finally {
+        controller.destroy();
+      }
+    },
+  );
+
+  it('cancels immediate navigation when the guard deactivates the root', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const navigate = vi.fn();
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      {
+        mode: 'immediate',
+        beforeNavigate: () => {
+          isActive = false;
+          return true;
+        },
+        navigate,
+      },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      expect(navigate).not.toHaveBeenCalled();
+      // Like a canceled guard, the claimed press keeps its click suppressed.
+      expect(click(anchor)).toBe(true);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('rejects a release candidate consumed after the root deactivates', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'release', prepare: () => 'prepared' },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      const candidate = controller.matchClick(clickEvent(anchor));
+      expect(candidate).not.toBeNull();
+      isActive = false;
+      expect(candidate?.consume()).toBeNull();
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('rejects a release click matched after the root deactivates', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'release', prepare: () => 'prepared' },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      isActive = false;
+      expect(controller.matchClick(clickEvent(anchor))).toBeNull();
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('settles earlier suppression on a press while the root is inactive', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const navigate = vi.fn();
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'immediate', navigate },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      isActive = false;
+      press(anchor);
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(click(anchor)).toBe(false);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('keeps earlier suppression for a framework handler after the root deactivates', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    let isActive = true;
+    const controller = createLinkInteraction(
+      anchor,
+      { mode: 'immediate', navigate: vi.fn() },
+      () => isActive,
+    );
+    try {
+      press(anchor);
+      isActive = false;
+      expect(controller.suppressClick(clickEvent(anchor))).toBe(true);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it('keeps immediate suppression when discard runs', () => {
+    const anchor = find(setup('<a href="/guide">Guide</a>'), 'a');
+    const controller = createLinkInteraction(anchor, {
+      mode: 'immediate',
+      navigate: vi.fn(),
+    });
+    try {
+      press(anchor);
+      controller.discard();
+      expect(click(anchor)).toBe(true);
+    } finally {
+      controller.destroy();
+    }
   });
 });

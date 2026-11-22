@@ -18,6 +18,7 @@ import { flushSync } from 'react-dom';
 
 import { useLinkInteraction, type LinkInteractionBinding } from './index';
 
+/** Presses, then runs the release preparation task that follows the press. */
 function press(element: Element): void {
   const event = new window.MouseEvent('pointerdown', {
     bubbles: true,
@@ -25,7 +26,16 @@ function press(element: Element): void {
   });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   element.dispatchEvent(event);
+  vi.runOnlyPendingTimers();
 }
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 /** Dispatches a pointer click and reports whether its native default was prevented. */
 function click(target: Element): boolean {
@@ -250,6 +260,33 @@ it.each(['release', 'native'] as const)(
   },
 );
 
+it('discards a held release press without clearing immediate suppression', () => {
+  const calls: string[] = [];
+  const bindings: LinkInteractionBinding<string>[] = [];
+  function Link({ mode }: { mode: LinkMode }) {
+    const binding = useLinkInteraction(recording(mode, calls));
+    bindings.push(binding);
+    return (
+      <a href="/guide" ref={binding.ref} onClickCapture={binding.suppressClick}>
+        Guide
+      </a>
+    );
+  }
+  const { getByRole, rerender } = render(<Link mode="release" />);
+  const anchor = getByRole('link');
+
+  press(anchor);
+  bindings.at(-1)?.discard();
+  expect(bindings.at(-1)?.matchClick(clickEvent(anchor))).toBeNull();
+
+  rerender(<Link mode="immediate" />);
+  press(anchor);
+  rerender(<Link mode="release" />);
+  bindings.at(-1)?.discard();
+  expect(click(anchor)).toBe(true);
+  expect(calls).toEqual(['prepare:/guide', 'navigate:/guide']);
+});
+
 it('rejects immediate navigation when its guard removes the root', () => {
   const navigate = vi.fn();
   function Link() {
@@ -335,6 +372,40 @@ it('rejects activation while a same-anchor reattachment detaches the ref but let
     'prepare:/second',
   ]);
   expect(detachedMatch).toBeNull();
+});
+
+it('leaves the click native after an immediate press while the ref is detached', () => {
+  const navigate = vi.fn();
+  let onDetach: ((anchor: HTMLAnchorElement) => void) | null = null;
+  const callerRef = (anchor: HTMLAnchorElement | null) =>
+    anchor ? () => onDetach?.(anchor) : undefined;
+  function Renderer({ href }: { href: string }) {
+    const binding = useLinkInteraction<null, HTMLAnchorElement>({
+      mode: 'immediate',
+      navigate,
+      forwardedRef: callerRef,
+    });
+    const ref = useCallback(
+      (element: HTMLAnchorElement | null) => binding.ref(element),
+      [binding.ref, href],
+    );
+    return (
+      <a href={href} ref={ref} onClickCapture={binding.suppressClick}>
+        Guide
+      </a>
+    );
+  }
+  const { getByRole, rerender } = render(<Renderer href="/first" />);
+  const anchor = getByRole('link');
+
+  onDetach = (detached) => press(detached);
+  rerender(<Renderer href="/second" />);
+  onDetach = null;
+
+  expect(getByRole('link')).toBe(anchor);
+  expect(navigate).not.toHaveBeenCalled();
+  // Nothing navigated, so the click after reattachment stays native.
+  expect(click(anchor)).toBe(false);
 });
 
 it('rejects a release click consumed after its guard removes the root', () => {

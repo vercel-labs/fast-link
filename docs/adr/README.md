@@ -13,6 +13,7 @@ Package READMEs document the complete caller contracts.
 | [0006: Prepare on press, navigate on accepted click](./0006-prepare-on-press-navigate-on-click.md)       | Keep release-time cancellation while starting router work on press. Release mode since 0007.              |
 | [0007: Make early navigation an explicit mode](./0007-configurable-navigation-modes.md)                  | Choose release, immediate, or native per root without remounting.                                         |
 | [0008: Let the closest region configure ordinary links](./0008-use-closest-region-for-ordinary-links.md) | A native inner region blocks outer acceleration; managed links keep their own mode.                       |
+| [0009: Enforce root activity in core](./0009-enforce-root-activity-in-core.md)                           | Adapters report attachment; core checks it before claiming, preparing, or arming suppression.             |
 
 For usage and options, see [core](../../packages/core/README.md),
 [React](../../packages/react/README.md), and [Next.js](../../packages/next/README.md).

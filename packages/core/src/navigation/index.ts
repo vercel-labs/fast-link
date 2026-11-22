@@ -70,19 +70,20 @@ export function runFastNavigation(
 export function validateFastNavigationDecision(
   value: unknown,
 ): FastNavigationDecision {
-  if (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof Reflect.get(value, 'then') !== 'function'
-  ) {
-    const kind = Reflect.get(value, 'kind');
+  // Policy output is untrusted; these property checks are its runtime validation.
+  const candidate =
+    value !== null && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  if (candidate && typeof candidate.then !== 'function') {
+    const { kind } = candidate;
     if (kind === 'router') {
-      const scroll: unknown = Reflect.get(value, 'scroll');
+      const { scroll } = candidate;
       if (scroll === undefined) return Object.freeze({ kind });
       if (typeof scroll === 'boolean') return Object.freeze({ kind, scroll });
     }
     if (kind === 'document') {
-      const method: unknown = Reflect.get(value, 'method');
+      const { method } = candidate;
       if (method === 'assign' || method === 'replace')
         return Object.freeze({ kind, method });
     }
