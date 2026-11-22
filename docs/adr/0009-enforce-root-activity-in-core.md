@@ -5,7 +5,7 @@ adapter keeps the controller alive while the root is detached. Core enforces
 whether the root is active, and adapters only report it.
 Until the controller is destroyed it still receives input, and a guard or
 caller ref cleanup can dispatch a press while the root is detached. A detached
-root must not prepare, navigate, or suppress a click for an owner that has let
+root must not prepare, navigate, or arm click suppression for an owner that has let
 it go.
 `createLinkInteraction` and `createClickPreparation` accept an optional
 `isActive` callback. They check it before claiming a press, preparing, or
