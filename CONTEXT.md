@@ -25,23 +25,24 @@ router.
 _Avoid_: Router integration, navigation hook
 
 **FastLink**:
-The Next.js App Router link component with per-link Fast Link behavior and
-navigation options.
+The Next.js App Router link component with a per-link mode and navigation
+options.
 _Avoid_: NextFastLink, FastLink Link
 
 **FastLinkRegion**:
-A Next.js App Router component that applies one navigation policy to ordinary
-links in its subtree. Managed links retain their own navigation options.
+A Next.js App Router component that applies one mode and navigation policy to
+ordinary links for which it is the closest region. Managed links retain their
+own mode and navigation options.
 _Avoid_: Fast Link nav, Mousedown Nav
 
 **Managed link**:
-An anchor configured for per-link Fast Link behavior, including when early
-navigation is disabled.
+An anchor configured for per-link Fast Link behavior, including in native
+mode.
 _Avoid_: Region link
 
 **Ordinary link**:
-An anchor with no per-link Fast Link behavior. A containing region can supply
-its early navigation policy.
+An anchor with no per-link Fast Link behavior. Its closest region supplies its
+mode and navigation policy.
 _Avoid_: Managed link
 
 **Anchor ownership**:
@@ -54,8 +55,8 @@ navigation policy, including native mode.
 _Avoid_: Outer-first priority, inherited mode
 
 **Release mode**:
-Fast Link behavior that prepares on an eligible mouse press and navigates on an
-accepted click. Releasing away cancels activation.
+Fast Link behavior that starts preparing right after an eligible mouse press and
+navigates on an accepted click. Releasing away cancels activation.
 _Avoid_: Pointerup mode, prepared mode
 
 **Immediate mode**:

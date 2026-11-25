@@ -6,6 +6,7 @@
 
 import { act, fireEvent, render } from '@testing-library/react';
 import { useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import { pointerDown, router, captureErrors } from '../testing';
 import { FastLink } from './index';
@@ -17,6 +18,7 @@ describe('FastLink', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(router.push).toHaveBeenCalledExactlyOnceWith(
       '/pricing?from=nav#plans',
@@ -40,6 +42,7 @@ describe('FastLink', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/pricing', {
       scroll: false,
@@ -58,6 +61,7 @@ describe('FastLink', () => {
     );
 
     pointerDown(getByRole('link'));
+    fireEvent.click(getByRole('link'), { detail: 1 });
 
     expect(router.push).toHaveBeenCalledWith(
       '/caf%C3%A9?ref=a+b#menu',
@@ -89,7 +93,7 @@ describe('FastLink', () => {
     expect(click).toBe(false);
   });
 
-  it('suppresses the follow-up click while preserving click handlers and bubbling', () => {
+  it('navigates after click handlers while preserving bubbling', () => {
     const events: string[] = [];
     const { getByRole } = render(
       <div onClick={() => events.push('parent')}>
@@ -109,7 +113,7 @@ describe('FastLink', () => {
     const allowed = fireEvent.click(anchor, { detail: 1 });
 
     expect(allowed).toBe(false);
-    expect(events).toEqual(['navigate', 'fast', 'click', 'parent']);
+    expect(events).toEqual(['click', 'navigate', 'fast', 'parent']);
     expect(router.push).toHaveBeenCalledTimes(1);
   });
 
@@ -131,8 +135,7 @@ describe('FastLink', () => {
   );
 
   it.each([
-    ['disabled', { enabled: false }],
-    ['as', { as: '/display' }],
+    ['native', { mode: 'native' as const }],
     ['external', { href: 'https://other.example/pricing' }],
     ['hash', { href: '#pricing' }],
   ])('leaves %s links to Link', (_name, props) => {
@@ -147,7 +150,7 @@ describe('FastLink', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('updates props without losing pending click suppression', () => {
+  it('uses current props at click after a destination update', () => {
     const { getByRole, rerender } = render(
       <FastLink href="/first">First</FastLink>,
     );
@@ -159,10 +162,7 @@ describe('FastLink', () => {
     pointerDown(anchor);
 
     expect(allowed).toBe(false);
-    expect(router.push.mock.calls.map(([href]) => href)).toEqual([
-      '/first',
-      '/second',
-    ]);
+    expect(router.push.mock.calls.map(([href]) => href)).toEqual(['/second']);
   });
 
   it('uses committed navigation props before parent layout effects run', () => {
@@ -175,6 +175,7 @@ describe('FastLink', () => {
         if (href === '/second' && anchor.current) {
           expect(anchor.current.getAttribute('href')).toBe('/docs/second');
           pointerDown(anchor.current);
+          fireEvent.click(anchor.current, { detail: 1 });
         }
       }, [href]);
 
@@ -201,7 +202,7 @@ describe('FastLink', () => {
     });
   });
 
-  it('preserves the follow-up click when an inline ref changes on rerender', () => {
+  it('keeps the gesture when an inline ref changes on rerender', () => {
     const { getByRole, rerender } = render(
       <FastLink
         href="/first"
@@ -225,7 +226,7 @@ describe('FastLink', () => {
 
     expect(allowed).toBe(false);
     expect(router.push).toHaveBeenCalledExactlyOnceWith(
-      '/first',
+      '/second',
       expect.anything(),
     );
   });
@@ -304,7 +305,7 @@ describe('FastLink', () => {
       'second cleanup',
     ]);
     expect(allowed).toBe(false);
-    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledExactlyOnceWith('/second', {
       scroll: false,
       transitionTypes: ['slide'],
@@ -472,7 +473,7 @@ it('skips policy and observation after Link cancellation', () => {
   expect(router.push).not.toHaveBeenCalled();
 });
 
-it('keeps Link cancellation errors and follow-up click suppression', () => {
+it('surfaces Link guard errors at click without navigating', () => {
   const failure = new Error('onNavigate failed');
   const policy = vi.fn();
   const { getByRole } = render(
@@ -487,8 +488,189 @@ it('keeps Link cancellation errors and follow-up click suppression', () => {
     </FastLink>,
   );
   const anchor = getByRole('link');
-  expect(captureErrors(() => pointerDown(anchor))).toEqual([failure]);
-  expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+  expect(captureErrors(() => pointerDown(anchor))).toEqual([]);
+  expect(captureErrors(() => fireEvent.click(anchor, { detail: 1 }))).toEqual([
+    failure,
+  ]);
+  expect(policy).not.toHaveBeenCalled();
+  expect(router.push).not.toHaveBeenCalled();
+});
+
+describe('immediate mode', () => {
+  it('runs onNavigate, policy, and navigation on press, then prevents the follow-up click', () => {
+    const events: string[] = [];
+    router.experimental_prepare = vi.fn();
+    const { getByRole } = render(
+      <div onClick={() => events.push('parent')}>
+        <FastLink
+          href="/pricing"
+          mode="immediate"
+          navigationPolicy={() => {
+            events.push('policy');
+            return { kind: 'router' };
+          }}
+          onNavigate={() => events.push('navigate')}
+          onFastNavigate={() => events.push('fast')}
+          onClickCapture={(event) =>
+            events.push(
+              event.defaultPrevented ? 'capture prevented' : 'capture allowed',
+            )
+          }
+          onClick={(event) =>
+            events.push(event.defaultPrevented ? 'prevented' : 'allowed')
+          }
+        >
+          Pricing
+        </FastLink>
+      </div>,
+    );
+    const anchor = getByRole('link');
+
+    pointerDown(anchor);
+    expect(events).toEqual(['navigate', 'policy', 'fast']);
+    expect(router.push).toHaveBeenCalledExactlyOnceWith('/pricing', {
+      scroll: undefined,
+      transitionTypes: undefined,
+    });
+    expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+
+    expect(events).toEqual([
+      'navigate',
+      'policy',
+      'fast',
+      'capture prevented',
+      'prevented',
+      'parent',
+    ]);
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.experimental_prepare).not.toHaveBeenCalled();
+  });
+
+  it.each(['cancels', 'throws'] as const)(
+    'keeps the follow-up click prevented when onNavigate %s',
+    (outcome) => {
+      const failure = new Error('onNavigate failed');
+      const policy = vi.fn();
+      const { getByRole } = render(
+        <FastLink
+          href="/pricing"
+          mode="immediate"
+          navigationPolicy={policy}
+          onNavigate={(event) => {
+            if (outcome === 'throws') throw failure;
+            event.preventDefault();
+          }}
+        >
+          Pricing
+        </FastLink>,
+      );
+      const anchor = getByRole('link');
+
+      expect(captureErrors(() => pointerDown(anchor))).toEqual(
+        outcome === 'throws' ? [failure] : [],
+      );
+      expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+
+      expect(policy).not.toHaveBeenCalled();
+      expect(router.push).not.toHaveBeenCalled();
+    },
+  );
+
+  it('navigates with props committed during onNavigate', () => {
+    function Consumer() {
+      const [changed, setChanged] = useState(false);
+      return (
+        <FastLink
+          href={changed ? '/second' : '/first'}
+          mode="immediate"
+          replace={changed}
+          onNavigate={() => flushSync(() => setChanged(true))}
+        >
+          Destination
+        </FastLink>
+      );
+    }
+    const { getByRole } = render(<Consumer />);
+
+    pointerDown(getByRole('link'));
+
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledExactlyOnceWith('/second', {
+      scroll: undefined,
+      transitionTypes: undefined,
+    });
+  });
+
+  it('cancels when onNavigate selects native mode and still prevents the follow-up click', () => {
+    function Consumer() {
+      const [mode, setMode] = useState<'immediate' | 'native'>('immediate');
+      return (
+        <FastLink
+          href="/pricing"
+          mode={mode}
+          onNavigate={() => flushSync(() => setMode('native'))}
+        >
+          Pricing
+        </FastLink>
+      );
+    }
+    const { getByRole } = render(<Consumer />);
+    const anchor = getByRole('link');
+
+    pointerDown(anchor);
+    expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('keeps follow-up suppression after switching to native mode', () => {
+    const onNavigate = vi.fn();
+    const { getByRole, rerender } = render(
+      <FastLink href="/pricing" mode="immediate">
+        Pricing
+      </FastLink>,
+    );
+    const anchor = getByRole('link');
+    pointerDown(anchor);
+
+    rerender(
+      <FastLink href="/pricing" mode="native" onNavigate={onNavigate}>
+        Pricing
+      </FastLink>,
+    );
+    expect(fireEvent.click(anchor, { detail: 1 })).toBe(false);
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledTimes(1);
+
+    pointerDown(anchor);
+    fireEvent.click(anchor, { detail: 1 });
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('leaves press and click to Next Link in native mode', () => {
+  const policy = vi.fn();
+  const onNavigate = vi.fn();
+  router.experimental_prepare = vi.fn();
+  const { getByRole } = render(
+    <FastLink
+      href="/pricing"
+      mode="native"
+      navigationPolicy={policy}
+      onNavigate={onNavigate}
+    >
+      Pricing
+    </FastLink>,
+  );
+  const anchor = getByRole('link');
+
+  pointerDown(anchor);
+  fireEvent.click(anchor, { detail: 1 });
+
+  expect(anchor.hasAttribute('mode')).toBe(false);
+  expect(onNavigate).toHaveBeenCalledTimes(1);
+  expect(router.experimental_prepare).not.toHaveBeenCalled();
   expect(policy).not.toHaveBeenCalled();
   expect(router.push).not.toHaveBeenCalled();
 });

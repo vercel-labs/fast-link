@@ -7,16 +7,14 @@ type TestLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> &
   Pick<
     LinkProps,
     | 'href'
-    | 'as'
     | 'replace'
     | 'scroll'
     | 'prefetch'
     | 'onNavigate'
-    | 'legacyBehavior'
     | 'transitionTypes'
   >;
 
-type Router = { push: Mock; replace: Mock };
+type Router = { push: Mock; replace: Mock; experimental_prepare?: Mock };
 
 /** Switchable App Router mock, reset before each test. */
 const routing: { defaultRouter: Router; current: Router } = vi.hoisted(() => {
@@ -36,19 +34,17 @@ vi.mock('next/link', async () => {
     default: forwardRef<HTMLAnchorElement, TestLinkProps>(function TestLink(
       {
         href,
-        as,
         replace: _replace,
         scroll: _scroll,
         prefetch: _prefetch,
         onNavigate,
-        legacyBehavior: _legacyBehavior,
         transitionTypes: _transitionTypes,
         onClick,
         ...props
       },
       ref,
     ) {
-      const destination = toMockHref(as ?? href);
+      const destination = toMockHref(href);
       const renderedHref = destination.startsWith('/')
         ? `/docs${destination}`
         : destination;
@@ -59,8 +55,12 @@ vi.mock('next/link', async () => {
         ref,
         onClick(event) {
           onClick?.(event);
-          if (!event.defaultPrevented)
+          // Like Next Link, leave downloads to the browser without onNavigate.
+          if (event.currentTarget.hasAttribute('download')) return;
+          if (!event.defaultPrevented) {
+            event.preventDefault();
             onNavigate?.({ preventDefault: () => event.preventDefault() });
+          }
         },
       });
     }),
@@ -77,9 +77,16 @@ function toMockHref(href: LinkProps['href']): string {
 }
 
 beforeEach(() => {
+  // Release preparation runs in a task; `pointerDown` runs it explicitly.
+  vi.useFakeTimers();
   routing.current = router;
   router.push.mockClear();
   router.replace.mockClear();
+  delete router.experimental_prepare;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 export { router, routing };

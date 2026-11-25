@@ -14,6 +14,24 @@ Next.js modules.
 Apply the skill's early-navigation safety gate to each option below. An adapter
 does not make a release-time guard safe to move to pointerdown.
 
+Every entry point accepts `mode`: `release` (default), `immediate`, or
+`native`. Keep the default unless the interaction is safe to commit on press;
+`immediate` trades release-time cancellation for earlier navigation. `mode`
+replaces `enabled`: migrate `enabled={false}` to `mode="native"`. Earlier
+versions navigated on press, so a consumer upgrading from `enabled` that wants
+the same timing selects `mode="immediate"`.
+
+Don't present release mode as faster than Next Link. Preparation after press
+needs a Next version whose router provides `experimental_prepare` (from
+`16.5.0-canary.42`) and `experimental: { prepareNavigation: true }` in
+`next.config`; without that API, release mode routes at the accepted click.
+Even with preparation, release mode can save at most the part of the route
+fetch that overlaps the press, so it never saves more than the press lasts. A
+warm or prefetched route has no fetch to overlap. No published measurement
+covers release mode. Measure the target app before claiming a speed-up. Report
+what the installed version and configuration provide, and
+change the Next version or flag only with the user's agreement.
+
 1. **Reuse an applicable Fast Link integration.** Follow the target's aliases,
    barrels, shared packages, and usages. Verify its routing and rendering
    contracts match this application, then use that application entry point.
@@ -69,13 +87,20 @@ Keep the wrapper in a position where a div is valid HTML.
 `FastLinkRegion` leaves prefetching to its child links. Each Next Link keeps
 its native prefetch behavior and its own `prefetch` setting.
 
-Ordinary links use the region's router policy and push history. The region
-cannot read React Link props from the rendered anchor. For a link with
-`replace`, `scroll`, `onNavigate`, `transitionTypes`, or another per-link navigation
-requirement, choose a managed `FastLink` or add `data-no-fast-link` to retain
-normal Link handling. A descendant React `onPointerDownCapture` can stop or
-prevent the press before the region's native listener runs. Descendant bubble
-handlers run after early navigation and cannot cancel it.
+Ordinary links use their closest region's mode and router policy and push
+history. A native inner region keeps an outer region from accelerating its
+links; an accelerated inner region works inside a native one. Regions built
+on core or React link interaction controllers take part in the same rule. The
+region cannot read React Link props from the rendered anchor. For a link with
+`replace`, `scroll`, `onNavigate`, `transitionTypes`, or another per-link
+navigation requirement, choose a managed `FastLink` or add `data-no-fast-link`
+to retain normal Link handling.
+
+A release region accepts during click capture, before descendant click
+handlers; those handlers run afterward and cannot veto it. An immediate region
+navigates on press and has no press guard. A descendant React
+`onPointerDownCapture` can stop or prevent the press before the region's native
+listener runs.
 
 For apps with a Next.js base path:
 
@@ -105,25 +130,27 @@ export function AccountLink() {
 including the `prefetch` setting. Its early path supports object `href`,
 `replace`, `scroll`, `transitionTypes`, and synchronous
 `onNavigate` cancellation. Calling the event's `preventDefault()` in
-`onNavigate` cancels before policy evaluation, observation, and navigation.
-Define callback props in a Client Component.
+`onNavigate` cancels before click-time policy evaluation, observation, and
+navigation. Define callback props in a Client Component.
 
-An `onPointerDown` bubble guard or `onClick` guard cannot cancel navigation that
-already started on pointerdown. For a managed link, use synchronous `onNavigate`
-cancellation when validation belongs on press. Keep links requiring release-time
-validation opted out. `onFastNavigate` is an observer: its return value is ignored
+In release mode, `FastLink` navigates after the caller's `onClick`, Next Link's
+checks, and `onNavigate`; any of them can cancel. In immediate mode,
+`onNavigate` runs on press and is the only guard: an `onPointerDown` bubble
+guard or `onClick` cannot cancel navigation that already started, and the
+follow-up click stays prevented even when `onNavigate` cancels or throws. Keep
+links requiring release-time validation in release mode or opted out. `onFastNavigate` is an observer: its return value is ignored
 and navigation is still attempted if it throws. See the
 [callback and error contract](https://github.com/vercel-labs/fast-link/tree/main/packages/next#route-links-across-application-boundaries)
 for full failure ordering.
 
 A managed anchor takes priority over containing regions, even with
-`enabled={false}`. Disabling a containing region does not disable separately
-managed links. Nested regions retain outer-first capture ordering.
+`mode="native"`. A native containing region does not change separately managed
+links, and a `FastLink` without `mode` uses release even inside an immediate
+region. Managed links never take a region's mode.
 
-With `as`, the managed link stays on the normal Link path. With
-`legacyBehavior`, no controller is attached to the rendered anchor; add
-`data-no-fast-link` to that anchor if a containing region would otherwise
-handle it.
+`FastLink` does not accept `as` or `legacyBehavior`. Render such links with
+plain `next/link`, and add `data-no-fast-link` if a containing region would
+otherwise handle them.
 
 ## Application-owned links and regions
 
@@ -184,7 +211,7 @@ export function AppLinkRegion(
 
 The example shows both exports; implement only those the application needs.
 `AppLink` preserves Link props and the caller's ref. `AppLinkRegion` forwards
-region options, including the application's `basePath` when supplied. Bind the
+region options, including `mode` and the application's `basePath` when supplied. Bind the
 policy to each integration that needs it: a managed link does not inherit its
 containing region's policy.
 
@@ -225,16 +252,16 @@ import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { AppLinkRenderer } from './app-link-renderer';
 
 type CustomLinkProps = ComponentPropsWithoutRef<typeof AppLinkRenderer> &
-  Pick<UseFastLinkOptions, 'enabled' | 'navigationPolicy' | 'onFastNavigate'>;
+  Pick<UseFastLinkOptions, 'mode' | 'navigationPolicy' | 'onFastNavigate'>;
 
 export const CustomLink = forwardRef<HTMLAnchorElement, CustomLinkProps>(
   function CustomLink(
-    { enabled, navigationPolicy, onFastNavigate, ...props },
+    { mode, navigationPolicy, onFastNavigate, ...props },
     forwardedRef,
   ) {
     const attach = useFastLink({
       ...props,
-      enabled,
+      mode,
       navigationPolicy,
       onFastNavigate,
       forwardedRef,
@@ -247,11 +274,12 @@ export const CustomLink = forwardRef<HTMLAnchorElement, CustomLinkProps>(
 Pass the renderer's actual routing and capture props into the hook, and compose
 the caller's ref through `forwardedRef`. Verify that the renderer forwards both
 `ref` and `onClickCapture` to the same DOM element. Spread the bindings last to
-retain handler composition. The hook attaches early navigation only to an
-anchor with a supplied `href`, no `as`, and no `legacyBehavior`. It composes refs
-for non-anchor roots while keeping their behavior native.
+retain handler composition. The hook requires `href` and an anchor root; it
+does not accept `as` or `legacyBehavior`. In release mode it accepts during
+click capture after the supplied `onClickCapture` and `onNavigate`; later child
+handlers cannot veto. In immediate mode it runs `onNavigate` on press.
 
-Committed option changes preserve a pending follow-up click. Root replacement
+Committed option and mode changes preserve a pending follow-up click. Root replacement
 and unmount destroy the controller and clean up composed refs.
 
 ## Pending state

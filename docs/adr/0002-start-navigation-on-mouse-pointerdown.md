@@ -7,7 +7,8 @@ Fast Link starts eligible same-origin navigation on primary mouse `pointerdown`
 rather than waiting for `click`. This removes the wait for release and gives up
 release-time cancellation for those interactions.
 
-Sites requiring WCAG Level A or AA conformance should leave Fast Link disabled.
+Sites requiring WCAG Level A or AA conformance should not use immediate mode.
+Opting into release mode doesn't by itself establish conformance.
 See the [accessibility limitation](../../README.md#known-limitations).
 
 For touch and pen, `pointerdown` cannot establish whether contact will become a
@@ -27,6 +28,6 @@ navigation benefit, so touch and pen keep native activation.
   or on dragging the URL.
 
 Implementation: [`resolveFastLink`](../../packages/core/src/interaction/index.ts)
-and [`createFastLink`](../../packages/core/src/controller/index.ts).
+and immediate mode in [`createLinkInteraction`](../../packages/core/src/link-interaction/index.ts).
 The [browser tests](../../scripts/browser/core.pw.mjs)
 check trusted navigation timing, click targeting, and propagation.

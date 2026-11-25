@@ -38,17 +38,18 @@ pnpm benchmark:compare --base /absolute/path/to/base-checkout --output "$results
 
 Raw JSON uses the IDs below. Braces list allowed values;
 for example, `next.fast.100.update` measures updating 100 `FastLink` components.
+Fast Link variants run in immediate mode, which navigates on press.
 
-| ID pattern                                                    | What and how                                                                | Why                                                          |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `core.{bare,core}.accepted`                                   | Dispatch mouse presses and clicks to bare DOM handlers or `createFastLink`. | Compare accepted-interaction costs.                          |
-| `core.{bare,core}.ignored`                                    | Dispatch touch pointerdowns; require no navigation.                         | Measure ignored-input handling.                              |
-| `react.{plain,react}.accepted`                                | Dispatch mouse presses and clicks to plain React anchors or `useFastLink`.  | Compare binding overhead during interaction.                 |
-| `react.{plain,react}.ignored`                                 | Dispatch touch pointerdowns to the same React variants.                     | Measure ignored-input handling through React.                |
-| `react.{plain,react}.1.{mount,update,unmount}`                | Mount, update, and unmount one plain or bound anchor.                       | Compare binding lifecycle costs.                             |
-| `next.{next,fast,region}.{1,100,1000}.{mount,update,unmount}` | Commit matched lists of `next/link`, `FastLink`, or region links.           | Compare list costs as link count grows.                      |
-| `next.{next,fast,region}.{warm,cold}.navigation`              | Time pointerdown to destination commit with verified router-cache state.    | Measure when destination content becomes available.          |
-| `next.{next,fast,region}.{warm,cold}.pressDuration`           | Record actual pointerdown-to-pointerup time alongside navigation.           | Show how much of navigation latency includes the mouse hold. |
+| ID pattern                                                    | What and how                                                                                 | Why                                                          |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `core.{bare,core}.accepted`                                   | Dispatch mouse presses and clicks to bare DOM handlers or immediate `createLinkInteraction`. | Compare accepted-interaction costs.                          |
+| `core.{bare,core}.ignored`                                    | Dispatch touch pointerdowns; require no navigation.                                          | Measure ignored-input handling.                              |
+| `react.{plain,react}.accepted`                                | Dispatch mouse presses and clicks to plain React anchors or immediate `useLinkInteraction`.  | Compare binding overhead during interaction.                 |
+| `react.{plain,react}.ignored`                                 | Dispatch touch pointerdowns to the same React variants.                                      | Measure ignored-input handling through React.                |
+| `react.{plain,react}.1.{mount,update,unmount}`                | Mount, update, and unmount one plain or bound anchor.                                        | Compare binding lifecycle costs.                             |
+| `next.{next,fast,region}.{1,100,1000}.{mount,update,unmount}` | Commit matched lists of `next/link`, `FastLink`, or region links.                            | Compare list costs as link count grows.                      |
+| `next.{next,fast,region}.{warm,cold}.navigation`              | Time pointerdown to destination commit with verified router-cache state.                     | Measure when destination content becomes available.          |
+| `next.{next,fast,region}.{warm,cold}.pressDuration`           | Record actual pointerdown-to-pointerup time alongside navigation.                            | Show how much of navigation latency includes the mouse hold. |
 
 ## Measurement conditions
 
@@ -107,8 +108,9 @@ not a release prerequisite. Link the complete validated raw report and describe
 its source revision, environment, workload, sample counts, medians, ranges, and
 measurement limits. Keep the README summary manually maintained.
 
-Navigation starts one press-to-release interval earlier. The historical workload's
-85 ms hold is a configured input, not a typical-user gain or a speedup multiplier.
+In immediate mode, navigation starts one press-to-release interval earlier. The
+historical workload's 85 ms hold is a configured input, not a typical-user gain
+or a speedup multiplier.
 The [historical raw report](https://github.com/vercel-labs/fast-link/blob/fd4e030beb2f62dbf785b1066b564bccec43bcf0/local/fe6fd78dfb572725fccd5b37f555f61b536dda95/report.json)
 records revision `fe6fd78dfb572725fccd5b37f555f61b536dda95` on a single Apple M4 Pro
 running macOS, with five alternating batches. Existing historical reports remain
