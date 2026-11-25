@@ -40,11 +40,16 @@ navigation but doesn't abort the route request Next already started.
 
 ### Soft-navigation reporting in Chrome
 
-Chrome 157 doesn't report a soft navigation for a release-mode click when the
-prepared request is still pending at click, for example when the destination
-is slow. Monitoring tools that rely on soft navigations can then attribute
-later CLS and INP to the previous page. Chrome didn't report immediate-mode
-navigations as soft navigations in any tested case.
+Chrome reports release-mode navigations as soft navigations when the app runs
+Next `16.5.0-canary.63` or later, whose React runs Suspense pings in the async
+context of the render that suspended. On earlier canaries, Chrome doesn't
+report a release-mode navigation that commits while the prepared response is
+still streaming, for example when the destination is slow. Monitoring tools
+that rely on soft navigations can then attribute later CLS and INP to the
+previous page.
+
+Chrome never reports immediate-mode navigations as soft navigations, because
+immediate mode navigates on press, before the click.
 
 ## Install the package
 
