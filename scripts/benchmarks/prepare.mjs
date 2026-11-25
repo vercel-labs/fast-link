@@ -1,10 +1,42 @@
 /* oxlint-disable no-await-in-loop -- Build revisions sequentially without contention. */
-import { cp, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, cp, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { parseDocument } from 'yaml';
 
 import { runCommand } from './process.mjs';
+
+// Checked in order: current revisions also export older names.
+const FIXTURE_BINDINGS = [
+  { coreExport: 'createLinkInteraction', file: null },
+  { coreExport: 'createClickPreparation', file: 'click-preparation.tsx' },
+  { coreExport: 'createFastLink', file: 'fast-link.tsx' },
+];
+
+/**
+ * Chooses benchmark bindings for a revision from its public core exports.
+ * Returns the replacement file under scripts/benchmarks/bindings, or `null`
+ * when the head bindings already match.
+ */
+export function selectFixtureBindings(coreIndexSource) {
+  const match = FIXTURE_BINDINGS.find(({ coreExport }) =>
+    new RegExp(`\\b${coreExport}\\b`).test(coreIndexSource),
+  );
+  if (!match) throw new Error('Unsupported baseline public API');
+  return match.file;
+}
+
+/** Replaces the copied head bindings with ones compatible with the base API. */
+async function installFixtureBindings(directory) {
+  const file = selectFixtureBindings(
+    await readFile(resolve(directory, 'packages/core/src/index.ts'), 'utf8'),
+  );
+  if (!file) return;
+  await copyFile(
+    resolve(import.meta.dirname, 'bindings', file),
+    resolve(directory, 'fixtures/next-16/app/benchmark/bindings.tsx'),
+  );
+}
 
 /** Adds workspace imports needed to run today's fixture on older revisions. */
 async function addFixtureDependencies(directory) {
@@ -39,7 +71,8 @@ async function addFixtureDependencies(directory) {
 }
 
 /**
- * Copies the head workload into the disposable base checkout, then builds both.
+ * Copies the head workload and compatible API bindings into the disposable
+ * base checkout, then builds both.
  * Keeps each revision's package source and external dependency versions intact.
  */
 export async function prepareCheckouts(base, head) {
@@ -49,6 +82,7 @@ export async function prepareCheckouts(base, head) {
       resolve(base, 'fixtures/next-16/app/benchmark'),
       { recursive: true, force: true },
     );
+    await installFixtureBindings(base);
   }
 
   for (const directory of new Set([base, head])) {

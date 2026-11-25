@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { combineBatches } from './comparison-results.mjs';
+import { readCase, readModes, readRtt } from './options.mjs';
 import { prepareCheckouts } from './prepare.mjs';
 import { evaluateComparison } from './report.mjs';
 import { createBenchmarkSession } from './session.mjs';
@@ -17,17 +18,23 @@ function readOptions() {
       head: { type: 'string', default: process.cwd() },
       output: { type: 'string' },
       case: { type: 'string', default: 'all' },
+      modes: { type: 'string' },
+      rtt: { type: 'string' },
     },
   });
 
   if (!values.base || !values.output) {
     throw new Error(
-      'Usage: pnpm benchmark:compare --base CHECKOUT --output DIRECTORY',
+      'Usage: pnpm benchmark:compare --base CHECKOUT --output DIRECTORY [--case core|react|next] [--modes release,immediate,native] [--rtt MS]',
     );
   }
 
+  const rttMs = readRtt(values.rtt);
   return {
     ...values,
+    case: readCase(values.case, rttMs),
+    modes: readModes(values.modes),
+    rttMs,
     base: resolve(values.base),
     head: resolve(values.head),
     output: resolve(values.output),
@@ -41,6 +48,8 @@ async function measureBatch(session, options, batch, side) {
     root: options[side],
     output: path,
     selected: options.case,
+    modes: options.modes,
+    rttMs: options.rttMs,
     batch,
   });
 }

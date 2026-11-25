@@ -1,8 +1,20 @@
+import { once } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { combineBatches } from './comparison-results.mjs';
+import { startDelayProxy } from './delay-proxy.mjs';
+import {
+  expectedNavigation,
+  navigationCorrect,
+  requireRouteResponses,
+  verifyCacheUse,
+} from './navigation.mjs';
+import { readCase, readModes, readRtt } from './options.mjs';
+import { selectFixtureBindings } from './prepare.mjs';
 import {
   evaluateComparison,
   scenarioNames,
@@ -28,7 +40,7 @@ describe('benchmark results', () => {
     const input = report(10);
     input.conditions = { case: 'all', listSizes: [1, 10, 1000] };
     input.metrics = Object.fromEntries(
-      scenarioNames().map((name) => [
+      scenarioNames({ case: 'all' }).map((name) => [
         name.replace('.100.', '.10.'),
         metric(10),
       ]),
@@ -39,6 +51,97 @@ describe('benchmark results', () => {
     expect(() => validateReport(input)).toThrow(
       'Missing or unexpected benchmark scenarios',
     );
+  });
+
+  it('limits scenarios to the modes a comparison selects', () => {
+    const names = scenarioNames({
+      case: 'next',
+      listSizes: [1],
+      modes: ['release'],
+    });
+
+    expect(names).toContain('next.next.prefetch.hold0.releaseToCommit');
+    expect(names).toContain('next.fast.release.cold.hold85.navigation');
+    expect(names).toContain('next.region.release.warm.hold0.pressDuration');
+    expect(
+      names.filter((name) => /immediate|native|switch/.test(name)),
+    ).toEqual([]);
+    expect(
+      scenarioNames({ case: 'next', listSizes: [1] }).filter((name) =>
+        name.startsWith('next.fast.switch.'),
+      ),
+    ).toEqual([
+      'next.fast.switch.1.release',
+      'next.fast.switch.1.immediate',
+      'next.fast.switch.1.native',
+    ]);
+  });
+
+  it('reads selected modes in workload order and rejects unknown modes', () => {
+    expect(readModes(undefined)).toEqual(['release', 'immediate', 'native']);
+    expect(readModes('native,release')).toEqual(['release', 'native']);
+    expect(() => readModes('release,eager')).toThrow('Unknown benchmark modes');
+  });
+
+  it.each([
+    [undefined, 0],
+    ['0', 0],
+    ['100', 100],
+  ])('reads --rtt %s as %d ms', (value, rttMs) => {
+    expect(readRtt(value)).toBe(rttMs);
+  });
+
+  it.each(['-5', '1.5', '100ms', ''])('rejects --rtt %j', (value) => {
+    expect(() => readRtt(value)).toThrow('Invalid benchmark RTT');
+  });
+
+  it('limits delayed runs to Next.js navigation', () => {
+    expect(readCase('core', 0)).toBe('core');
+    expect(readCase('all', 100)).toBe('next');
+    expect(readCase('next', 100)).toBe('next');
+    expect(() => readCase('react', 100)).toThrow('--rtt measures only');
+    expect(() => readCase('browser', 0)).toThrow('Unknown benchmark case');
+  });
+
+  it('validates network scenarios against the recorded RTT', () => {
+    const input = report(10);
+    input.environment.rttMs = 100;
+    input.conditions = { case: 'next', modes: ['release'] };
+    input.metrics = Object.fromEntries(
+      scenarioNames({ ...input.conditions, rttMs: 100 }).map((name) => [
+        name,
+        metric(10),
+      ]),
+    );
+
+    expect(Object.keys(input.metrics)).toContain(
+      'next.region.release.rtt100.dynamic.prefetch.hold100.releaseToCommit',
+    );
+    expect(Object.keys(input.metrics)).toContain(
+      'next.next.rtt100.static.cold.hold0.navigation',
+    );
+    expect(
+      Object.keys(input.metrics).filter((name) =>
+        /immediate|warm|hold85|\.1\./.test(name),
+      ),
+    ).toEqual([]);
+    expect(() => validateReport(input)).not.toThrow();
+    input.environment.rttMs = 50;
+    expect(() => validateReport(input)).toThrow(
+      'Missing or unexpected benchmark scenarios',
+    );
+    delete input.environment.rttMs;
+    expect(() => validateReport(input)).toThrow(
+      'Missing or unexpected benchmark scenarios',
+    );
+  });
+
+  it('accepts negative samples only for signed metrics', () => {
+    const input = report(10);
+    input.metrics['core.core.accepted'].samples[0] = -1;
+    expect(() => validateReport(input)).toThrow('nonnegative');
+    input.metrics['core.core.accepted'].signed = true;
+    expect(() => validateReport(input)).not.toThrow();
   });
 
   it('reports a median and full range without rounding samples', () => {
@@ -155,6 +258,13 @@ describe('benchmark results', () => {
       'Environments differ: browser',
     ],
     [
+      'network RTTs',
+      (input) => {
+        input.environment.rttMs = 100;
+      },
+      'Environments differ: rttMs',
+    ],
+    [
       'units',
       (input) => {
         input.metrics['core.core.accepted'].unit = 'ms';
@@ -184,7 +294,14 @@ describe('comparison reports', () => {
     const batches = Array.from({ length: 5 }, (_, batch) => ({
       ...report(10),
       elapsedMs: 100,
-      navigationChecks: [{ batch }],
+      navigationChecks: [
+        {
+          batch,
+          scenario: 'next.next.rtt100.dynamic.cold.hold0',
+          beforeAborts: batch === 0 ? 1 : 0,
+          navigationAborts: batch % 2,
+        },
+      ],
       metrics: {
         'core.core.accepted': {
           unit: 'us/op',
@@ -207,6 +324,13 @@ describe('comparison reports', () => {
       max: 5,
     });
     expect(combined.navigationChecks).toHaveLength(5);
+    expect(combined.routeAborts).toEqual({
+      'next.next.rtt100.dynamic.cold.hold0': {
+        navigations: 5,
+        beforeAborts: 1,
+        navigationAborts: 2,
+      },
+    });
     expect(combined.elapsedMs).toBe(500);
     expect(batches).toEqual(original);
 
@@ -340,5 +464,258 @@ describe('manual comparison command', () => {
       error: expect.stringContaining('Server did not close'),
     });
     expect(close).toHaveBeenCalledOnce();
+  });
+});
+
+const observed = (change = {}) => ({
+  text: 'Benchmark destination',
+  destination: { text: 'Benchmark destination', committed: 150 },
+  start: 100,
+  release: 120,
+  preparation: true,
+  clicks: 1,
+  prevented: 1,
+  accepted: 1,
+  suppressed: 1,
+  history: 3,
+  ...change,
+});
+describe('navigation correctness', () => {
+  const commitBeforeRelease = {
+    destination: { text: 'Benchmark destination', committed: 110 },
+  };
+
+  it.each([
+    ['ordinary Next Link', 'next', null, { accepted: 0, suppressed: 0 }],
+    ['FastLink release after onClick', 'fast', 'release', { suppressed: 0 }],
+    ['region release during capture', 'region', 'release', {}],
+    ['FastLink immediate', 'fast', 'immediate', {}],
+    ['region immediate', 'region', 'immediate', {}],
+    ['native FastLink', 'fast', 'native', { accepted: 0, suppressed: 0 }],
+    ['native region', 'region', 'native', { accepted: 0, suppressed: 0 }],
+  ])('accepts one correct %s navigation', (_, variant, mode, change) => {
+    expect(
+      navigationCorrect(observed(change), expectedNavigation(variant, mode), 2),
+    ).toBe(true);
+  });
+
+  it('permits commit before release only in immediate mode', () => {
+    const early = observed(commitBeforeRelease);
+    expect(
+      navigationCorrect(early, expectedNavigation('fast', 'immediate'), 2),
+    ).toBe(true);
+    expect(
+      navigationCorrect(early, expectedNavigation('region', 'release'), 2),
+    ).toBe(false);
+    expect(
+      navigationCorrect(
+        { ...early, accepted: 0, suppressed: 0 },
+        expectedNavigation('next', null),
+        2,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      'release without runtime preparation',
+      'region',
+      'release',
+      { preparation: false },
+    ],
+    ['a second history entry', 'fast', 'immediate', { history: 4 }],
+    [
+      'a duplicate Fast Link navigation',
+      'region',
+      'immediate',
+      { accepted: 2 },
+    ],
+    ['a missing follow-up click', 'fast', 'immediate', { clicks: 0 }],
+    ['an unprevented click', 'region', 'release', { prevented: 0 }],
+    ['missing destination content', 'fast', 'immediate', { text: undefined }],
+    ['native acceleration', 'fast', 'native', { suppressed: 0 }],
+  ])('rejects %s', (_, variant, mode, change) => {
+    expect(
+      navigationCorrect(observed(change), expectedNavigation(variant, mode), 2),
+    ).toBe(false);
+  });
+});
+
+const routeRequest = (failure, ok = true) => ({
+  failure,
+  response: async () => ({ ok: () => ok }),
+});
+const settledRequests = { settled: async (request) => request.failure };
+
+describe('navigation route requests', () => {
+  it('counts aborts after an OK response only for the dynamic destination', async () => {
+    const requests = [routeRequest(null), routeRequest('net::ERR_ABORTED')];
+    await expect(
+      requireRouteResponses(requests, settledRequests, 'dynamic'),
+    ).resolves.toBe(1);
+    await expect(
+      requireRouteResponses(requests, settledRequests, 'static'),
+    ).rejects.toThrow('Benchmark route request failed: net::ERR_ABORTED');
+  });
+
+  it.each([
+    [
+      'another failure',
+      routeRequest('net::ERR_CONNECTION_RESET'),
+      'Benchmark route request failed: net::ERR_CONNECTION_RESET',
+    ],
+    [
+      'an abort after a failed response',
+      routeRequest('net::ERR_ABORTED', false),
+      'Benchmark route response failed',
+    ],
+    [
+      'an abort before headers',
+      { ...routeRequest('net::ERR_ABORTED'), response: async () => null },
+      'Benchmark route response failed',
+    ],
+  ])('rejects a dynamic request with %s', async (_, request, message) => {
+    await expect(
+      requireRouteResponses([request], settledRequests, 'dynamic'),
+    ).rejects.toThrow(new Error(message));
+  });
+
+  it.each([
+    ['cold', 0, 1],
+    ['prefetch', 2, 3],
+  ])('requires one %s dynamic navigation request', (cache, before, after) => {
+    expect(() => verifyCacheUse(cache, 'dynamic', before, after)).not.toThrow();
+    expect(() => verifyCacheUse(cache, 'dynamic', before, before)).toThrow(
+      'Dynamic navigation made 0 route requests',
+    );
+    expect(() => verifyCacheUse(cache, 'dynamic', before, after + 1)).toThrow(
+      'Dynamic navigation made 2 route requests',
+    );
+  });
+
+  it('keeps static cache rules for static navigation', () => {
+    expect(() => verifyCacheUse('prefetch', 'static', 2, 2)).not.toThrow();
+    expect(() => verifyCacheUse('cold', 'static', 0, 0)).toThrow('cold');
+    expect(() => verifyCacheUse('warm', 'static', 1, 2)).toThrow('warm');
+  });
+});
+
+describe('delay proxy', () => {
+  let echo;
+  let proxy;
+  let socket;
+
+  beforeEach(async () => {
+    echo = createServer((connection) => connection.pipe(connection));
+    echo.listen(0, '127.0.0.1');
+    await once(echo, 'listening');
+    proxy = await startDelayProxy(`http://127.0.0.1:${echo.address().port}`);
+    socket = createConnection(Number(new URL(proxy.origin).port), '127.0.0.1');
+    await once(socket, 'connect');
+  });
+
+  afterEach(async () => {
+    socket?.destroy();
+    await proxy?.close();
+    await new Promise((done) => echo.close(done));
+  });
+
+  /** Resolves with everything received until `text` has arrived. */
+  async function receive(text) {
+    let received = '';
+    while (!received.includes(text))
+      // oxlint-disable-next-line no-await-in-loop -- Read chunks in order.
+      received += (await once(socket, 'data'))[0].toString();
+    return received;
+  }
+
+  it('adds the configured round trip to each exchange', async () => {
+    proxy.setRtt(100);
+    const started = performance.now();
+    socket.write('ping');
+    await receive('ping');
+    const elapsed = performance.now() - started;
+
+    // Timers fire no earlier than requested. The upper bound tolerates load but
+    // rejects a full RTT added in each direction.
+    expect(elapsed).toBeGreaterThanOrEqual(99);
+    expect(elapsed).toBeLessThan(190);
+  });
+
+  it('keeps byte order when the delay shrinks while chunks are queued', async () => {
+    proxy.setRtt(200);
+    socket.write('first;');
+    // Localhost delivery takes well under 20 ms, so the proxy holds `first;`
+    // in its 100 ms outbound queue when the delay drops.
+    await delay(20);
+    proxy.setRtt(0);
+    socket.write('second;');
+
+    await expect(receive('second;')).resolves.toBe('first;second;');
+  });
+
+  it('delivers a reply sent after the client ends its request', async () => {
+    const acknowledger = createServer({ allowHalfOpen: true }, (connection) => {
+      let received = '';
+      connection.on('data', (chunk) => (received += chunk));
+      connection.on('end', () => connection.end(`ack:${received}`));
+    });
+    acknowledger.listen(0, '127.0.0.1');
+    await once(acknowledger, 'listening');
+    const ackProxy = await startDelayProxy(
+      `http://127.0.0.1:${acknowledger.address().port}`,
+    );
+    const client = createConnection(
+      Number(new URL(ackProxy.origin).port),
+      '127.0.0.1',
+    );
+    try {
+      await once(client, 'connect');
+      ackProxy.setRtt(100);
+      let reply = '';
+      client.on('data', (chunk) => (reply += chunk));
+      const started = performance.now();
+      client.end('req');
+      await once(client, 'end');
+      const elapsed = performance.now() - started;
+
+      // The request end must follow its queued chunk, and the proxy must keep
+      // the reply direction open after the client ends.
+      expect(reply).toBe('ack:req');
+      expect(elapsed).toBeGreaterThanOrEqual(99);
+      expect(elapsed).toBeLessThan(190);
+    } finally {
+      client.destroy();
+      await ackProxy.close();
+      await new Promise((done) => acknowledger.close(done));
+    }
+  });
+});
+
+describe('comparison fixture bindings', () => {
+  it.each([
+    [
+      'current link interactions',
+      'export { createLinkInteraction } from "./a";\nexport { createClickPreparation } from "./b";',
+      null,
+    ],
+    [
+      'click preparation without modes',
+      'export { createClickPreparation } from "./b";',
+      'click-preparation.tsx',
+    ],
+    [
+      'press-time createFastLink',
+      'export { createFastLink } from "./c";',
+      'fast-link.tsx',
+    ],
+  ])('selects bindings for %s', (_, source, file) => {
+    expect(selectFixtureBindings(source)).toBe(file);
+  });
+
+  it('rejects an unknown public API', () => {
+    expect(() => selectFixtureBindings('export { other };')).toThrow(
+      'Unsupported baseline public API',
+    );
   });
 });
