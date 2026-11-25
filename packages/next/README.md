@@ -33,7 +33,7 @@ the public optional `router.experimental_prepare` API at runtime. Without that
 API, or if preparation throws, all three integrations route at the accepted
 click and apply the navigation policy as usual. If router navigation throws, Fast Link doesn't
 retry it. Immediate mode never prepares. Preparation is tested with Next
-`16.5.0-canary.54`.
+`16.5.0-canary.65`.
 
 Preparation is experimental. Releasing away discards Fast Link's prepared
 navigation but doesn't abort the route request Next already started.
