@@ -9,22 +9,21 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 
+import {
+  countRequests,
+  expectsPreparation,
+  fixtureOrigin,
+  getPressBox,
+  installPressCounter,
+  pressAndHold,
+} from './next-helpers.mjs';
 import { expect, test } from './test-fixtures.mjs';
-
-const fixtureOrigin = process.env.FAST_LINK_FIXTURE_ORIGIN;
 
 const scenarios = [
   ...['onClick', 'onNavigate', 'prefetch', 'hook'].map((guard) => [
     `ref reattachment during ${guard} preserves current click acceptance`,
     async (page) => {
-      let documentRequests = 0;
-      page.on('request', (request) => {
-        if (
-          request.isNavigationRequest() &&
-          request.frame() === page.mainFrame()
-        )
-          documentRequests++;
-      });
+      const requests = countRequests(page);
       await pressAndHold(page, `ref-${guard}`);
       assert.equal(new URL(page.url()).pathname, '/docs');
       await page.mouse.up();
@@ -36,7 +35,7 @@ const scenarios = [
         await page.evaluate(() => sessionStorage.getItem('ref-actions')),
         '1',
       );
-      assert.equal(documentRequests, 0);
+      assert.equal(requests.document, 0);
       if (guard === 'prefetch')
         assert.deepEqual(
           await page.evaluate(() =>
@@ -50,7 +49,7 @@ const scenarios = [
     `managed preparation reuses ${state} work only after release`,
     async (page) => {
       test.skip(
-        process.env.FAST_LINK_EXPECT_PREPARATION === 'false',
+        !expectsPreparation,
         'The minimum supported Next version has no preparation API',
       );
       const gate = Promise.withResolvers();
@@ -115,13 +114,10 @@ const scenarios = [
     `${testId}: reuses completed static preparation after release`,
     async (page) => {
       test.skip(
-        process.env.FAST_LINK_EXPECT_PREPARATION === 'false',
+        !expectsPreparation,
         'The minimum supported Next version has no preparation API',
       );
-      let requests = 0;
-      page.on('request', (request) => {
-        if (new URL(request.url()).pathname === '/docs/fast') requests++;
-      });
+      const requests = countRequests(page, '/docs/fast');
       const before = await page.evaluate(() => ({
         timeOrigin: performance.timeOrigin,
         history: history.length,
@@ -143,7 +139,7 @@ const scenarios = [
               entry.responseEnd > 0,
           ),
       );
-      assert.equal(requests, 1);
+      assert.equal(requests.route, 1);
       assert.equal(new URL(page.url()).pathname, '/docs');
       await expect(
         page.getByRole('heading', { name: 'Home', exact: true }),
@@ -154,7 +150,11 @@ const scenarios = [
       await expect(
         page.getByRole('heading', { name: 'Fast destination' }),
       ).toBeVisible();
-      assert.equal(requests, 1, 'commit must reuse completed static work');
+      assert.equal(
+        requests.route,
+        1,
+        'commit must reuse completed static work',
+      );
       assert.deepEqual(
         await page.evaluate(() => ({
           timeOrigin: performance.timeOrigin,
@@ -168,7 +168,7 @@ const scenarios = [
     'managed release away discards completed preparation',
     async (page) => {
       test.skip(
-        process.env.FAST_LINK_EXPECT_PREPARATION === 'false',
+        !expectsPreparation,
         'The minimum supported Next version has no preparation API',
       );
       const completed = page.waitForResponse(
@@ -198,14 +198,7 @@ const scenarios = [
   [
     'managed guard uses the policy committed during onNavigate',
     async (page) => {
-      let documentRequests = 0;
-      page.on('request', (request) => {
-        if (
-          request.isNavigationRequest() &&
-          request.frame() === page.mainFrame()
-        )
-          documentRequests++;
-      });
+      const requests = countRequests(page);
       await pressAndHold(page, 'guard-policy');
       assert.equal(new URL(page.url()).pathname, '/docs');
       await page.mouse.up();
@@ -214,7 +207,7 @@ const scenarios = [
         await page.evaluate(() => sessionStorage.getItem('guard-policy')),
         'document',
       );
-      assert.equal(documentRequests, 1);
+      assert.equal(requests.document, 1);
     },
   ],
   [
@@ -323,14 +316,7 @@ const scenarios = [
       await host.scrollIntoViewIfNeeded();
       const box = await host.boundingBox();
       assert.ok(box);
-      let documentRequests = 0;
-      page.on('request', (request) => {
-        if (
-          request.isNavigationRequest() &&
-          request.frame() === page.mainFrame()
-        )
-          documentRequests++;
-      });
+      const requests = countRequests(page);
       const response = Promise.withResolvers();
       await page.route('**/docs/slow?*', async (route) => {
         await response.promise;
@@ -349,8 +335,7 @@ const scenarios = [
         await page.mouse.down();
         try {
           await expectOutput(page, 'events', '');
-          if (process.env.FAST_LINK_EXPECT_PREPARATION !== 'false')
-            await requested;
+          if (expectsPreparation) await requested;
           assert.equal(
             new URL(page.url()).pathname,
             '/docs',
@@ -369,7 +354,7 @@ const scenarios = [
       }
       await page.waitForURL(/\/docs\/slow\?from=closed-region$/);
       assert.equal(
-        documentRequests,
+        requests.document,
         0,
         'suppressed follow-up must not activate the document',
       );
@@ -576,10 +561,7 @@ const scenarios = [
 ];
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__fixturePresses = 0;
-    document.addEventListener('pointerdown', () => window.__fixturePresses++);
-  });
+  await installPressCounter(page);
   await page.goto(`${fixtureOrigin}/docs`);
   await waitForHydration(page);
 });
@@ -600,36 +582,6 @@ async function waitForHydration(page) {
 
 async function expectOutput(page, testId, text) {
   await expect(page.getByTestId(testId)).toHaveJSProperty('textContent', text);
-}
-
-async function pressAndHold(page, testId) {
-  const target = page.getByTestId(testId);
-  await target.scrollIntoViewIfNeeded();
-  const box = await getPressBox(target);
-  if (!box) throw new Error(`Missing ${testId}`);
-  const before = await page.evaluate(() => window.__fixturePresses);
-  await page.mouse.move(
-    box.x + box.width / 2,
-    box.y + (testId === 'closed-capture-host' ? 20 : box.height / 2),
-  );
-  await page.mouse.down();
-  // Document bubbling follows the controllers' synchronous capture handlers.
-  await page.waitForFunction(
-    (count) =>
-      window.__fixturePresses === count + 1 || location.pathname !== '/docs',
-    before,
-  );
-}
-
-// An inline link that wraps has a bounding box spanning both lines, whose center
-// can fall on a neighboring link. Press inside the first line box instead.
-function getPressBox(target) {
-  return target.evaluate((element) => {
-    const rect = element.getClientRects()[0];
-    return rect
-      ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
-      : null;
-  });
 }
 
 async function dispatchTouchPress(page, testId) {
@@ -681,14 +633,7 @@ async function checkImmediateRetainedSource(
   destination,
 ) {
   const gate = Promise.withResolvers();
-  let routeRequests = 0;
-  let documentRequests = 0;
-  const onRequest = (request) => {
-    if (new URL(request.url()).pathname === '/docs/slow') routeRequests++;
-    if (request.isNavigationRequest() && request.frame() === page.mainFrame())
-      documentRequests++;
-  };
-  page.on('request', onRequest);
+  const requests = countRequests(page, '/docs/slow');
   await page.route('**/docs/slow?*', async (route) => {
     await gate.promise;
     await route.continue();
@@ -717,10 +662,10 @@ async function checkImmediateRetainedSource(
     await expect(
       page.getByRole('heading', { name: 'Slow destination' }),
     ).toBeVisible();
-    assert.equal(routeRequests, 1, 'one navigation for the accepted press');
-    assert.equal(documentRequests, 0);
+    assert.equal(requests.route, 1, 'one navigation for the accepted press');
+    assert.equal(requests.document, 0);
   } finally {
-    page.off('request', onRequest);
+    requests.stop();
   }
 }
 
@@ -730,12 +675,7 @@ async function checkStoppedManagedClick(page, testId, destination) {
   await target.scrollIntoViewIfNeeded();
   const box = await getPressBox(target);
   if (!box) throw new Error(`Missing ${testId}`);
-  let documentRequests = 0;
-  const onRequest = (request) => {
-    if (request.isNavigationRequest() && request.frame() === page.mainFrame())
-      documentRequests++;
-  };
-  page.on('request', onRequest);
+  const requests = countRequests(page);
   try {
     await page.mouse.move(
       box.x + box.width / 2,
@@ -746,12 +686,12 @@ async function checkStoppedManagedClick(page, testId, destination) {
     await page.mouse.up();
     await page.waitForURL(destination);
     assert.equal(
-      documentRequests,
+      requests.document,
       1,
       'stopped propagation leaves browser activation intact',
     );
   } finally {
-    page.off('request', onRequest);
+    requests.stop();
   }
 }
 
@@ -830,13 +770,7 @@ async function observeBrowserNavigation(
     throw new Error(`${testId}: fixture did not scroll`);
   }
 
-  let documentRequests = 0;
-  const onRequest = (request) => {
-    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
-      documentRequests++;
-    }
-  };
-  if (markerOptions.shouldTrackKind) page.on('request', onRequest);
+  const requests = countRequests(page);
 
   try {
     if (starts === 'pointerdown')
@@ -859,7 +793,7 @@ async function observeBrowserNavigation(
       }),
       markerOptions,
     );
-    const activationDocumentRequests = documentRequests;
+    const activationDocumentRequests = requests.document;
     if (history !== undefined) {
       // URL commitment precedes React content completion. Traverse only after
       // the destination has rendered so back/forward does not abort that render.
@@ -882,7 +816,7 @@ async function observeBrowserNavigation(
     }
     return { before, after, documentRequests: activationDocumentRequests };
   } finally {
-    if (markerOptions.shouldTrackKind) page.off('request', onRequest);
+    requests.stop();
   }
 }
 
